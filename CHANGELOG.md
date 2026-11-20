@@ -19,6 +19,45 @@ Steps 1–3 built (plan 2026-11-12-sandbox-adapter-foundation.md, then the
 sbx adapter, not yet dogfooded). Design:
 [docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md).
 
+- `[core]` **Project profiles** (spec `docs/superpowers/specs/2026-11-20-project-profiles-design.md`).
+  A project config may carry `targetRepo.local`: its app folder, Node version
+  file, env template (and its format), extra real env files, robot-only
+  settings, dev command and URL. No block means today's behaviour
+  (webtarsthree has none). `src/core/project-profile.ts` resolves it once at
+  startup (the project's Node major from origin, the matching host nvm
+  install; a missing one is a startup error naming `nvm install N`), and the
+  loop writes `RUN_DIR/project.json` for the skills.
+- `[core]` The robot's fake env comes from the profile's template, plain
+  dotenv included, plus `robotEnv`, and puts the project's Node on the
+  robot's `PATH` (a no-op inside sbx).
+- `[core]` **Fix:** a person's own worktree under `.claude/worktrees/` got the
+  robot's fake values when the repo has no root `.envrc` (catalog: they
+  would override the person's real `app/.env.local`). A non-robot shell now
+  gets the real root `.envrc` if any, and never the fake.
+- `[core]` The robot's Read deny covers the env files at the top of the app
+  folder and the profile's `realEnvFiles` (catalog: `app/.env.local`).
+- `[core]` The sbx preflight checks the image's Node against the project's
+  major, not the host's, and names the build command
+  (`npm run sbx:template:build -- --tag=v2-nodeN --node=N`); it also refuses
+  an env file in the app folder of a repo inside dev-loop's folder.
+  `template.sh` waits for the image's own boot-time apt run (the apt lock
+  failed two builds).
+- `[dev]` Host push runs `npm ci` in the app folder, puts the project's Node
+  first on `PATH` for `npm ci`, the signing git calls and the push, and its
+  hook/package guard also matches `<appDir>/.husky/`.
+- `[dev]` `[research]` ticket-to-pr, qa-agent, ticket-refine and recon-agent
+  read `RUN_DIR/project.json`: installs, tests and the dev server run in
+  `<worktree>/<appDir>`; ticket-to-pr checks the Node major after install
+  (`env_setup` bounce) and logs an `installed:` note. The skills follow the
+  target repo's own `CLAUDE.md`/`AGENTS.md`, never create `.env.local`, and
+  name no project.
+- `[core]` catalog-ui-management moves to the v2 labels with webtarsthree's
+  poll shape and an sbx block (`dev-loop-sbx:v2-node26`), with a `local`
+  block for its `app/` layout. `docs/projects/` is the registry of supported
+  repos.
+- Evals: `clean-app` (an `app/`-layout sandbox: Node from `.nvmrc`, dotenv
+  fake, a canary in the real env files, the person handover) and
+  `EVAL_SANDBOX=none|sbx` for any scenario.
 - `[dev]` The dev poll skips finished tickets (`statusCategory != Done`) in
   every project config. The eval closed TARS-1640 while it still carried
   `pipeline:v2:dev`, and dev ran it again instead of the new TARS-1641.
