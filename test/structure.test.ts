@@ -412,3 +412,20 @@ describe("structure: node floor", () => {
     expect(pkg.engines.node).toBe(">=24.0.0");
   });
 });
+
+describe("structure: docs/projects registry", () => {
+  it("every pipeline.*.config.json project has a docs/projects/<slug>.md and a README row", () => {
+    const readme = readFileSync(join(ROOT, "docs/projects/README.md"), "utf8");
+    const configs = readdirSync(ROOT).filter((n) => /^pipeline\.(.+)\.config\.json$/.test(n) && n !== "pipeline.loop.config.json");
+    expect(configs.length).toBeGreaterThan(0);
+    for (const name of configs) {
+      const url = (JSON.parse(readFileSync(join(ROOT, name), "utf8")) as { targetRepo: { url: string } }).targetRepo.url;
+      const slug = url.replace(/\.git$/, "").split(/[/:]/).pop() ?? "";
+      // catalog-ui-public has a config but is not onboarded: its row names it, with no doc link.
+      const row = readme.split("\n").find((l) => l.startsWith(`| ${slug} |`));
+      if (row?.includes("not supported")) continue;
+      expect(existsSync(join(ROOT, "docs/projects", `${slug}.md`)), `${name}: docs/projects/${slug}.md`).toBe(true);
+      expect(readme, `${name}: README row`).toContain(`| [${slug}](${slug}.md)`);
+    }
+  });
+});

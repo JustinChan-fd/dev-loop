@@ -99,6 +99,8 @@ Each doc has `## Research phase` and `## Dev phase` sections.
   the sandbox template from `sandbox/sbx/template.sh`).
 - `docs/guide/how-dev-loop-works.html` — the plain-language, interactive picture
   of the loop (repos, flags, sandbox). Keep it current (see "The guide page").
+- `docs/projects/` — the registry of supported target repos (README table) and
+  each one's layout and quirks.
 - `docs/reset.md` — `npm run reset-project`; use it to start a ticket or project
   fresh instead of hand-rolling `rm -rf`/`grep -v`.
 - `docs/future-enhancements.md` — ideas not yet drafted into a change. When one
