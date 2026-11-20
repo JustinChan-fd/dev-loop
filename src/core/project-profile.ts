@@ -3,7 +3,7 @@
 // the project's Node major (from its version file on origin/<default>) and
 // the matching host nvm install's bin. Everything that used to assume
 // "repo root + host Node" reads this: the fake env, the skill runner's Read
-// deny and RUN_DIR/project.json, the sbx preflight, and host push.
+// deny and RUN_DIR/project.json, the sandbox preflight, and host push.
 
 import { execFile } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
