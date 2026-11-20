@@ -15,7 +15,7 @@ describe("ticket-to-pr installs dependencies in its worktree", () => {
     const i = text.indexOf("### Install the target repo's packages");
     expect(i).toBeGreaterThan(text.indexOf("git -C <REPO_DIR> worktree add \\"));
     const step = text.slice(i, i + 1600);
-    expect(step).toContain("direnv exec <REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID> npm ci");
+    expect(step).toContain("direnv exec <worktree>/<appDir> npm ci");
     expect(step).toMatch(/never (copy|link|reuse)[^.]*node_modules/i);
   });
 

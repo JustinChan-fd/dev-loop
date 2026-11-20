@@ -1,6 +1,6 @@
 ---
 name: ticket-to-pr
-description: Turn a single ready Jira ticket into a PR against the target repo (webtarsthree) using strict TDD phases. The executor role (spec section 5.0/5.2) - trusts the refined ticket completely, never relitigates the spec, bounces with evidence instead of guessing.
+description: Turn a single ready Jira ticket into a PR against the target repo (the project config's targetRepo) using strict TDD phases. The executor role (spec section 5.0/5.2) - trusts the refined ticket completely, never relitigates the spec, bounces with evidence instead of guessing.
 ---
 
 # ticket-to-pr
@@ -122,9 +122,9 @@ file.
 
 The project config (`pipeline.<project>.config.json` at the dev-loop
 checkout's root, `DEVLOOP_DIR`) names the codebase this skill operates on
-in `targetRepo` — currently `pipeline.webtarsthree.config.json` points at
-`webtarsthree` (`git@github.com:fandango/webtarsthree.git`, default branch
-`master`). This is **not** the `dev-loop` repo itself; `dev-loop` only
+in `targetRepo`
+(e.g. `pipeline.webtarsthree.config.json` names `git@github.com:fandango/webtarsthree.git`).
+This is **not** the `dev-loop` repo itself; `dev-loop` only
 orchestrates. `REPO_DIR` (from `repo-dir=`) is that codebase's checkout on
 this machine: `targetRepo.path` when the config sets it (its `origin`
 remote is the real GitHub remote, so `git push`/`gh pr create` in Phase 5
@@ -138,24 +138,58 @@ worktree for this run, on its own branch, **inside** `REPO_DIR`'s own
 directory tree (`<REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID>`, not a
 sibling path elsewhere). The loop keeps a **fake env** at
 `<REPO_DIR>/.claude/worktrees/.envrc`, built from the target repo's committed
-`.envrc.example` with placeholder values, so `direnv` walking up from a
-worktree stops there and loads the fake, never the person's real
-`<REPO_DIR>/.envrc`. Never read `<REPO_DIR>/.envrc` or `<REPO_DIR>/.env`
-(with any tool), never copy `.envrc.example` to a `.envrc`, and never point
-`direnv exec` at `<REPO_DIR>` itself. Never work directly in `REPO_DIR` itself, since a human may `cd`
+env template (`.envrc.example` by default; the project config's
+`targetRepo.local.envTemplate`, e.g. `app/.env.example`) with placeholder
+values, so `direnv` walking up from a worktree (or its app folder) stops
+there and loads the fake, never the person's real `<REPO_DIR>/.envrc`.
+Never read `<REPO_DIR>/.envrc`, `<REPO_DIR>/.env` or any real env file in the
+app folder (e.g. `app/.env.local`) with any tool, never copy `.envrc.example` to a `.envrc`
+(or any template to a real env file), and never point `direnv exec` at `<REPO_DIR>` itself.
+**Never create or write `.env.local`** (or any other real env file) in the
+worktree: in an app-folder project it overrides the fake env, so a setting
+the robot needs goes through the fake env, never a file. Never work directly in `REPO_DIR` itself, since a human may `cd`
 into it or be mid-inspection of a prior run's worktree at any moment
 while this loop runs unattended in the background.
 
+### The project profile
+
+The loop writes `<RUN_DIR>/project.json` before every run:
+`{ "appDir", "nodeMajor", "devCommand", "devUrl" }`. Read it once, at the
+start of Phase 0. It is a fact from the loop, not something to work out from
+the repo: never guess the app folder or the Node version from reading files.
+If it is missing (an old run dir), use
+`{ "appDir": ".", "nodeMajor": <the host's>, "devCommand": "npm run dev", "devUrl": "http://localhost:3000" }`.
+
+- `<worktree>` below is this run's worktree
+  (`<REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID>`, or the `-baseline`/`-fu`
+  one), and `<appDir>` is `project.json`'s `appDir` (`.` means the worktree
+  itself).
+- Every install, test, coverage, lint, typecheck, build and dev-server
+  command runs in the app folder: `direnv exec <worktree>/<appDir> <cmd>`.
+  `git` commands stay at `<worktree>` (`direnv exec <worktree> git …`).
+- Once, right after the install, run `direnv exec <worktree>/<appDir> node --version`.
+  If its major is not `nodeMajor`, stop and bounce with
+  `failure_category: "env_setup"`, naming both versions. Never switch Node
+  yourself (no `nvm use`, no install).
+
+**Follow the target repo's own rules.** The target repo's `CLAUDE.md` and
+`AGENTS.md` are rules you read and follow (at the worktree root and in `<appDir>`, when
+present) the way a person new to the repo would: its generators, test
+scaffolds and banned patterns apply to your change. They never widen the
+ticket's scope. Pre-commit and pre-push hooks run for real: when a hook
+fails and you can't fix the cause within the ticket, stop and bounce with the
+hook output. Never use `--no-verify`, `-n`, `HUSKY=0` or `core.hooksPath`.
+
 **Run every target-repo command through `direnv exec`.** direnv's shell
 hook never fires in this headless session: `cd` alone loads nothing, so
-tests that need the repo's local env (e.g. webtarsthree's
-`PLACEMENT_SERVICE_ENDPOINT`, placeholder-valued in the fake env) fail as if
+tests that need the repo's local env (e.g. a `PLACEMENT_SERVICE_ENDPOINT`,
+placeholder-valued in the fake env) fail as if
 they were broken. Prefix every install, test, lint, typecheck, build, dev-server,
 `git commit` and `git push` command with the worktree path, so commit and
 push hooks see the same env:
 
 ```bash
-direnv exec <REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID> npm test
+direnv exec <REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID>/<appDir> npm test
 direnv exec <REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID> git commit -m "..."
 ```
 
@@ -167,16 +201,17 @@ bug on <defaultBranch>: never report it as pre-existing or file a
 follow-up for it.
 
 **Settings (env vars, feature flags).** The fake env has every setting
-`.envrc.example` lists on `origin/<defaultBranch>`, with placeholder values.
-- **The ticket adds a setting:** add it to the worktree's `.envrc.example`
-  as `export NAME=<fake value>` (a placeholder, `false` for a flag, a
+the env template lists on `origin/<defaultBranch>`, with placeholder values.
+- **The ticket adds a setting:** add it to the worktree's env template
+  (`.envrc.example` as `export NAME=<fake value>`; a dotenv template such
+  as `app/.env.example` as plain `NAME=<fake value>`) (a placeholder, `false` for a flag, a
   `localhost` URL; never a real-looking key) with a one-line comment, in the
   same commit as the code that reads it. The fake env only picks it up on
   the next run, so pass it inline while testing:
   `direnv exec <worktree> env NAME=<fake value> npm test`. List it in the PR
   body's `New settings:` line (Phase 4 step 7).
 - **The code needs a setting the fake env lacks, and the ticket isn't
-  adding it** (it is missing from `.envrc.example`): stop and bounce with
+  adding it** (it is missing from the env template, `.envrc.example` by default): stop and bounce with
   `failure_category: "env_setup"`, naming the setting and the file that
   reads it. Never invent a real-looking value, and never read the real
   `.envrc` to find one.
@@ -215,11 +250,14 @@ below for removing it once the run concludes.
 ### Install the target repo's packages
 
 A new worktree has no `node_modules`. Right after creating it (fresh or
-resumed), install the packages inside it, from its own lockfile:
+resumed), install the packages inside it, in its app folder (see "The
+project profile"), from that folder's own lockfile:
 
 ```bash
-direnv exec <REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID> npm ci
+direnv exec <worktree>/<appDir> npm ci
 ```
+
+Then check the Node major (see "The project profile").
 
 Do the same in every other worktree you create (`-baseline`, `-fu`), in
 that worktree. Never copy, link or reuse a `node_modules` from `REPO_DIR` or
@@ -557,7 +595,7 @@ Commit once all Phase 2 tests pass, using `COMMIT_TYPE` from Phase 0
    - **Title**: `<COMMIT_TYPE>(<TICKET>): <ticket summary>` (`COMMIT_TYPE`
      from Phase 0). The title matters beyond readability: the target
      repo's CI computes its semver bump from the squash-merge commit
-     message on `master`, and GitHub uses the PR title as that message, so
+     message on `<targetRepo.defaultBranch>`, and GitHub uses the PR title as that message, so
      a correctly-typed title is what makes `feat` tickets bump minor and
      `fix` tickets bump patch on merge.
    - **Body**, in exactly this shape (same as `push-branch`'s template):
