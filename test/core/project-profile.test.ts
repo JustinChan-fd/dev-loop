@@ -124,16 +124,20 @@ describe("resolveProjectProfile", () => {
     await expect(resolveProjectProfile(c, gitRepo(), d)).rejects.toThrow(/app\/\.nvmrc is not on origin\/main/);
   });
 
-  it("a repo not cloned yet (no .git) gets host-node defaults, no error", async () => {
+  it("a repo not cloned yet (no .git) with a version file is a startup error, never a silent host-node fallback", async () => {
     const d = deps();
     const c = makeV2Config((c) => {
       c.targetRepo.local = CATALOG_LOCAL;
     });
-    const p = await resolveProjectProfile(c, mkdtempSync(join(tmpdir(), "nogit-")), d);
-    expect(p.nodeMajor).toBe(24);
-    expect(p.nodeBin).toBeNull();
-    expect(p.appDir).toBe("app");
+    const dir = mkdtempSync(join(tmpdir(), "nogit-"));
+    await expect(resolveProjectProfile(c, dir, d)).rejects.toThrow(ProfileError);
+    await expect(resolveProjectProfile(c, dir, d)).rejects.toThrow(/clone .* first.*app\/\.nvmrc/);
     expect(d.gitCalls).toEqual([]);
+  });
+
+  it("a repo not cloned yet with no version file is fine (host node, as today)", async () => {
+    const p = await resolveProjectProfile(makeV2Config(), mkdtempSync(join(tmpdir(), "nogit-")), deps());
+    expect(p.nodeMajor).toBe(24);
   });
 });
 

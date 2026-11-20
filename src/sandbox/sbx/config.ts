@@ -2,6 +2,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { ROBOT_ENV_VAR } from "../../core/fake-env.ts";
 
 export interface SbxConfig {
   kitDir: string;
@@ -24,6 +25,9 @@ export const DEFAULT_ENV_ALLOW = [
   "ANTHROPIC_DEFAULT_SONNET_MODEL",
   "ANTHROPIC_DEFAULT_OPUS_MODEL",
   "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS",
+  // The robot marker: without it the fake .envrc exports nothing inside the
+  // sandbox (a non-robot shell never gets the fake; src/core/fake-env.ts).
+  ROBOT_ENV_VAR,
 ];
 
 const KNOWN = new Set(["kitDir", "memory", "template", "envAllow", "mcp", "hostSkills"]);

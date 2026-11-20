@@ -289,6 +289,14 @@ describe("evals harness, dry run", () => {
     expect(existsSync(join(stateDir, "canary"))).toBe(false);
   });
 
+  it("run.sh empties a scenario's loop log before its run, so the grader never reads an old startup line", () => {
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, "loop-clean.log"), "robot env: 3 fake setting(s) from app/.env.example\n");
+    const r = run("run.sh", ["clean"]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(join(stateDir, "loop-clean.log"), "utf8")).toBe("");
+  });
+
   it("EVAL_SANDBOX=sbx adds --sandbox=sbx to the loop line; none adds nothing", () => {
     const sbx = run("run.sh", ["clean"], { EVAL_SANDBOX: "sbx" });
     expect(sbx.status, sbx.stderr).toBe(0);

@@ -83,6 +83,8 @@ run_scenario() {
   local config="${SCENARIO_CONFIG:-$EVAL_CONFIG}"
   [ "$config" = "$EVAL_CONFIG" ] || node "$EVALS/config-guard.mjs" "$config" || die "scenario $name: $config is not a safe eval config"
   local loop_log="$STATE_DIR/loop-$name.log"
+  # A fresh log per scenario run: the grader must never read an earlier run's startup line.
+  : > "$loop_log" || die "cannot write $loop_log"
 
   # The loop finds work only through Jira search, which lags a new ticket by ~30s.
   # shellcheck disable=SC2086

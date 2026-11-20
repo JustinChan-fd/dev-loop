@@ -77,3 +77,10 @@ describe("ticket-to-pr records where and on which Node it installed", () => {
     expect(T2P).toContain('"installed: direnv exec <worktree>/<appDir> npm ci; node <node --version output>"');
   });
 });
+
+describe("ticket-to-pr's test examples run in the app folder", () => {
+  it("the inline-setting example runs npm test in <worktree>/<appDir>", () => {
+    expect(T2P).toContain("direnv exec <worktree>/<appDir> env NAME=<fake value> npm test");
+    expect(T2P).not.toContain("direnv exec <worktree> env NAME=<fake value> npm test");
+  });
+});

@@ -62,9 +62,14 @@ export function resolveHostNodeBin(major: number, d: Pick<ProfileDeps, "nvmDir" 
 export async function resolveProjectProfile(config: Config, repoDir: string, d: ProfileDeps): Promise<ResolvedProfile> {
   const base = localProfile(config);
   const host: ResolvedProfile = { ...base, nodeMajor: d.hostNodeMajor, nodeBin: null };
-  // Not cloned yet: the same skip as writeFakeEnv; the next start resolves it.
-  if (base.versionFile === null || !existsSync(join(repoDir, ".git"))) return host;
+  if (base.versionFile === null) return host;
   const branch = config.targetRepo.defaultBranch;
+  // Not cloned yet: the project's Node can't be read, and host Node would be a silent guess.
+  if (!existsSync(join(repoDir, ".git"))) {
+    throw new ProfileError(
+      `${repoDir} has no clone yet: clone ${config.targetRepo.url} there first (the project's Node comes from ${base.versionFile} on origin/${branch})`,
+    );
+  }
   let text: string;
   try {
     text = await d.git(["show", `origin/${branch}:${base.versionFile}`], repoDir);

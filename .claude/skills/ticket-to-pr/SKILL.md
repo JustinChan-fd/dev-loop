@@ -212,7 +212,7 @@ the env template lists on `origin/<defaultBranch>`, with placeholder values.
   `localhost` URL; never a real-looking key) with a one-line comment, in the
   same commit as the code that reads it. The fake env only picks it up on
   the next run, so pass it inline while testing:
-  `direnv exec <worktree> env NAME=<fake value> npm test`. List it in the PR
+  `direnv exec <worktree>/<appDir> env NAME=<fake value> npm test`. List it in the PR
   body's `New settings:` line (Phase 4 step 7).
 - **The code needs a setting the fake env lacks, and the ticket isn't
   adding it** (it is missing from the env template, `.envrc.example` by default): stop and bounce with

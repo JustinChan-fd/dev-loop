@@ -34,6 +34,13 @@ sbx adapter, not yet dogfooded). Design:
   robot's fake values when the repo has no root `.envrc` (catalog: they
   would override the person's real `app/.env.local`). A non-robot shell now
   gets the real root `.envrc` if any, and never the fake.
+  Inside sbx the marker `DEVLOOP_ROBOT_ENV` is now forwarded (default env
+  allowlist), and the sbx preflight checks that a robot shell really gets the
+  fake's first setting. Found in the final review: without the forward, the
+  new handover would have left every sbx run (webtarsthree's too) with an
+  empty fake env.
+- `[core]` A project with a Node version file and no clone yet is a startup
+  error ("clone … there first"), never a silent run on host Node.
 - `[core]` The robot's Read deny covers the env files at the top of the app
   folder and the profile's `realEnvFiles` (catalog: `app/.env.local`).
 - `[core]` The sbx preflight checks the image's Node against the project's

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterAll } from "vitest";
 import { CREATE_TIMEOUT_MS, coverMounts, createArgs, makeSbxAdapter } from "../../../src/sandbox/sbx/adapter.ts";
 import { FAKE_ENV_MARKER, fakeEnvPaths } from "../../../src/core/fake-env.ts";
+import { validateSbxConfig } from "../../../src/sandbox/sbx/config.ts";
 import type { SbxResult, SbxRunner } from "../../../src/sandbox/sbx/run.ts";
 import type { SandboxHandle } from "../../../src/sandbox/types.ts";
 
@@ -89,6 +90,14 @@ describe("sbx adapter: wrap", () => {
   async function handle(): Promise<SandboxHandle> {
     return adapter.prepare({ instanceName: N, mounts: [], config: CFG });
   }
+
+  it("forwards the robot marker (DEVLOOP_ROBOT_ENV), so the fake .envrc loads inside the sandbox", async () => {
+    const real = makeSbxAdapter({ run: fakeRunner().run });
+    const h = await real.prepare({ instanceName: N, mounts: [], config: validateSbxConfig({ kitDir: "/k" }) });
+    const w = real.wrap(h, "claude", ["-p", "hi"], { cwd: "/abs/root", env: { DEVLOOP_ROBOT_ENV: "1", PATH: "/usr/bin" } });
+    expect(w.args).toContain("DEVLOOP_ROBOT_ENV");
+    expect(w.args[w.args.indexOf("DEVLOOP_ROBOT_ENV") - 1]).toBe("-e");
+  });
 
   it("execs claude in the instance with -w and -e for allowlisted names present in env", async () => {
     const env = { ANTHROPIC_DEFAULT_SONNET_MODEL: "model-x", OTHER: "o", PATH: "/usr/bin" };
@@ -807,6 +816,22 @@ describe("sbx adapter: the target repo's root (and its real env files) is never 
     expect(check).toContain(`test ! -e '${repo}/.ENVRC'`);
     expect(check).toContain(`echo dl-step:envrc && direnv exec '${repo}/.claude/worktrees' true`);
     expect(warnings).toEqual([]);
+  });
+
+  it("preflight: when the fake has settings, a robot shell inside the sandbox must actually get one", async () => {
+    writeFileSync(fake.envrc, `${FAKE_ENV_MARKER}\nexport PLACEMENT_SERVICE_ENDPOINT='http://localhost:1'\nexport B='x'\n`);
+    try {
+      const f = fakeRunner(answer(ok(`${DIRENV}dl-step:allow\ndl-step:hidden\ndl-step:envrc\ndl-step:fakeenv\n`)));
+      await makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV, warn: () => {} }).preflight(pctx());
+      expect(f.calls[1].args[4]).toContain(
+        `echo dl-step:fakeenv && DEVLOOP_ROBOT_ENV=1 direnv exec '${repo}/.claude/worktrees' sh -c 'test -n "\${PLACEMENT_SERVICE_ENDPOINT+set}"'`,
+      );
+      await expect(pf(fail(1, "", `${DIRENV}dl-step:allow\ndl-step:hidden\ndl-step:envrc\ndl-step:fakeenv\n`))).rejects.toThrow(
+        /the robot's fake env loads but sets nothing inside the sandbox/,
+      );
+    } finally {
+      writeFileSync(fake.envrc, `${FAKE_ENV_MARKER}\n`);
+    }
   });
 
   it("preflight: an env file showing through is refused", async () => {
