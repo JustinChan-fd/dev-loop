@@ -15,7 +15,7 @@
 // which the phase runner records as agent_error.
 
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 import { roleView, targetRepoAddDir } from "../core/config.ts";
 import type { Config, Role } from "../core/types.ts";
@@ -29,7 +29,8 @@ import { researchEarlySkillResult } from "../roles/research/spawn-result.ts";
 import { researchClaudeMdExcludes } from "../roles/research/startup.ts";
 import type { SandboxSelection } from "../sandbox/select.ts";
 import { allowedToolsFor, HOST_ATLASSIAN_MCP } from "../core/atlassian-tools.ts";
-import { rootEnvFiles } from "../core/env-files.ts";
+import { profileDenyPaths } from "../core/env-files.ts";
+import { projectJson, type ResolvedProfile } from "../core/project-profile.ts";
 import { realFakeEnvDeps, ROBOT_ENV_VAR, writeFakeEnv } from "../core/fake-env.ts";
 
 export const MODEL = "sonnet";
@@ -57,10 +58,12 @@ export interface SkillRunnerDeps {
   shortId?: () => string;
   /**
    * Rewrites the robot's fake .envrc before each run (src/core/fake-env.ts).
-   * Default: from origin's .envrc.example in REPO_DIR. A failure is logged,
-   * never fatal.
+   * Default: from the profile's env template on origin, in REPO_DIR. A
+   * failure is logged, never fatal.
    */
-  refreshFakeEnv?: () => Promise<void>;
+  refreshFakeEnv?: (profile: ResolvedProfile) => Promise<void>;
+  /** The project profile (resolveProjectProfile at startup): deny paths, fake env, RUN_DIR/project.json. */
+  profile: ResolvedProfile;
 }
 
 /** Lowercase, and any char outside [a-z0-9-] becomes "-". */
@@ -156,7 +159,7 @@ export function makeRunSkill(deps: SkillRunnerDeps): RunSkillFn {
   // A sandbox whose commits the loop signs and pushes on the host tells dev to stop at ready_to_push.
   const hostPush = deps.sandbox?.adapter.hostPush?.(deps.sandbox.config) === true;
   const refreshFakeEnv =
-    deps.refreshFakeEnv ?? (async () => void (await writeFakeEnv(repoDir, deps.config.targetRepo.defaultBranch, { envTemplate: { path: ".envrc.example", format: "export" }, robotEnv: {}, nodeBin: null }, realFakeEnvDeps)));
+    deps.refreshFakeEnv ?? (async (p: ResolvedProfile) => void (await writeFakeEnv(repoDir, deps.config.targetRepo.defaultBranch, p, realFakeEnvDeps)));
 
   return async ({ role, ticketKey, runDir, maxBudgetUsd }): Promise<RunSkillResult> => {
     const skill = SKILL_NAME[role];
@@ -166,13 +169,15 @@ export function makeRunSkill(deps: SkillRunnerDeps): RunSkillFn {
 
     if (deps.beforeRun && role === "research") await deps.beforeRun(role, ticketKey);
     await mkdir(absRunDir, { recursive: true });
+    // The skills read the app folder, Node major and dev server from here; they never guess.
+    await writeFile(join(absRunDir, "project.json"), JSON.stringify(projectJson(deps.profile), null, 2) + "\n");
     try {
-      await refreshFakeEnv();
+      await refreshFakeEnv(deps.profile);
     } catch (err) {
       deps.logError(`[${skill}] ${ticketKey}: could not refresh the robot's fake env: ${err instanceof Error ? err.message : String(err)}`);
     }
     // Rescanned per run: a person may add a .env between runs.
-    const denyReads = rootEnvFiles(repoDir).map((f) => join(repoDir, f));
+    const denyReads = profileDenyPaths(repoDir, deps.profile);
 
     const sandbox = deps.sandbox
       ? { adapter: deps.sandbox.adapter, run: { instanceName: sandboxInstanceName(deps.slug, ticketKey, role, shortId()), mounts, repoDir, config: deps.sandbox.config } }

@@ -3,6 +3,7 @@
 // (skill-runner) and a sandbox adapter that covers them use this one rule.
 
 import { readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const ENV_FILE = /^\.env(rc)?(\..+)?$/;
 
@@ -25,4 +26,16 @@ export function rootEnvFiles(dir: string): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Absolute paths the robot's Read tool must never open: the env files at the
+ * repo root, those at the top of the app folder, and the profile's
+ * realEnvFiles (listed whether they exist yet or not). Sorted, no duplicates.
+ */
+export function profileDenyPaths(repoDir: string, p: { appDir: string; realEnvFiles: string[] }): string[] {
+  const out = new Set(rootEnvFiles(repoDir).map((f) => join(repoDir, f)));
+  if (p.appDir !== ".") for (const f of rootEnvFiles(join(repoDir, p.appDir))) out.add(join(repoDir, p.appDir, f));
+  for (const f of p.realEnvFiles) out.add(join(repoDir, f));
+  return [...out].sort();
 }
