@@ -12,7 +12,8 @@
 # open mirror Issues whose title starts "<KEY>:" are closed as not planned,
 # and branches named "<KEY>" or "<KEY>-*" are deleted, all only on the sandbox
 # repo, behind assert_repo. Nothing else is touched; master never matches;
-# the keys file is kept (append-only history).
+# the keys file is kept (append-only history). The clean-app canary files
+# ($EVAL_APP_CHECKOUT/app/.env.local and .envrc) are removed with --write.
 set -u
 . "$(dirname "$0")/lib.sh"
 cd "$ROOT" || die "cannot cd to the repo root"
@@ -80,6 +81,11 @@ if [ "$WRITE" -ne 1 ]; then
   log "list only; pass --write to close the tickets, PRs and Issues and delete the branches above"
   exit 0
 fi
+
+# The canary files clean-app planted in its checkout (local only).
+for f in "$EVAL_APP_CHECKOUT/app/.env.local" "$EVAL_APP_CHECKOUT/.envrc"; do
+  if is_dry || [ -f "$f" ]; then outward rm -f "$f" || log "$f: remove failed"; fi
+done
 
 for key in $ELIGIBLE; do jira close "$key" || log "$key: close failed"; done
 for n in $CLOSE_PRS; do

@@ -97,6 +97,16 @@ run_to() {
   ' "$s" "${RUN_TO_GRACE_S:-40}" "$@"
 }
 
+# run_to_log <log> <seconds> <cmd...> : run_to, with stdout+stderr also appended to <log>.
+run_to_log() {
+  local logf=$1; shift
+  set -o pipefail
+  run_to "$@" 2>&1 | tee -a "$logf"
+  local rc=$?
+  set +o pipefail
+  return $rc
+}
+
 # Every GitHub REST call is pinned to the sandbox repo: the repo it uses
 # ($EVAL_REPO) is asserted before each call.
 api() { local m=$1 p=$2; shift 2; assert_repo "$EVAL_REPO"; outward gh api -X "$m" "repos/$EVAL_REPO/$p" "$@"; }
@@ -130,3 +140,42 @@ assert_clone() {
 }
 
 valid_key() { printf '%s' "$1" | grep -Eq "$KEY_RE"; }
+
+# The app-layout scenario's checkout (clean-app): outside dev-loop's folder,
+# because the sbx preflight refuses a planted .envrc in a repo inside it.
+EVAL_APP_CHECKOUT="${EVAL_APP_CHECKOUT:-$HOME/.cache/dev-loop-eval/sandbox}"
+APP_CONFIG_TEMPLATE="$EVALS/pipeline.eval-app.config.template.json"
+
+# render_app_config <checkout> <out> : the eval-app config with its
+# targetRepo.path filled in (a committed config can't hold a per-machine path).
+# Local file write only. The checkout must be a plain absolute path.
+render_app_config() {
+  case "$1" in /*) ;; *) die "app checkout must be an absolute path: $1" ;; esac
+  printf '%s' "$1" | grep -Eq '^[A-Za-z0-9@._/+-]+$' || die "app checkout path has unexpected characters: $1"
+  sed "s|{{CHECKOUT}}|$1|" "$APP_CONFIG_TEMPLATE" > "$2" || die "cannot write $2"
+}
+
+# plant_canary <canary> <record> <file...> : writes the canary into each of
+# the checkout's real env files (local, never committed; the export form for
+# a .envrc) and records it. Called only through `outward`, so a dry run
+# prints the files it would write.
+plant_canary() {
+  local canary=$1 record=$2 f; shift 2
+  for f in "$@"; do
+    mkdir -p "$(dirname "$f")" || return 1
+    case "$f" in
+      */.envrc) printf 'export EVAL_CANARY=%s\n' "$canary" > "$f" ;;
+      *) printf 'EVAL_CANARY=%s\n' "$canary" > "$f" ;;
+    esac || return 1
+  done
+  printf '%s\n' "$canary" > "$record"
+}
+
+# EVAL_SANDBOX: unset/none (no sandbox) or sbx. Anything else is refused.
+sandbox_flag() {
+  case "${EVAL_SANDBOX:-none}" in
+    none) printf '' ;;
+    sbx) printf -- '--sandbox=sbx' ;;
+    *) printf '[eval] FATAL: EVAL_SANDBOX must be unset, none or sbx; got "%s". Refusing.\n' "${EVAL_SANDBOX}" >&2; return 1 ;;
+  esac
+}

@@ -71,3 +71,9 @@ describe("qa-agent and recon-agent take the dev server from the profile", () => 
     }
   });
 });
+
+describe("ticket-to-pr records where and on which Node it installed", () => {
+  it("appends an 'installed:' progress note naming the command and node --version", () => {
+    expect(T2P).toContain('"installed: direnv exec <worktree>/<appDir> npm ci; node <node --version output>"');
+  });
+});

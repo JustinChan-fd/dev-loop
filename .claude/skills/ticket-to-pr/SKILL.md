@@ -171,6 +171,10 @@ If it is missing (an old run dir), use
   If its major is not `nodeMajor`, stop and bounce with
   `failure_category: "env_setup"`, naming both versions. Never switch Node
   yourself (no `nvm use`, no install).
+  Append one `note` to `progress.jsonl` with the exact path and version, in
+  this exact form (the eval grader reads it):
+  `"installed: direnv exec <worktree>/<appDir> npm ci; node <node --version output>"`,
+  with `<worktree>/<appDir>` written out as the real absolute path.
 
 **Follow the target repo's own rules.** The target repo's `CLAUDE.md` and
 `AGENTS.md` are rules you read and follow (at the worktree root and in `<appDir>`, when

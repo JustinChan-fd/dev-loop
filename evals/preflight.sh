@@ -13,6 +13,10 @@ set -u
 cd "$ROOT" || die "cannot cd to the repo root"
 
 node "$EVALS/config-guard.mjs" "$EVAL_CONFIG" || die "preflight: $EVAL_CONFIG is not a safe eval config"
+# The app-layout config, rendered for this machine's checkout, gets the same guard.
+mkdir -p "$STATE_DIR" || die "cannot create $STATE_DIR"
+render_app_config "$EVAL_APP_CHECKOUT" "$STATE_DIR/pipeline.eval-app.config.json"
+node "$EVALS/config-guard.mjs" "$STATE_DIR/pipeline.eval-app.config.json" || die "preflight: the app-layout eval config is not safe"
 
 outward gh auth status >/dev/null || die "preflight: gh is not authenticated"
 private=$(outward gh repo view "$SANDBOX" --json isPrivate --jq .isPrivate) || die "preflight: sandbox repo $SANDBOX not reachable"

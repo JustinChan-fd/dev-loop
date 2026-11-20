@@ -228,3 +228,44 @@ describe("check-queue", () => {
     expect(r.pass).toBe(true);
   });
 });
+
+describe("check-clean-app", async () => {
+  const { grade: gradeCleanApp } = await import("../../evals/check-clean-app.mjs");
+  const CANARY = "CANARY_ab12cd34ef";
+  const good = () => ({
+    records: [landedClean()],
+    pr: openPr(),
+    jira: { key: A, status: "Code Review" },
+    progress: [
+      '{"phase":"intake","event":"note","detail":"installed: direnv exec /c/.claude/worktrees/TARS-9001-20261120T010101Z/app npm ci; node v24.16.0"}',
+    ].join("\n"),
+    loopLog: "[worker] project: app folder app, node 24 (app/.nvmrc)\n[worker] robot env: 3 fake setting(s) from app/.env.example, node from ~/.nvm/versions/node/v24.16.0/bin\n",
+    fakeEnvrc: "[ -d '/h/.nvm/versions/node/v24.16.0/bin' ] && PATH_add '/h/.nvm/versions/node/v24.16.0/bin'\nexport APP_API_URL='x'\n",
+    texts: { "PR body": "Adds slugify.", "commit messages": "test(TARS-9001): x\nfeat(TARS-9001): y", "run dir TARS-9001/dev": "{}" },
+    canary: CANARY,
+    handover: { fakeNamesSeen: [] as string[] },
+  });
+
+  it("passes: landed, TDD PR, installed in app/ on node 24, fake from app/.env.example, no canary, no fake in the handover", () => {
+    expect(gradeCleanApp(good())).toEqual({ pass: true, reasons: [] });
+  });
+
+  const failing: Array<[string, (g: ReturnType<typeof good>) => void, RegExp]> = [
+    ["npm ci at the worktree root", (g) => void (g.progress = g.progress.replace("/app npm ci", " npm ci")), /npm ci.*app/],
+    ["node 26 instead of the .nvmrc's 24", (g) => void (g.progress = g.progress.replace("v24.16.0", "v26.7.0")), /node v24/],
+    ["no node PATH_add for v24 in the fake", (g) => void (g.fakeEnvrc = "export APP_API_URL='x'\n"), /PATH_add/],
+    ["0 fake settings", (g) => void (g.loopLog = g.loopLog.replace("3 fake", "0 fake")), /fake setting/],
+    ["the canary in a run dir", (g) => void (g.texts["run dir TARS-9001/dev"] = `x ${CANARY} y`), /canary.*run dir TARS-9001\/dev/],
+    ["the canary in the PR body", (g) => void (g.texts["PR body"] = CANARY), /canary.*PR body/],
+    ["a fake name in a person's handover", (g) => void (g.handover.fakeNamesSeen = ["APP_API_URL"]), /handover.*APP_API_URL/],
+    ["GREEN before RED", (g) => void (g.pr = openPr([`feat(${A}): impl`, `test(${A}): tests`])), /RED commit/],
+    ["no canary recorded", (g) => void (g.canary = ""), /canary/],
+  ];
+  it.each(failing)("fails: %s", (_name, mutate, reason) => {
+    const g = good();
+    mutate(g);
+    const r = gradeCleanApp(g);
+    expect(r.pass).toBe(false);
+    expect(r.reasons.join("\n")).toMatch(reason);
+  });
+});
