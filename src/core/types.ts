@@ -305,6 +305,45 @@ export interface TargetRepoConfig {
    * clone-based flow is used instead.
    */
   path?: string;
+  /**
+   * How the project runs locally, when it isn't "package.json at the repo
+   * root, host Node, root .envrc.example". Every field is optional; the
+   * defaults (localProfile in core/config.ts) are today's behaviour. See
+   * docs/config.md and docs/projects/.
+   */
+  local?: LocalProfileConfig;
+}
+
+/** How an env template is written: `export NAME=value` (direnv) or plain `NAME=value`. */
+export type EnvTemplateFormat = "export" | "dotenv";
+
+/** targetRepo.local as written in the config file. Paths are relative to the repo root. */
+export interface LocalProfileConfig {
+  /** Folder holding package.json; default ".". */
+  appDir?: string;
+  /** The file naming the project's Node version (e.g. "app/.nvmrc"); default: none, host Node. */
+  node?: { versionFile: string };
+  /** The committed env template the robot's fake values come from; default { ".envrc.example", "export" }. */
+  envTemplate?: { path: string; format: EnvTemplateFormat };
+  /** Real env files to deny, besides the root and app-folder env files; default []. */
+  realEnvFiles?: string[];
+  /** Fixed robot-only settings, added after the template's (they win); default {}. */
+  robotEnv?: Record<string, string>;
+  /** How the app starts, run from appDir; default "npm run dev". */
+  devCommand?: string;
+  /** Where the dev server answers (localhost only); default "http://localhost:3000". */
+  devUrl?: string;
+}
+
+/** targetRepo.local with every default filled in. */
+export interface LocalProfile {
+  appDir: string;
+  versionFile: string | null;
+  envTemplate: { path: string; format: EnvTemplateFormat };
+  realEnvFiles: string[];
+  robotEnv: Record<string, string>;
+  devCommand: string;
+  devUrl: string;
 }
 
 export interface GitHubConfig {

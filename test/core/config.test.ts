@@ -12,6 +12,7 @@ import {
   targetRepoAddDir,
   listAvailableProjects,
   resolveProjectConfigPath,
+  localProfile,
 } from "../../src/core/config.ts";
 import type { Config, Role } from "../../src/core/types.ts";
 import { makeV2Config } from "../fixtures/config.ts";
@@ -691,5 +692,76 @@ describe("shipped configs use the major-only label", () => {
       expect(c.roles.research.handoffLabel).toBe("pipeline:v2:dev");
       expect(c.roles.dev.triggerLabel).toBe("pipeline:v2:dev");
     }
+  });
+});
+
+describe("targetRepo.local", () => {
+  const CATALOG = {
+    appDir: "app",
+    node: { versionFile: "app/.nvmrc" },
+    envTemplate: { path: "app/.env.example", format: "dotenv" },
+    realEnvFiles: ["app/.env.local"],
+    robotEnv: {},
+    devCommand: "npm run dev",
+    devUrl: "http://localhost:3000",
+  };
+  const withLocal = (local: unknown): unknown =>
+    makeV2Config((c) => {
+      (c.targetRepo as unknown as Record<string, unknown>).local = local;
+    });
+
+  it("no local block gives today's defaults", () => {
+    expect(localProfile(validateConfig(makeV2Config()))).toEqual({
+      appDir: ".",
+      versionFile: null,
+      envTemplate: { path: ".envrc.example", format: "export" },
+      realEnvFiles: [],
+      robotEnv: {},
+      devCommand: "npm run dev",
+      devUrl: "http://localhost:3000",
+    });
+  });
+
+  it("accepts catalog's block", () => {
+    const { node, ...rest } = CATALOG;
+    expect(localProfile(validateConfig(withLocal(CATALOG)))).toEqual({ ...rest, versionFile: node.versionFile });
+  });
+
+  it("an empty local block gives the defaults", () => {
+    expect(localProfile(validateConfig(withLocal({}))).appDir).toBe(".");
+  });
+
+  it.each(["../x", "/abs", "app/", "", "a/../b", "app\\x", "./app"])("rejects appDir %s", (appDir) => {
+    expect(() => validateConfig(withLocal({ appDir }))).toThrow(ConfigError);
+    expect(() => validateConfig(withLocal({ appDir }))).toThrow(/targetRepo\.local\.appDir/);
+  });
+
+  it.each([
+    ["node.versionFile", { node: { versionFile: "../x" } }],
+    ["envTemplate.path", { envTemplate: { path: "../x", format: "dotenv" } }],
+    ["realEnvFiles", { realEnvFiles: ["../x"] }],
+    ["node.versionFile", { node: { versionFile: "." } }],
+  ])("rejects a bad relative path in %s", (field, local) => {
+    expect(() => validateConfig(withLocal(local))).toThrow(new RegExp(`targetRepo\\.local\\.${field.replace(".", "\\.")}`));
+  });
+
+  it("rejects an unknown format", () => {
+    expect(() => validateConfig(withLocal({ envTemplate: { path: "a.env", format: "yaml" } }))).toThrow(/envTemplate\.format/);
+  });
+
+  it("rejects robotEnv names that change how commands run", () => {
+    expect(() => validateConfig(withLocal({ robotEnv: { PATH: "x" } }))).toThrow(/robotEnv/);
+    expect(() => validateConfig(withLocal({ robotEnv: { "bad name": "x" } }))).toThrow(/robotEnv/);
+    expect(() => validateConfig(withLocal({ robotEnv: { OK: 1 } }))).toThrow(/robotEnv/);
+  });
+
+  it("rejects unknown keys in local", () => {
+    expect(() => validateConfig(withLocal({ appdir: "app" }))).toThrow(/unknown key "appdir"/);
+  });
+
+  it("devUrl must be http(s)://localhost or 127.0.0.1", () => {
+    expect(() => validateConfig(withLocal({ devUrl: "https://int.example.com" }))).toThrow(/devUrl/);
+    expect(() => validateConfig(withLocal({ devUrl: "http://localhost.evil.com" }))).toThrow(/devUrl/);
+    expect(localProfile(validateConfig(withLocal({ devUrl: "http://127.0.0.1:5173/x" }))).devUrl).toBe("http://127.0.0.1:5173/x");
   });
 });

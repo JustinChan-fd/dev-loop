@@ -9,6 +9,12 @@ const ENV_FILE = /^\.env(rc)?(\..+)?$/;
 /** Names safe in a permission rule (no space, colon or glob). */
 const SAFE_NAME = /^[A-Za-z0-9@._+-]+$/;
 
+/**
+ * Names a fake/robot env must never set: they change how commands run, not
+ * what the app reads. Shared by the fake env parser and config validation.
+ */
+export const NEVER_OVERRIDE = /^(PATH|HOME|SHELL|USER|NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|LD_.*|DYLD_.*|DIRENV_.*|GIT_.*)$/;
+
 export const isEnvFile = (n: string): boolean => ENV_FILE.test(n) && !n.endsWith(".example");
 
 

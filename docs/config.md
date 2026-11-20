@@ -23,7 +23,7 @@ below names a v1 key, the mapping is: `jira.triggerLabel` (research) →
 
 ```jsonc
 {
-  "targetRepo": { "url", "defaultBranch", "path"? },
+  "targetRepo": { "url", "defaultBranch", "path"?, "local"? },
   "github": { "repo" },
   "jira": { "repoLabel", "statusNames": { "bounced", "prOpen" }, "claimStatus": { "from", "to" } },
   "roles": {
@@ -41,6 +41,24 @@ below names a v1 key, the mapping is: `jira.triggerLabel` (research) →
   `roles.dev.triggerLabel`, and the two trigger labels must differ. Ceilings
   are numbers > 0 (`maxRunsPerDay` and `maxAttemptsPerTicket` integers).
   `"___"` is allowed by the validator.
+- **`targetRepo.local` (optional): how the project runs locally.** Every
+  field is optional, and with no block the loop behaves as it always has
+  (webtarsthree has none). `localProfile(config)` fills the defaults;
+  `src/core/project-profile.ts` resolves it once at startup and the loop
+  hands the skills `RUN_DIR/project.json` (`appDir`, `nodeMajor`,
+  `devCommand`, `devUrl`). Paths are relative to the repo root: plain
+  segments, no `..`, no leading or trailing slash.
+
+  | Field | Default | Meaning |
+  |---|---|---|
+  | `appDir` | `"."` | The folder holding `package.json`. Installs, tests, coverage and the dev server run here (`direnv exec <worktree>/<appDir> …`); git stays at the worktree root. Must exist on `origin/<defaultBranch>`. |
+  | `node.versionFile` | none (host Node) | The file naming the project's Node (e.g. `app/.nvmrc`), read from `origin/<defaultBranch>`. The loop finds the newest matching host nvm install and puts its `bin` on the robot's `PATH`; no match is a startup error (`nvm install <major>`), never a silent fallback. The sbx image must have the same major. |
+  | `envTemplate` | `{ "path": ".envrc.example", "format": "export" }` | The committed template the robot's fake values come from. `export` is `export NAME=value` (direnv); `dotenv` is plain `NAME=value`. Same quoting, comment and never-override rules either way. |
+  | `realEnvFiles` | `[]` | Extra real env files to deny the robot, besides the env files at the repo root and at the top of `appDir` (e.g. `app/.env.local`). |
+  | `robotEnv` | `{}` | Fixed robot-only settings, added after the template's (they win). Never `PATH`, `HOME`, `NODE_OPTIONS`, `GIT_*` and the like. |
+  | `devCommand` | `"npm run dev"` | How the app starts, run from `appDir`. |
+  | `devUrl` | `"http://localhost:3000"` | Where the dev server answers. Must be `http(s)://localhost` or `127.0.0.1`. |
+
 - **Placeholders.** `requiredPlaceholderFree(config, phase)` refuses, at
   startup, every `"___"` the phase needs: the shared `targetRepo`/`github`/
   `jira` values, plus `roles.research.*` (research), `roles.dev.*` including
@@ -299,6 +317,9 @@ ticket* workflow for real status names.
    `pipeline.<new-project>.config.json`.
 2. Fill in that project's own label strings, statuses, JQL, `targetRepo`,
    and `github.repo` (derived from the same targetRepo).
+   If `package.json` isn't at the repo root, or the project pins Node, add a
+   `targetRepo.local` block (see "2.0.0 shape" above); see `docs/projects/`
+   for a worked example.
 3. Run it via `npm run loop -- --project=<new-project>` —
    `resolveProjectConfigPath()` finds it automatically by the naming
    convention above; no code changes required.
@@ -715,6 +736,9 @@ ticket* workflow for real status names.
 2. Fill in that project's own label strings, statuses, JQL, `targetRepo`,
    and `github.repo` (the mirror Issue repo, same granularity as
    `targetRepo`).
+   If `package.json` isn't at the repo root, or the project pins Node, add a
+   `targetRepo.local` block (see "2.0.0 shape" above); see `docs/projects/`
+   for a worked example.
 3. Run it via `npm run loop -- --project=<new-project>` —
    `resolveProjectConfigPath()` finds it automatically by the naming
    convention above; no code changes required.

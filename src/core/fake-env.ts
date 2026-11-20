@@ -11,6 +11,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { NEVER_OVERRIDE } from "./env-files.ts";
 
 export const FAKE_ENV_MARKER = "# dev-loop fake env: generated from .envrc.example, never real values";
 
@@ -31,7 +32,6 @@ export function fakeEnvPaths(repoDir: string): { envrc: string } {
 const EXPORT_LINE = /^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
 
 /** Names that change how every command runs; an example never overrides them for the robot. */
-const NEVER_OVERRIDE = /^(PATH|HOME|SHELL|USER|NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|LD_.*|DYLD_.*|DIRENV_.*|GIT_.*)$/;
 
 export function parseEnvExample(text: string): Array<[string, string]> {
   const out: Array<[string, string]> = [];

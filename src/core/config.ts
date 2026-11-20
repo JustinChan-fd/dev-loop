@@ -9,9 +9,11 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_ADAPTER, adapterNames, getAdapter } from "../sandbox/index.ts";
+import { NEVER_OVERRIDE } from "./env-files.ts";
 import type {
   Config,
   DevView,
+  LocalProfile,
   LoopConfig,
   ResearchView,
   Role,
@@ -124,10 +126,11 @@ export function validateConfig(raw: unknown): Config {
   keys(root, "", ["targetRepo", "github", "jira", "roles", "ceilings"], ["sandbox"]);
 
   const targetRepo = obj(root.targetRepo, "targetRepo");
-  keys(targetRepo, "targetRepo", ["url", "defaultBranch"], ["path"]);
+  keys(targetRepo, "targetRepo", ["url", "defaultBranch"], ["path", "local"]);
   str(targetRepo, "url", "targetRepo");
   str(targetRepo, "defaultBranch", "targetRepo");
   if ("path" in targetRepo) str(targetRepo, "path", "targetRepo");
+  if ("local" in targetRepo) localBlock(targetRepo.local, "targetRepo.local");
 
   const github = obj(root.github, "github");
   keys(github, "github", ["repo"]);
@@ -183,6 +186,73 @@ export function validateConfig(raw: unknown): Config {
   if ("sandbox" in root) validateSandbox(root.sandbox);
 
   return raw as Config;
+}
+
+/** A path relative to the repo root: plain segments, no "..", no leading or trailing slash. */
+const REL_PATH = /^[A-Za-z0-9@._+-]+(\/[A-Za-z0-9@._+-]+)*$/;
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const LOCAL_URL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/;
+
+function relPath(v: unknown, at: string, allowDot = false): void {
+  const ok =
+    typeof v === "string" &&
+    REL_PATH.test(v) &&
+    !v.split("/").some((seg) => seg === ".." || (seg === "." && !(allowDot && v === ".")));
+  if (!ok) {
+    throw new ConfigError(`${at} must be a path relative to the repo root, with no ".." and no leading or trailing slash (got ${JSON.stringify(v)})`);
+  }
+}
+
+/** targetRepo.local: how the project runs locally (types.ts LocalProfileConfig). */
+function localBlock(v: unknown, at: string): void {
+  const l = obj(v, at);
+  keys(l, at, [], ["appDir", "node", "envTemplate", "realEnvFiles", "robotEnv", "devCommand", "devUrl"]);
+  if ("appDir" in l) relPath(l.appDir, `${at}.appDir`, true);
+  if ("node" in l) {
+    const n = obj(l.node, `${at}.node`);
+    keys(n, `${at}.node`, ["versionFile"]);
+    relPath(n.versionFile, `${at}.node.versionFile`);
+  }
+  if ("envTemplate" in l) {
+    const t = obj(l.envTemplate, `${at}.envTemplate`);
+    keys(t, `${at}.envTemplate`, ["path", "format"]);
+    relPath(t.path, `${at}.envTemplate.path`);
+    if (t.format !== "export" && t.format !== "dotenv") {
+      throw new ConfigError(`${at}.envTemplate.format must be "export" or "dotenv" (got ${JSON.stringify(t.format)})`);
+    }
+  }
+  if ("realEnvFiles" in l) {
+    if (!Array.isArray(l.realEnvFiles)) throw new ConfigError(`${at}.realEnvFiles must be an array of paths`);
+    l.realEnvFiles.forEach((p, i) => relPath(p, `${at}.realEnvFiles[${i}]`));
+  }
+  if ("robotEnv" in l) {
+    const r = obj(l.robotEnv, `${at}.robotEnv`);
+    for (const [name, value] of Object.entries(r)) {
+      if (!ENV_NAME.test(name) || NEVER_OVERRIDE.test(name)) {
+        throw new ConfigError(`${at}.robotEnv: ${JSON.stringify(name)} is not a settable name (letters, digits, _; never PATH, HOME, NODE_OPTIONS, GIT_* and the like)`);
+      }
+      if (typeof value !== "string") throw new ConfigError(`${at}.robotEnv.${name} must be a string`);
+    }
+  }
+  if ("devCommand" in l) str(l, "devCommand", at);
+  if ("devUrl" in l) {
+    const u = str(l, "devUrl", at);
+    if (!LOCAL_URL.test(u)) throw new ConfigError(`${at}.devUrl must be http(s)://localhost or 127.0.0.1 (got ${JSON.stringify(u)})`);
+  }
+}
+
+/** targetRepo.local with every default filled in. No block reproduces today's (root, host Node, .envrc.example). */
+export function localProfile(config: Config): LocalProfile {
+  const l = config.targetRepo.local ?? {};
+  return {
+    appDir: l.appDir ?? ".",
+    versionFile: l.node?.versionFile ?? null,
+    envTemplate: l.envTemplate ? { ...l.envTemplate } : { path: ".envrc.example", format: "export" },
+    realEnvFiles: [...(l.realEnvFiles ?? [])],
+    robotEnv: { ...(l.robotEnv ?? {}) },
+    devCommand: l.devCommand ?? "npm run dev",
+    devUrl: l.devUrl ?? "http://localhost:3000",
+  };
 }
 
 /** The optional sandbox block; each adapter validates its own sub-block. */
