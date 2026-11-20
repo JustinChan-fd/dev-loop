@@ -156,7 +156,7 @@ export function makeRunSkill(deps: SkillRunnerDeps): RunSkillFn {
   // A sandbox whose commits the loop signs and pushes on the host tells dev to stop at ready_to_push.
   const hostPush = deps.sandbox?.adapter.hostPush?.(deps.sandbox.config) === true;
   const refreshFakeEnv =
-    deps.refreshFakeEnv ?? (async () => void (await writeFakeEnv(repoDir, deps.config.targetRepo.defaultBranch, realFakeEnvDeps)));
+    deps.refreshFakeEnv ?? (async () => void (await writeFakeEnv(repoDir, deps.config.targetRepo.defaultBranch, { envTemplate: { path: ".envrc.example", format: "export" }, robotEnv: {}, nodeBin: null }, realFakeEnvDeps)));
 
   return async ({ role, ticketKey, runDir, maxBudgetUsd }): Promise<RunSkillResult> => {
     const skill = SKILL_NAME[role];

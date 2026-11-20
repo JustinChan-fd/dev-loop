@@ -345,7 +345,7 @@ async function main(): Promise<void> {
     sandboxSelection.adapter.name !== DEFAULT_ADAPTER ? sandboxPreflightInstanceName(slug, randomBytes(3).toString("hex")) : "";
   // The robot's fake env (src/core/fake-env.ts), before preflight: a sandbox
   // covers the real env files with it. Names only, never values.
-  const fake = await writeFakeEnv(repoDirFor(config, slug), config.targetRepo.defaultBranch, realFakeEnvDeps);
+  const fake = await writeFakeEnv(repoDirFor(config, slug), config.targetRepo.defaultBranch, { envTemplate: { path: ".envrc.example", format: "export" }, robotEnv: {}, nodeBin: null }, realFakeEnvDeps);
   logError(`[${prefix}] ${fakeEnvSummary(fake)}`);
   await sandboxSelection.adapter.preflight({
     repoRoot: REPO_ROOT,
