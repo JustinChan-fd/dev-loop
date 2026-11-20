@@ -88,3 +88,6 @@ done a real run: `sbx template rm docker.io/library/dev-loop-sbx:v1`.
   for you.
 - `deb.nodesource.com` must be allowed once:
   `sbx policy allow network deb.nodesource.com`.
+- A fresh build sandbox may still be running its own `apt-get` at boot, which
+  holds the apt lock (`Could not get lock /var/lib/apt/lists/lock`).
+  `template.sh` waits for it (up to 5 minutes) before installing.

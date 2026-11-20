@@ -8,6 +8,22 @@ set -eu
 
 NODE_MAJOR="$1"
 
+# --- wait for the image's own apt run ---------------------------------------
+# A fresh sandbox may still be running apt-get at boot; it holds the apt lock
+# and nodesource's `apt update` fails on it. Wait up to 5 minutes.
+apt_busy() {
+  for c in /proc/[0-9]*/comm; do
+    case "$(cat "$c" 2>/dev/null)" in apt|apt-get|dpkg|unattended-upgr) return 0 ;; esac
+  done
+  return 1
+}
+i=0
+while apt_busy; do
+  i=$((i + 1))
+  if [ "$i" -gt 150 ]; then echo "template.sh: apt still busy after 5 minutes" >&2; exit 1; fi
+  sleep 2
+done
+
 # --- packages -------------------------------------------------------------
 # Debian's own nodejs is too old; nodesource provides each major.
 # Needs: sbx policy allow network deb.nodesource.com (once, by you).
