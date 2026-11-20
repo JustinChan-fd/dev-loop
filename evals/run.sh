@@ -2,7 +2,8 @@
 # Run ONE eval scenario against the sandbox (Task 16, spec §9.2):
 #   npm run eval -- clean              DRY (the default): prints every outward command as DRY: ..., runs none
 #   DRY_RUN=0 npm run eval -- clean    LIVE: real Jira tickets, sandbox PRs, paid claude runs
-#   DRY_RUN=0 npm run eval -- --all    LIVE, all five in order; stops at the first failure
+#   DRY_RUN=0 npm run eval -- --all    LIVE, all six in order; stops at the first failure
+#   EVAL_SANDBOX=sbx npm run eval -- clean   the same, with --sandbox=sbx (unset or none: no sandbox)
 # DRY_RUN unset/empty/1 is dry; exactly 0 is live; anything else is refused.
 #
 # A real run costs money (one research + one dev phase run per ticket) and
@@ -23,7 +24,9 @@ if [ "$EVAL_MODE" = live ] && [ -n "${CLAUDECODE+set}" ]; then
   die "DRY_RUN=0 (live) refused: CLAUDECODE is set, so this is running inside a Claude Code session; a human must run live evals from their own shell"
 fi
 
-SCENARIOS="clean ambiguous dev-bounce blocked queue"
+SCENARIOS="clean ambiguous dev-bounce blocked queue clean-app"
+# Refused before anything runs: only unset, none or sbx.
+SANDBOX_FLAG=$(sandbox_flag) || exit 1
 # research 120 + dev 75 min runTimeoutMin, plus slack.
 RUN_TIMEOUT_S="${EVAL_RUN_TIMEOUT_S:-12600}"
 
@@ -72,10 +75,16 @@ run_scenario() {
   log "scenario $name"
   bash "$EVALS/preflight.sh" || die "preflight failed; nothing was created"
 
-  KEYS=""; GRADE_ARGS=""; LOOPS=1
+  KEYS=""; GRADE_ARGS=""; LOOPS=1; SCENARIO_CONFIG=""
   # shellcheck source=/dev/null
   . "$EVALS/scenarios/$name.sh"
   setup || die "scenario $name: setup failed"
+  # A scenario may run on its own config (clean-app: the rendered app-layout one).
+  local config="${SCENARIO_CONFIG:-$EVAL_CONFIG}"
+  [ "$config" = "$EVAL_CONFIG" ] || node "$EVALS/config-guard.mjs" "$config" || die "scenario $name: $config is not a safe eval config"
+  local loop_log="$STATE_DIR/loop-$name.log"
+  # A fresh log per scenario run: the grader must never read an earlier run's startup line.
+  : > "$loop_log" || die "cannot write $loop_log"
 
   # The loop finds work only through Jira search, which lags a new ticket by ~30s.
   # shellcheck disable=SC2086
@@ -92,11 +101,13 @@ run_scenario() {
   while [ "$i" -lt "$LOOPS" ]; do
     i=$((i + 1))
     log "scenario $name: iteration $i/$LOOPS (limit ${RUN_TIMEOUT_S}s)"
-    outward run_to "$RUN_TIMEOUT_S" npm run loop -- --config="$EVAL_CONFIG" --once || log "scenario $name: the loop exited non-zero (graded anyway)"
+    # The loop's startup lines (project, robot env) go to $loop_log too, for the grader.
+    # shellcheck disable=SC2086
+    outward run_to_log "$loop_log" "$RUN_TIMEOUT_S" npm run loop -- --config="$config" --once $SANDBOX_FLAG || log "scenario $name: the loop exited non-zero (graded anyway)"
   done
 
   # shellcheck disable=SC2086
-  if outward node --env-file="${DEVLOOP_ENV_FILE:-.env}" "$EVALS/check-$name.mjs" --config="$EVAL_CONFIG" $GRADE_ARGS; then
+  if outward node --env-file="${DEVLOOP_ENV_FILE:-.env}" "$EVALS/check-$name.mjs" --config="$config" $GRADE_ARGS; then
     log "scenario $name: graded (see the JSON line above)"
     return 0
   fi

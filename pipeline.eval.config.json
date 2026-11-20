@@ -27,5 +27,15 @@
       "ceilings": { "maxCostPerRunUsd": 10, "runTimeoutMin": 75 }
     }
   },
-  "ceilings": { "maxRunsPerDay": 10, "maxAttemptsPerTicket": 2, "maxCostPerTicketUsd": 25 }
+  "ceilings": { "maxRunsPerDay": 10, "maxAttemptsPerTicket": 2, "maxCostPerTicketUsd": 25 },
+  "sandbox": {
+    "mode": "discover",
+    "sbx": {
+      "kitDir": "~/Desktop/Repos/keystone-bedrock-kit",
+      "template": "docker.io/library/dev-loop-sbx:v2",
+      "memory": "8g",
+      "mcp": ["atlassian"],
+      "hostSkills": ["push-branch"]
+    }
+  }
 }

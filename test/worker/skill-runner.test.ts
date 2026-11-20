@@ -16,6 +16,8 @@ import { ALLOWED_TOOLS as DEV_TOOLS } from "../../src/roles/dev/tools.ts";
 import { ALLOWED_TOOLS as RESEARCH_TOOLS } from "../../src/roles/research/tools.ts";
 import { makeV2Config } from "../fixtures/config.ts";
 import { allowedToolsFor } from "../../src/core/atlassian-tools.ts";
+import { projectJson, type ResolvedProfile } from "../../src/core/project-profile.ts";
+import { APP_PROFILE, DEFAULT_PROFILE } from "../fixtures/profile.ts";
 
 const RID = "20261111T010203Z";
 const SLUG = "skill-runner-test";
@@ -70,6 +72,7 @@ describe("makeRunSkill", () => {
       logError: () => {},
       // Never the real refresh: it would run direnv allow on temp files.
       refreshFakeEnv: async () => {},
+      profile: DEFAULT_PROFILE,
       ...extra,
     };
   }
@@ -134,6 +137,26 @@ describe("makeRunSkill", () => {
     await run({ role: "research", ticketKey: "TARS-1", runDir: runDir("research"), maxBudgetUsd: 50 });
     expect(spawned[1].denyReads).toEqual([join(repo, ".env"), join(repo, ".envrc")]);
     expect(spawned[2].denyReads).toEqual([join(repo, ".env"), join(repo, ".envrc")]);
+  });
+
+  it("an app-folder profile denies the app folder's real env files too", async () => {
+    await makeRunSkill(deps({ profile: APP_PROFILE }))({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    expect(spawned[0].denyReads).toContain(join(repo, "app/.env.local"));
+  });
+
+  it("writes RUN_DIR/project.json from the profile before the spawn", async () => {
+    let seen: unknown = null;
+    onSpawn = async () => {
+      seen = JSON.parse(await readFile(join(resolveRepoPath(runDir("dev")), "project.json"), "utf8"));
+    };
+    await makeRunSkill(deps({ profile: APP_PROFILE }))({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    expect(seen).toEqual(projectJson(APP_PROFILE));
+  });
+
+  it("refreshFakeEnv gets the profile, once per run", async () => {
+    const got: ResolvedProfile[] = [];
+    await makeRunSkill(deps({ profile: APP_PROFILE, refreshFakeEnv: async (p) => void got.push(p) }))({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    expect(got).toEqual([APP_PROFILE]);
   });
 
   it("both roles' spawn env marks the robot (DEVLOOP_ROBOT_ENV=1), so the fake env loads for it", async () => {

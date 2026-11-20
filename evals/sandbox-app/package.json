@@ -1,0 +1,10 @@
+{
+  "name": "dev-loop-eval-sandbox-app",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "prepare": "git -C .. config core.hooksPath app/.husky || true"
+  }
+}

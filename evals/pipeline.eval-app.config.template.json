@@ -1,0 +1,51 @@
+{
+  "targetRepo": {
+    "url": "git@github.com:JustinChan-fd/dev-loop-eval-sandbox.git",
+    "defaultBranch": "master",
+    "path": "{{CHECKOUT}}",
+    "local": {
+      "appDir": "app",
+      "node": { "versionFile": "app/.nvmrc" },
+      "envTemplate": { "path": "app/.env.example", "format": "dotenv" },
+      "realEnvFiles": ["app/.env.local"],
+      "robotEnv": {},
+      "devCommand": "npm run dev",
+      "devUrl": "http://localhost:3000"
+    }
+  },
+  "github": { "repo": "JustinChan-fd/dev-loop-eval-sandbox" },
+  "jira": {
+    "repoLabel": "repo:dev-loop-eval",
+    "statusNames": { "bounced": "Blocked", "prOpen": "Code Review" },
+    "claimStatus": { "from": "To Do", "to": "In Progress" }
+  },
+  "roles": {
+    "research": {
+      "triggerLabel": "pipeline:v2",
+      "handoffLabel": "pipeline:v2:dev",
+      "pollJql": "labels = \"{label}\" AND labels = \"{repoLabel}\" AND status = \"To Do\" AND labels = \"dev-loop-eval\" ORDER BY created ASC",
+      "ceilings": { "maxCostPerRunUsd": 15, "runTimeoutMin": 120 }
+    },
+    "dev": {
+      "triggerLabel": "pipeline:v2:dev",
+      "pollJql": "labels = \"{label}\" AND labels = \"{repoLabel}\" AND status != \"{bouncedStatus}\" AND status != \"{prOpenStatus}\" AND statusCategory != Done AND labels = \"dev-loop-eval\" ORDER BY created ASC",
+      "codeReviewFields": {
+        "piiField": "customfield_13504",
+        "piiNoImpactOptionId": "14310",
+        "qaNotesField": "customfield_14226"
+      },
+      "ceilings": { "maxCostPerRunUsd": 10, "runTimeoutMin": 75 }
+    }
+  },
+  "ceilings": { "maxRunsPerDay": 10, "maxAttemptsPerTicket": 2, "maxCostPerTicketUsd": 25 },
+  "sandbox": {
+    "mode": "discover",
+    "sbx": {
+      "kitDir": "~/Desktop/Repos/keystone-bedrock-kit",
+      "template": "docker.io/library/dev-loop-sbx:v2",
+      "memory": "8g",
+      "mcp": ["atlassian"],
+      "hostSkills": ["push-branch"]
+    }
+  }
+}

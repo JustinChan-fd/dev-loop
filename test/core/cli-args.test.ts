@@ -71,13 +71,14 @@ describe("parseArgs", () => {
 });
 
 describe("preflight", () => {
-  it("worker mode refuses the catalog-ui-* configs (v1 labels until cutover)", async () => {
-    for (const project of ["catalog-ui-management", "catalog-ui-public"]) {
-      const c = await loadConfig(resolve(REPO_ROOT, `pipeline.${project}.config.json`));
-      expect(() => preflight(c, "worker", "2.0.0")).toThrow(ConfigError);
-    }
+  it("worker mode refuses catalog-ui-public (v1 labels until cutover)", async () => {
+    const pub = await loadConfig(resolve(REPO_ROOT, "pipeline.catalog-ui-public.config.json"));
+    expect(() => preflight(pub, "worker", "2.0.0")).toThrow(ConfigError);
+  });
+
+  it("worker mode accepts catalog-ui-management (v2 labels since project profiles)", async () => {
     const mgmt = await loadConfig(resolve(REPO_ROOT, "pipeline.catalog-ui-management.config.json"));
-    expect(() => preflight(mgmt, "worker", "2.0.0")).toThrow(/versioned trigger label/);
+    expect(preflight(mgmt, "worker", "2.0.0")).toEqual({ warnings: [] });
   });
 
   it("worker mode accepts webtarsthree with no warning", async () => {

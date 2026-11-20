@@ -37,6 +37,10 @@ export interface PreflightCtx {
    * real root env files does so here. Absent: nothing to cover.
    */
   repoDir?: string;
+  /** The project's Node major (the project profile); absent means the host's. */
+  nodeMajor?: number;
+  /** The project's app folder, relative to repoDir (the project profile); absent means ".". */
+  appDir?: string;
   config: unknown;
 }
 

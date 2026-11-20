@@ -3,13 +3,13 @@
 // tests never run the real binary. Verified against sbx v0.53.0 (spec
 // "Verified before step 3").
 
-import { existsSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ResetStep } from "../../core/reset/step.ts";
 import type { SandboxAdapter, SandboxDenial, SandboxHandle } from "../types.ts";
 import { isEnvFile, rootEnvFiles } from "../../core/env-files.ts";
-import { fakeEnvPaths } from "../../core/fake-env.ts";
+import { fakeEnvPaths, ROBOT_ENV_VAR } from "../../core/fake-env.ts";
 import { DEFAULT_ENV_ALLOW, validateSbxConfig, type SbxConfig } from "./config.ts";
 import type { SbxResult, SbxRunner } from "./run.ts";
 import { openSbxDashboard, realDashboardDeps, type DashboardDeps } from "./dashboard.ts";
@@ -24,6 +24,21 @@ const TOOLS_CHECK = "node --version && git --version && jq --version && echo dl-
 const shq = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 /** The skills run target-repo commands through `direnv exec <worktree>`, which loads the loop's fake. */
 const envrcCheck = (repoDir: string): string => `echo dl-step:envrc && direnv exec ${shq(join(repoDir, ".claude", "worktrees"))} true`;
+/**
+ * A robot shell inside the sandbox gets the fake's first setting. A fake that
+ * loads but exports nothing (DEVLOOP_ROBOT_ENV not forwarded) would leave the
+ * robot's tests failing "as if broken". Only when the fake names a setting.
+ */
+const fakeEnvCheck = (repoDir: string, name: string): string =>
+  `echo dl-step:fakeenv && ${ROBOT_ENV_VAR}=1 direnv exec ${shq(join(repoDir, ".claude", "worktrees"))} sh -c 'test -n "\${${name}+set}"'`;
+/** The first `export NAME=` in the host's fake .envrc, or undefined. */
+const firstFakeName = (repoDir: string): string | undefined => {
+  try {
+    return /^export ([A-Za-z_][A-Za-z0-9_]*)=/m.exec(readFileSync(fakeEnvPaths(repoDir).envrc, "utf8"))?.[1];
+  } catch {
+    return undefined;
+  }
+};
 /**
  * Inside the sandbox: trust the repo for git (its top folder isn't mounted, so it is root-owned
  * there) and allow only the loop's own fake.
@@ -274,10 +289,13 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
       // A never-cloned repo has no real env file and no fake yet: nothing to check.
       const repoDir = ctx.repoDir !== undefined && existsSync(join(ctx.repoDir, ".git")) ? ctx.repoDir : undefined;
       if (repoDir !== undefined && !coverable(ctx.mounts, repoDir)) {
-        // Inside another mount (the v2 clone under dev-loop's root): its top can't be left out.
-        const found = listDir(repoDir).filter((n) => /^\.env/i.test(n) && !n.endsWith(".example")).sort();
-        if (found.length > 0) {
-          throw new Error(`${found[0]} is in ${repoDir}, which the sandbox can read (it is inside dev-loop's folder): remove it; the robot uses the fake env`);
+        // Inside another mount (the v2 clone under dev-loop's root): its top, and its app folder, can't be left out.
+        const dirs = ctx.appDir && ctx.appDir !== "." ? [repoDir, join(repoDir, ctx.appDir)] : [repoDir];
+        for (const dir of dirs) {
+          const found = listDir(dir).filter((n) => /^\.env/i.test(n) && !n.endsWith(".example")).sort();
+          if (found.length > 0) {
+            throw new Error(`${found[0]} is in ${dir}, which the sandbox can read (it is inside dev-loop's folder): remove it; the robot uses the fake env`);
+          }
         }
       }
       if (repoDir !== undefined && !existsSync(fakeEnvPaths(repoDir).envrc)) {
@@ -321,7 +339,11 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
         }
         const repo = ctx.githubRepo;
         const skillChecks = cfg.hostSkills.map((n) => `echo dl-step:skill && test -r ${shq(`${sandboxSkillDir(n)}/SKILL.md`)}`);
-        const fakeChecks = repoDir === undefined ? [] : [`echo dl-step:allow && ${sandboxSetup(repoDir)}`, hiddenCheck(repoDir), envrcCheck(repoDir)];
+        const fakeName = repoDir === undefined ? undefined : firstFakeName(repoDir);
+        const fakeChecks =
+          repoDir === undefined
+            ? []
+            : [`echo dl-step:allow && ${sandboxSetup(repoDir)}`, hiddenCheck(repoDir), envrcCheck(repoDir), ...(fakeName ? [fakeEnvCheck(repoDir, fakeName)] : [])];
         const otherEnvrc = envrcDirs.map((d) => `echo dl-step:envrc && direnv exec ${shq(d)} true`);
         const check = [TOOLS_CHECK, ...fakeChecks, ...otherEnvrc, ...skillChecks, ...(repo === undefined ? [] : [githubCheck(repo)])].join(" && ");
         let r = await run(["exec", name, "sh", "-c", check]);
@@ -331,10 +353,14 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
           r = await run(["exec", name, "sh", "-c", check]);
         }
         const tries = repo !== undefined && flakyGithubStep(r) !== undefined ? GITHUB_TRIES : 1;
-        if (r.code === 0 && !r.timedOut && nodeMajor(r.stdout) === hostNodeMajor) return;
+        // The project's Node (its version file), else the host's.
+        const want = ctx.nodeMajor ?? hostNodeMajor;
+        if (r.code === 0 && !r.timedOut && nodeMajor(r.stdout) === want) return;
         if (r.timedOut || r.code === EXEC_INFRA_EXIT) throw new Error(`sbx preflight failed: ${firstLine(r.stderr)}`);
-        if (nodeMajor(r.stdout) !== hostNodeMajor) {
-          throw new Error(`sandbox image has no node ${hostNodeMajor}: add node to the template (see docs/sandbox-sbx.md)`);
+        if (nodeMajor(r.stdout) !== want) {
+          throw new Error(
+            `sandbox image has no node ${want}: build one with npm run sbx:template:build -- --tag=v2-node${want} --node=${want} and set sandbox.sbx.template (see docs/adapters/sbx/templates.md)`,
+          );
         }
         // The && chain stops at the first failure; the last line printed names the step after it.
         const last = [...r.stdout.matchAll(/^dl-step:(\w+)$/gm)].at(-1)?.[1];
@@ -345,6 +371,11 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
         if (last === "allow") throw new Error(`could not set up the robot's fake .envrc inside the sandbox: ${firstLine(r.stderr) || why(r)}`);
         if (last === "hidden") {
           throw new Error("the target repo's real env files are visible inside the sandbox (its top folder should not be mounted); refusing to run the robot next to them");
+        }
+        if (last === "fakeenv") {
+          throw new Error(
+            `the robot's fake env loads but sets nothing inside the sandbox (${ROBOT_ENV_VAR} not forwarded? it must be in sandbox.sbx's env allowlist); see docs/sandbox-sbx.md`,
+          );
         }
         if (last === "envrc") {
           throw new Error(

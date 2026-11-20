@@ -18,6 +18,18 @@ The loop runner (`src/worker/skill-runner.ts`) invokes each skill as
   `<repo>/.pipeline/v2/<project>/<session>/<KEY>/<role>-<RUN_ID>`. The runner
   creates it before spawning and afterwards reads `RUN_DIR/verdict.json`, the
   only place a verdict is read. Raw claude usage goes to `RUN_DIR/usage.json`.
+- `RUN_DIR/project.json` is written by the loop before every spawn
+  (`src/core/project-profile.ts` `projectJson`): `{ appDir, nodeMajor,
+  devCommand, devUrl }`, from the project config's `targetRepo.local` (see
+  `docs/config.md`). ticket-to-pr, qa-agent, ticket-refine and recon-agent
+  read it instead of guessing: installs, tests, coverage and the dev server
+  run as `direnv exec <worktree>/<appDir> <cmd>`, git stays at `<worktree>`,
+  and ticket-to-pr bounces `env_setup` when `node --version` in the app
+  folder is not `nodeMajor`. Missing means the defaults (`.`, host Node,
+  `npm run dev`, `http://localhost:3000`). The skills also read and follow
+  the target repo's own `CLAUDE.md`/`AGENTS.md`, never create a real env file
+  such as `app/.env.local`, and bounce on a hook failure they can't fix
+  (never `--no-verify`).
 - `REPO_DIR` is `targetRepo.path` when set, else the absolute v2 clone
   (`v2CloneDir`). The skill clones it if it has no `.git` yet, and creates its
   per-run worktree inside it: `<REPO_DIR>/.claude/worktrees/<KEY>-<RUN_ID>`

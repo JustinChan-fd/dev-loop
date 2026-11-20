@@ -33,14 +33,17 @@ own shell. Dry mode still works there.
 ```sh
 npm run eval -- clean                       # dry (default): print every outward command, run none
 DRY_RUN=0 npm run eval -- clean             # LIVE: one scenario, for real
-DRY_RUN=0 npm run eval -- --all             # LIVE: all five, in order; stops at the first failure
+DRY_RUN=0 npm run eval -- --all             # LIVE: all six, in order; stops at the first failure
+DRY_RUN=0 EVAL_SANDBOX=sbx npm run eval -- clean   # LIVE, with --sandbox=sbx (unset or none: no sandbox)
+bash evals/seed-app.sh                      # dry: show the one-time push of app/ to the sandbox (clean-app needs it)
 node evals/report.mjs                       # outcome / phases / cost / minutes per scenario
 bash evals/reset.sh                         # dry: list what would be closed
 DRY_RUN=0 bash evals/reset.sh               # LIVE: list (checks eligibility on Jira)
 DRY_RUN=0 bash evals/reset.sh --write       # LIVE: close it
 ```
 
-One scenario per call. `--all` is required for all five. A failed scenario
+One scenario per call. `--all` is required for all six. `EVAL_SANDBOX` is
+unset, `none` or `sbx`; anything else is refused before anything runs. A failed scenario
 is never auto-retried: read its grader's JSON line, then decide.
 
 | scenario | setup | passes when |
@@ -50,6 +53,15 @@ is never auto-retried: read its grader's JSON line, then decide.
 | `dev-bounce` | a ticket that points at a doc the repo doesn't have | research landed, dev bounced `spec_ambiguous` |
 | `blocked` | ticket B "is blocked by" A, and A has an open sandbox PR | B's record is `skipped-blocked` naming A, no claim, B still To Do |
 | `queue` | an ambiguous ticket, then a clean one | two records, the first bounced and the second `landed` |
+| `clean-app` | one well-specified ticket against the sandbox's `app/` (catalog-shaped: `app/.nvmrc` 24, dotenv `app/.env.example`, husky pre-push), on the rendered `pipeline.eval-app.config.json`; a canary planted in the checkout's `app/.env.local` and root `.envrc` | everything `clean` checks, plus `npm ci` ran in `<worktree>/app` on node 24, the fake `.envrc` puts the host's v24 bin on PATH, the startup line built a non-empty fake from `app/.env.example`, the canary is in no run dir file, PR body or commit, and a non-robot `direnv exec` in a worktree gets none of the fake's names |
+
+`clean-app` uses its own checkout, `${EVAL_APP_CHECKOUT:-$HOME/.cache/dev-loop-eval/sandbox}`,
+outside dev-loop's folder (the sbx preflight refuses a planted `.envrc` in a
+repo inside it). The committed `pipeline.eval-app.config.template.json` has
+`{{CHECKOUT}}`, which `run.sh` and `preflight.sh` fill into
+`$STATE_DIR/pipeline.eval-app.config.json`. The sandbox needs `app/` once:
+`DRY_RUN=0 bash evals/seed-app.sh` (a push to the sandbox; ask first).
+`reset.sh --write` also removes the canary files.
 
 `dev-bounce` is the least deterministic scenario: research can bounce the
 ticket itself.
@@ -74,7 +86,12 @@ ticket itself.
   non-eval ticket. Creates set Story Points (`STORY_POINTS_FIELD`), which
   the claim transition requires.
 - `report.mjs`: the summary table.
-- `reset.sh`: closes eval tickets and their sandbox PRs.
+- `reset.sh`: closes eval tickets and their sandbox PRs, and removes the
+  `clean-app` canary files.
+- `seed-app.sh`: pushes `sandbox-app/` to the sandbox as `app/` (once).
+- `sandbox-app/`: the app-layout sub-project's content.
+- `pipeline.eval-app.config.template.json`: the app-layout config
+  (`targetRepo.local`), with `{{CHECKOUT}}` for the machine's checkout.
 
 ## Boundaries (enforced, not convention)
 

@@ -14,8 +14,8 @@ export interface HostPushDeps {
   repoDir: string; repoRoot: string; githubRepo: string; defaultBranch: string;
   git: GitFn;
   spawn: (o: SpawnClaudeOpts) => Promise<SpawnClaudeResult>;
-  /** execFile; rejects on non-zero. `timeoutMs` kills the child when given. */
-  run: (cmd: string, args: string[], cwd: string, timeoutMs?: number) => Promise<string>;
+  /** execFile; rejects on non-zero. `timeoutMs` kills the child when given; `env` replaces process.env when given. */
+  run: (cmd: string, args: string[], cwd: string, timeoutMs?: number, env?: NodeJS.ProcessEnv) => Promise<string>;
   findOpenPrUrlForBranch: (branch: string) => Promise<string | null>;
   pushBranchSkill: string;
   timeoutMin: number; maxBudgetUsd: number; stream: boolean; env: NodeJS.ProcessEnv;
@@ -23,6 +23,10 @@ export interface HostPushDeps {
   usagePath: string;
   log: (m: string) => void;
   sign?: typeof signUnpushed;
+  /** The project's app folder (the project profile), relative; default ".". npm ci runs there. */
+  appDir?: string;
+  /** The project's Node on the host (the project profile); null/absent: host Node as-is. Prepended to PATH. */
+  nodeBin?: string | null;
 }
 
 export type HostPushResult =
@@ -34,9 +38,10 @@ export const WT_GIT_TIMEOUT_MS = 60 * 60 * 1000;
 const RUN_ID = /^\d{8}T\d{6}Z$/;
 const PACKAGE_FILES = new Set(["package.json", "package-lock.json", "npm-shrinkwrap.json", ".npmrc"]);
 
-/** A path the host must not install or run hooks from when the sandbox edited it. */
-function isInstallOrHookPath(p: string): boolean {
-  return PACKAGE_FILES.has(p.split("/").pop() ?? "") || p.startsWith(".husky/");
+/** A path the host must not install or run hooks from when the sandbox edited it: package files anywhere, the root's or the app folder's .husky/. */
+export function isInstallOrHookPath(p: string, appDir: string): boolean {
+  if (PACKAGE_FILES.has(p.split("/").pop() ?? "")) return true;
+  return p.startsWith(".husky/") || (appDir !== "." && p.startsWith(`${appDir}/.husky/`));
 }
 
 /**
@@ -106,7 +111,16 @@ export async function hostPush(ticketKey: string, runId: string, ready: ReadyToP
     ...(oldTip ? { oldTip } : {}),
     ...(pushed !== undefined ? { pushed } : {}),
   });
-  const wtGit: GitFn = (args, cwd) => d.run("direnv", ["exec", d.repoDir, "git", ...args], cwd, WT_GIT_TIMEOUT_MS);
+  const appDir = d.appDir ?? ".";
+  // The project's Node first on PATH, so npm ci and the hooks a rebase/sign/push runs use it.
+  // `direnv exec <REPO_DIR>` loads the person's real env, never the fake (which carries it for the robot).
+  const nodeEnv: NodeJS.ProcessEnv | undefined = d.nodeBin
+    ? { ...d.env, PATH: `${d.nodeBin}:${d.env.PATH ?? process.env.PATH ?? ""}` }
+    : undefined;
+  const wtGit: GitFn = (args, cwd) =>
+    nodeEnv
+      ? d.run("direnv", ["exec", d.repoDir, "git", ...args], cwd, WT_GIT_TIMEOUT_MS, nodeEnv)
+      : d.run("direnv", ["exec", d.repoDir, "git", ...args], cwd, WT_GIT_TIMEOUT_MS);
   let added = false;
 
   if (ready.pr_body.includes(PR_BODY_BEGIN) || ready.pr_body.includes(PR_BODY_END)) {
@@ -134,13 +148,17 @@ export async function hostPush(ticketKey: string, runId: string, ready: ReadyToP
       const base = (await d.git(["merge-base", "HEAD", `origin/${d.defaultBranch}`], wt)).trim();
       changed = (await d.git(["diff", "--name-only", `${base}..HEAD`], wt)).split("\n").map((l) => l.trim()).filter(Boolean);
     } catch (e) { return fail(`could not list the branch's changed files in ${wt}: ${firstLine(e)}`); }
-    const risky = changed.find(isInstallOrHookPath);
+    const risky = changed.find((p) => isInstallOrHookPath(p, appDir));
     if (risky) {
       return fail(`branch changes ${risky}; host push refuses to install or run hooks from sandbox-edited package/hook files — push it by hand after review`);
     }
 
-    try { await d.run("direnv", ["exec", d.repoDir, "npm", "ci"], wt); }
-    catch (e) { return fail(`npm ci failed in ${wt}: ${firstLine(e)}`); }
+    const installDir = appDir === "." ? wt : join(wt, appDir);
+    try {
+      if (nodeEnv) await d.run("direnv", ["exec", d.repoDir, "npm", "ci"], installDir, undefined, nodeEnv);
+      else await d.run("direnv", ["exec", d.repoDir, "npm", "ci"], installDir);
+    }
+    catch (e) { return fail(`npm ci failed in ${installDir}: ${firstLine(e)}`); }
 
     const signed = await (d.sign ?? signUnpushed)({ worktree: wt, branch: ready.branch, ticketKey, defaultBranch: d.defaultBranch, git: wtGit });
     if (!signed.ok) return fail(`signing failed: ${signed.reason}`);
@@ -160,7 +178,7 @@ export async function hostPush(ticketKey: string, runId: string, ready: ReadyToP
       rawUsagePath: d.usagePath,
       // The spawn's cwd is dev-loop's root (for its hooks), so a bare `gh` would
       // target dev-loop's own GitHub repo. GH_REPO points every gh call at the project.
-      env: { ...d.env, GH_REPO: d.githubRepo },
+      env: { ...(nodeEnv ?? d.env), GH_REPO: d.githubRepo },
       cwd: d.repoRoot,
       logPrefix: "host-push",
     });

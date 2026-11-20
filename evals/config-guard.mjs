@@ -6,14 +6,16 @@
 //
 //   node evals/config-guard.mjs <config-path>
 
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { loadConfig, repoSlugFromUrl } from "../src/core/config.ts";
 import { preflight } from "../src/core/cli-args.ts";
 
 export const SANDBOX_REPO = "JustinChan-fd/dev-loop-eval-sandbox";
 export const EVAL_LABEL_CLAUSE = 'labels = "dev-loop-eval"';
+const DEVLOOP_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SANDBOX_URLS = [`git@github.com:${SANDBOX_REPO}.git`, `https://github.com/${SANDBOX_REPO}.git`, `https://github.com/${SANDBOX_REPO}`];
 
 export function checkEvalConfig(config, pkgVersion) {
@@ -23,6 +25,22 @@ export function checkEvalConfig(config, pkgVersion) {
   }
   if (!SANDBOX_URLS.includes(config.targetRepo?.url)) {
     problems.push(`targetRepo.url must be the sandbox (got ${JSON.stringify(config.targetRepo?.url)})`);
+  }
+  // A checkout path (the app-layout eval): outside dev-loop's folder, and, once cloned, the sandbox.
+  const path = config.targetRepo?.path;
+  if (path !== undefined) {
+    const down = relative(DEVLOOP_ROOT, path);
+    if (!isAbsolute(path) || down === "" || (!down.startsWith("..") && !isAbsolute(down))) {
+      problems.push(`targetRepo.path must be an absolute path outside dev-loop's folder (got ${JSON.stringify(path)})`);
+    } else if (existsSync(resolve(path, ".git"))) {
+      let origin = "";
+      try {
+        origin = execFileSync("git", ["-C", path, "remote", "get-url", "origin"], { encoding: "utf8" }).trim();
+      } catch {
+        origin = "";
+      }
+      if (!SANDBOX_URLS.includes(origin)) problems.push(`targetRepo.path ${path}: its origin is not the sandbox (got ${JSON.stringify(origin)})`);
+    }
   }
   for (const role of ["research", "dev"]) {
     const jql = config.roles?.[role]?.pollJql ?? "";

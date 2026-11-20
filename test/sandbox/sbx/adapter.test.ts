@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterAll } from "vitest";
 import { CREATE_TIMEOUT_MS, coverMounts, createArgs, makeSbxAdapter } from "../../../src/sandbox/sbx/adapter.ts";
 import { FAKE_ENV_MARKER, fakeEnvPaths } from "../../../src/core/fake-env.ts";
+import { validateSbxConfig } from "../../../src/sandbox/sbx/config.ts";
 import type { SbxResult, SbxRunner } from "../../../src/sandbox/sbx/run.ts";
 import type { SandboxHandle } from "../../../src/sandbox/types.ts";
 
@@ -89,6 +90,14 @@ describe("sbx adapter: wrap", () => {
   async function handle(): Promise<SandboxHandle> {
     return adapter.prepare({ instanceName: N, mounts: [], config: CFG });
   }
+
+  it("forwards the robot marker (DEVLOOP_ROBOT_ENV), so the fake .envrc loads inside the sandbox", async () => {
+    const real = makeSbxAdapter({ run: fakeRunner().run });
+    const h = await real.prepare({ instanceName: N, mounts: [], config: validateSbxConfig({ kitDir: "/k" }) });
+    const w = real.wrap(h, "claude", ["-p", "hi"], { cwd: "/abs/root", env: { DEVLOOP_ROBOT_ENV: "1", PATH: "/usr/bin" } });
+    expect(w.args).toContain("DEVLOOP_ROBOT_ENV");
+    expect(w.args[w.args.indexOf("DEVLOOP_ROBOT_ENV") - 1]).toBe("-e");
+  });
 
   it("execs claude in the instance with -w and -e for allowlisted names present in env", async () => {
     const env = { ANTHROPIC_DEFAULT_SONNET_MODEL: "model-x", OTHER: "o", PATH: "/usr/bin" };
@@ -334,15 +343,24 @@ describe("sbx adapter: preflight", () => {
   it("refuses a node major different from the host's, and still removes the instance", async () => {
     const f = fakeRunner(answer(ok("v22.1.0\ngit version 2.47.0\n")));
     await expect(makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight(ctx())).rejects.toThrow(
-      "sandbox image has no node 24: add node to the template (see docs/sandbox-sbx.md)",
+      "sandbox image has no node 24: build one with npm run sbx:template:build -- --tag=v2-node24 --node=24 and set sandbox.sbx.template (see docs/adapters/sbx/templates.md)",
     );
     expect(f.calls.at(-1)?.args).toEqual(["rm", "-f", P]);
+  });
+
+  it("preflight wants the project's node major, not the host's", async () => {
+    const good = fakeRunner(answer(ok(`v26.7.0\ngit version 2.47.0\njq-1.7.1\ndl-step:direnv\n2.32.1\ndl-step:git\ndl-step:gh\n${R}\n`)));
+    await expect(makeSbxAdapter({ run: good.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight({ ...ctx(), nodeMajor: 26 })).resolves.toBeUndefined();
+    const host = fakeRunner(answer(GOOD));
+    await expect(makeSbxAdapter({ run: host.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight({ ...ctx(), nodeMajor: 26 })).rejects.toThrow(
+      /sandbox image has no node 26: build one with npm run sbx:template:build -- --tag=v2-node26 --node=26/,
+    );
   });
 
   it("refuses a missing node", async () => {
     const f = fakeRunner(answer(fail(127, "sh: 1: node: not found")));
     await expect(makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight(ctx())).rejects.toThrow(
-      "sandbox image has no node 24: add node to the template (see docs/sandbox-sbx.md)",
+      "sandbox image has no node 24: build one with npm run sbx:template:build -- --tag=v2-node24 --node=24 and set sandbox.sbx.template (see docs/adapters/sbx/templates.md)",
     );
     expect(f.calls.at(-1)?.args).toEqual(["rm", "-f", P]);
   });
@@ -800,6 +818,22 @@ describe("sbx adapter: the target repo's root (and its real env files) is never 
     expect(warnings).toEqual([]);
   });
 
+  it("preflight: when the fake has settings, a robot shell inside the sandbox must actually get one", async () => {
+    writeFileSync(fake.envrc, `${FAKE_ENV_MARKER}\nexport PLACEMENT_SERVICE_ENDPOINT='http://localhost:1'\nexport B='x'\n`);
+    try {
+      const f = fakeRunner(answer(ok(`${DIRENV}dl-step:allow\ndl-step:hidden\ndl-step:envrc\ndl-step:fakeenv\n`)));
+      await makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV, warn: () => {} }).preflight(pctx());
+      expect(f.calls[1].args[4]).toContain(
+        `echo dl-step:fakeenv && DEVLOOP_ROBOT_ENV=1 direnv exec '${repo}/.claude/worktrees' sh -c 'test -n "\${PLACEMENT_SERVICE_ENDPOINT+set}"'`,
+      );
+      await expect(pf(fail(1, "", `${DIRENV}dl-step:allow\ndl-step:hidden\ndl-step:envrc\ndl-step:fakeenv\n`))).rejects.toThrow(
+        /the robot's fake env loads but sets nothing inside the sandbox/,
+      );
+    } finally {
+      writeFileSync(fake.envrc, `${FAKE_ENV_MARKER}\n`);
+    }
+  });
+
   it("preflight: an env file showing through is refused", async () => {
     await expect(pf(fail(1, "", `${DIRENV}dl-step:allow\ndl-step:hidden\n`))).rejects.toThrow(
       "the target repo's real env files are visible inside the sandbox (its top folder should not be mounted); refusing to run the robot next to them",
@@ -831,6 +865,25 @@ describe("sbx adapter: the target repo's root (and its real env files) is never 
       await expect(makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight(pctx(clone, [root]))).rejects.toThrow(
         `.env is in ${clone}, which the sandbox can read (it is inside dev-loop's folder): remove it; the robot uses the fake env`,
       );
+      expect(f.calls).toEqual([]);
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses an env file in the app folder of a repo inside dev-loop's folder", async () => {
+    const clone = join(root, "clone-app");
+    mkdirSync(join(clone, ".git"), { recursive: true });
+    mkdirSync(join(clone, "app"), { recursive: true });
+    mkdirSync(join(clone, ".claude", "worktrees"), { recursive: true });
+    writeFileSync(fakeEnvPaths(clone).envrc, `${FAKE_ENV_MARKER}\n`);
+    writeFileSync(join(clone, "app", ".env.local"), "x");
+    writeFileSync(join(clone, "app", ".env.example"), "x");
+    try {
+      const f = fakeRunner();
+      await expect(
+        makeSbxAdapter({ run: f.run, realpath: identity, hostNodeMajor: 24, env: FULL_ENV }).preflight({ ...pctx(clone, [root]), appDir: "app" }),
+      ).rejects.toThrow(/\.env\.local is in .*\/app, which the sandbox can read/);
       expect(f.calls).toEqual([]);
     } finally {
       rmSync(clone, { recursive: true, force: true });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hostPush, hostPushPrompt, hostPushPreflightProblem, HostPushDeps } from "../../src/worker/host-push.ts";
+import { hostPush, hostPushPrompt, hostPushPreflightProblem, isInstallOrHookPath, HostPushDeps } from "../../src/worker/host-push.ts";
 
 const ready = { branch: "TARS-1-x", pr_title: "TARS-1: do it", pr_body: "Body line\n- item" };
 
@@ -14,6 +14,7 @@ function mk(over: Partial<HostPushDeps> & { sign?: any; head?: string; pr?: stri
   writeFileSync(skill, "x");
   const spawned: any[] = [];
   const cwds: string[] = [];
+  const envs: (NodeJS.ProcessEnv | undefined)[] = [];
   const d: HostPushDeps = {
     repoDir: "/r/repo", repoRoot: "/r/root", githubRepo: "o/r", defaultBranch: "main",
     git: async (args) => {
@@ -23,7 +24,7 @@ function mk(over: Partial<HostPushDeps> & { sign?: any; head?: string; pr?: stri
       if (args[0] === "diff") return over.diff ?? "src/a.ts\n";
       return "";
     },
-    run: async (cmd, args, cwd, timeoutMs) => { calls.push([cmd, ...args].join(" ")); cwds.push(cwd); timeouts.push(timeoutMs); return ""; },
+    run: async (cmd, args, cwd, timeoutMs, env) => { calls.push([cmd, ...args].join(" ")); cwds.push(cwd); timeouts.push(timeoutMs); envs.push(env); return ""; },
     spawn: async (o) => {
       calls.push("spawn"); spawned.push(o);
       return { stdout: JSON.stringify({ result: "R".repeat(400) }), usage: { costUsd: 0.1 } } as any;
@@ -34,7 +35,7 @@ function mk(over: Partial<HostPushDeps> & { sign?: any; head?: string; pr?: stri
     sign: over.sign ?? (async () => { calls.push("sign"); return { ok: true, base: "b", oldTip: "o", newTip: "n", signed: 2 }; }),
     ...over,
   } as HostPushDeps;
-  return { d, calls, spawned, timeouts, cwds };
+  return { d, calls, spawned, timeouts, cwds, envs };
 }
 const WT = "/r/repo/.claude/worktrees/TARS-1-20261117T090121Z-push";
 
@@ -245,5 +246,58 @@ describe("runIdFromRunDir", () => {
     const { runIdFromRunDir } = await import("../../src/worker/host-push.ts");
     expect(runIdFromRunDir("/a/b/PROJ-1/dev-20261117T090121Z")).toBe("20261117T090121Z");
     expect(runIdFromRunDir("x/dev-2026-1/")).toBe("2026-1");
+  });
+});
+
+describe("hostPush: the project profile (app folder, project node)", () => {
+  it.each([
+    ["app/.husky/pre-push", "app", true],
+    [".husky/pre-push", "app", true],
+    ["app/package-lock.json", "app", true],
+    ["app/src/x.ts", "app", false],
+    ["src/.husky/x", ".", false],
+    [".husky/pre-push", ".", true],
+  ])("isInstallOrHookPath(%s, %s) is %s", (p, appDir, want) => {
+    expect(isInstallOrHookPath(p, appDir)).toBe(want);
+  });
+
+  it("refuses a branch that changes the app folder's husky hooks", async () => {
+    const { d, calls } = mk({ diff: "app/.husky/pre-push\n", appDir: "app" });
+    const r = await hostPush("TARS-1", "20261117T090121Z", ready, d);
+    expect(r).toMatchObject({ ok: false });
+    expect(calls.some((c) => c.includes("npm ci"))).toBe(false);
+  });
+
+  it("npm ci runs in <wt>/<appDir>; the root for appDir '.'", async () => {
+    const app = mk({ appDir: "app" });
+    await hostPush("TARS-1", "20261117T090121Z", ready, app.d);
+    expect(app.cwds[app.calls.filter((c) => !c.startsWith("git ") && c !== "spawn" && c !== "sign" && !c.startsWith("pr ")).indexOf("direnv exec /r/repo npm ci")]).toBe(join(WT, "app"));
+    const root = mk();
+    await hostPush("TARS-1", "20261117T090121Z", ready, root.d);
+    expect(root.cwds[0]).toBe(WT);
+  });
+
+  it("a nodeBin goes first on PATH for npm ci, the worktree git calls and the push spawn", async () => {
+    let signGitEnv: NodeJS.ProcessEnv | undefined;
+    const { d, envs, spawned } = mk({
+      nodeBin: "/n/v26/bin",
+      env: { PATH: "/usr/bin" },
+      sign: async (a: { git: (args: string[], cwd: string) => Promise<string> }) => {
+        await a.git(["status"], "/wt");
+        return { ok: true, base: "b", oldTip: "o", newTip: "n", signed: 1 };
+      },
+    });
+    await hostPush("TARS-1", "20261117T090121Z", ready, d);
+    signGitEnv = envs[1];
+    expect(envs[0]?.PATH).toBe("/n/v26/bin:/usr/bin");
+    expect(signGitEnv?.PATH).toBe("/n/v26/bin:/usr/bin");
+    expect(spawned[0].env.PATH.startsWith("/n/v26/bin:")).toBe(true);
+  });
+
+  it("no nodeBin: the env is today's", async () => {
+    const { d, envs, spawned } = mk({ env: { PATH: "/usr/bin" } });
+    await hostPush("TARS-1", "20261117T090121Z", ready, d);
+    expect(envs[0]).toBeUndefined();
+    expect(spawned[0].env.PATH).toBe("/usr/bin");
   });
 });

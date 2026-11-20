@@ -51,12 +51,26 @@ If a host is blocked during the build (a new apt source, for example), the
 build fails and says so. Review the host with `npm run sbx:status`, allow it
 yourself (`sbx policy allow network <host>`), and rerun.
 
+## One image per Node major
+
+The preflight checks the image's Node against the **project's** major (its
+`targetRepo.local.node.versionFile`, e.g. catalog's `app/.nvmrc` = 26), or
+the host's when the project names none. A project on a different major gets
+its own image and its own `sandbox.sbx.template`:
+
+```
+npm run sbx:template:build -- --tag=v2-node26 --node=26
+```
+
+and `"template": "docker.io/library/dev-loop-sbx:v2-node26"` in that
+project's config. Projects on the host's major share `dev-loop-sbx:v2`.
+
 ## When to rebuild
 
 | Trigger | How you find out |
 |---|---|
 | Add a tool or package | you decide; edit `template.sh` |
-| The project moves to a new node major | preflight: "sandbox image has no node N". Run `nvm use N` on the host first, then build with `--node=N` |
+| The project moves to a new node major | preflight: "sandbox image has no node N", with the build command. Build with `--tag=v2-nodeN --node=N` (see "One image per Node major") |
 
 ## Roll back
 
@@ -74,3 +88,6 @@ done a real run: `sbx template rm docker.io/library/dev-loop-sbx:v1`.
   for you.
 - `deb.nodesource.com` must be allowed once:
   `sbx policy allow network deb.nodesource.com`.
+- A fresh build sandbox may still be running its own `apt-get` at boot, which
+  holds the apt lock (`Could not get lock /var/lib/apt/lists/lock`).
+  `template.sh` waits for it (up to 5 minutes) before installing.

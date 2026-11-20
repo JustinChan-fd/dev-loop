@@ -441,7 +441,7 @@ ol.steps li.rest { opacity: .45; }
   </section>
 
   <section class="envsec sec" aria-labelledby="repos-h">
-    <div class="sec-head"><span class="eyebrow">04</span><h2 id="repos-h">Repos we support</h2><p class="sub">Adding a repo needs no code. Copy one of the <code>pipeline.&lt;repo&gt;.config.json</code> files at the root of <code>dev-loop</code>, fill in the new repo's GitHub name, Jira labels and statuses, then run <code>npm run loop -- --project=&lt;repo&gt;</code>. Steps are in <code>docs/config.md</code>.</p></div>
+    <div class="sec-head"><span class="eyebrow">04</span><h2 id="repos-h">Repos we support</h2><p class="sub">Adding a repo needs no code. Copy one of the <code>pipeline.&lt;repo&gt;.config.json</code> files at the root of <code>dev-loop</code>, fill in the new repo's GitHub name, Jira labels and statuses, then run <code>npm run loop -- --project=&lt;repo&gt;</code>. If the code lives in a folder like <code>app/</code> or pins its Node, add a <code>local</code> block. Steps are in <code>docs/config.md</code>; each repo's layout and quirks are in <a href="https://github.com/JustinChan-fd/dev-loop/blob/main/docs/projects/README.md"><code>docs/projects/</code></a>.</p></div>
     <div class="tablewrap"><table id="repos"></table></div>
   </section>
 
@@ -453,14 +453,15 @@ ol.steps li.rest { opacity: .45; }
 <script>
 /* ===== DATA: the only place facts live. Update when dev-loop changes. ===== */
 const DATA = {
-  updated: "2026-11-18",
+  updated: "2026-11-20",
   /* Jira statuses every repo's config uses (jira.claimStatus / statusNames). */
   status: { todo: "To Do", bounced: "Blocked", prOpen: "Code Review" },
   repos: [
     { id: "webtarsthree", jira: "repo:webtarsthree", name: "webtarsthree", gh: "fandango/webtarsthree", sandboxes: ["sbx"], sandboxMode: "discover",
       find: { research: "pipeline:v2", dev: "pipeline:v2:dev", extra: { not: "dev-loop-eval" } } },
-    { id: "catalog-ui-management", jira: "repo:catalog-ui-management", name: "catalog-ui-management", gh: "fandango/catalog-ui-management", sandboxes: [],
-      find: { research: "pipeline:research", dev: "pipeline:dev", devAssignee: true } },
+    { id: "catalog-ui-management", jira: "repo:catalog-ui-management", name: "catalog-ui-management", gh: "fandango/catalog-ui-management", sandboxes: ["sbx"], sandboxMode: "discover",
+      appDir: "app", node: "26 (app/.nvmrc)", realEnv: "app/.env.local", envTemplate: "app/.env.example",
+      find: { research: "pipeline:v2", dev: "pipeline:v2:dev", extra: { not: "dev-loop-eval" } } },
     { id: "catalog-ui-public", jira: "repo:catalog-ui-public", name: "catalog-ui-public", gh: "fandango/catalog-ui-public", sandboxes: [],
       find: { research: "pipeline:research", dev: "pipeline:dev", devAssignee: true } },
     { id: "eval", jira: "repo:dev-loop-eval", name: "eval (test repo)", gh: "JustinChan-fd/dev-loop-eval-sandbox", sandboxes: [],
@@ -519,6 +520,9 @@ function stepsFor() {
   const robot = sb ? "room" : "mac";
   const viaGate = sb ? " (through the gate)" : "";
   const unapprovedNote = sb ? " sbx refuses any service it hasn't approved (the red band)." : "";
+  const r = repo();
+  // A project whose code isn't at the repo root (its config's targetRepo.local) says where the robot works.
+  const appNote = r.appDir ? ` In this repo it works in the ${r.appDir}/ folder, on the project's own Node ${r.node}.` : "";
   const out = [];
   out.push({ zone: "mac", title: "Track it", sub: ["opens the ticket's", "GitHub Issue"], uses: "GitHub Issue",
     more: "Your Mac opens a GitHub Issue for the ticket. Every step posts its progress there." });
@@ -530,9 +534,9 @@ function stepsFor() {
   }
   if (state.phase !== "research") {
     out.push({ zone: robot, title: "Get packages", sub: ["downloads the", "code's parts"], uses: "nexus3" + viaGate,
-      more: "The robot installs the project's packages from Fandango's package store, nexus3, so it can run the tests." });
+      more: "The robot installs the project's packages from Fandango's package store, nexus3, so it can run the tests." + appNote });
     out.push({ zone: robot, title: "Write code", sub: ["tests first,", "then the code"], uses: "AI (Bedrock)" + viaGate,
-      more: "A failing test for each requirement first, then the code that makes it pass." + unapprovedNote });
+      more: "A failing test for each requirement first, then the code that makes it pass. It follows the repo's own rules (its CLAUDE.md)." + (r.appDir ? ` Tests and the app run in ${r.appDir}/.` : "") + unapprovedNote });
     if (sb) {
       out.push({ zone: "room", title: "Hand over", sub: ["\u2705 pack it up", "\u274c bounce"], decision: true,
         more: "The robot can't send anything out itself, so it hands its work to your Mac: the branch, the PR text, the QA notes and the test results. \u274c If something's wrong, it bounces with the reason and the ticket goes to Blocked." });
@@ -818,10 +822,10 @@ function drawEnv() {
       ["dev-loop pipeline settings", c(`pipeline.${r.id}.config.json`), LOOP, can("yes", "no secrets in it")],
     ]],
     [`The target repo`, "repo", r.name, [
-      [`${r.name} env settings`, c(".envrc"), YOU, sb
+      [`${r.name} env settings`, c(r.realEnv ?? ".envrc"), YOU, sb
         ? can("no", "it stays on your Mac, for when you run the app yourself")
         : can("soft", "a shell command could still read it, so keep it to INT values")],
-      [`${r.name} fake env settings`, c(".claude/worktrees/.envrc"), ROBOT, can("yes", "placeholder values from .envrc.example, so tests still run")],
+      [`${r.name} fake env settings`, c(".claude/worktrees/.envrc"), ROBOT, can("yes", `placeholder values from ${r.envTemplate ?? ".envrc.example"}, so tests still run`)],
     ]],
     ...(sb ? [["sbx", "sbx", "Docker's own store on your Mac", [
       ["GitHub API token", c("sbx secret set github"), SBX, can("no", "sbx adds it to each request on the way out")],
@@ -872,7 +876,7 @@ function render() {
   drawPickup();
   drawEnv();
   drawLegend();
-  document.getElementById("env-sub").textContent = state.sandbox !== "none" ? "Grouped by where each one lives. With sbx, the robot can read only the two folders it works in; sbx adds every token on the way out, so the robot never holds one. It gets fake settings instead of the real .envrc." : "Grouped by where each one lives. With no safety room, the robot runs as you, so it could read what you can, except dev-loop\u2019s Jira login. It gets fake settings instead of the real .envrc.";
+  document.getElementById("env-sub").textContent = state.sandbox !== "none" ? `Grouped by where each one lives. With sbx, the robot can read only the two folders it works in; sbx adds every token on the way out, so the robot never holds one. It gets fake settings instead of the real ${repo().realEnv ?? ".envrc"}.` : `Grouped by where each one lives. With no safety room, the robot runs as you, so it could read what you can, except dev-loop\u2019s Jira login. It gets fake settings instead of the real ${repo().realEnv ?? ".envrc"}.`;
   drawDiagram();
   drawSteps();
   if (playing) setPlaying(false);

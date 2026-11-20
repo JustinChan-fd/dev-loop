@@ -120,9 +120,8 @@ Same discipline as the dev phase's `ticket-to-pr`, for dashboard parity:
 The project config is `pipeline.<project>.config.json` at the dev-loop
 repo root (this session's working directory). Its `targetRepo` and
 `github.repo` keys are the ones this skill reads. `targetRepo` names the
-codebase this skill grounds tickets against — currently
-`pipeline.webtarsthree.config.json` points at `webtarsthree`
-(`git@github.com:fandango/webtarsthree.git`, default branch `master`).
+codebase this skill grounds tickets against
+(e.g. `pipeline.webtarsthree.config.json` names `git@github.com:fandango/webtarsthree.git`).
 `REPO_DIR` (from `repo-dir=`) is that codebase's checkout on this machine:
 `targetRepo.path` when the config sets it, otherwise a shared fetch-only
 clone the loop runner points you at. Read `targetRepo.url` and
@@ -139,8 +138,16 @@ this run **inside** `REPO_DIR`'s own directory tree
 (`<REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID>-ground`, not a sibling
 path elsewhere). The loop keeps a **fake env** at
 `<REPO_DIR>/.claude/worktrees/.envrc`, built from the target repo's committed
-`.envrc.example` with placeholder values, so `direnv exec <worktree>` loads
-the fake, never the person's real `<REPO_DIR>/.envrc`.
+env template (`.envrc.example` by default, e.g. `app/.env.example` for an
+app-folder project) with placeholder values, so `direnv exec <worktree>`
+loads the fake, never the person's real `<REPO_DIR>/.envrc`. Never read or
+create an app folder's real env file (e.g. `app/.env.local`) either.
+
+**The project profile.** The loop writes `<RUN_DIR>/project.json`
+(`appDir`, `nodeMajor`, `devCommand`, `devUrl`). Read it; never guess them
+from the repo. Missing means `appDir` `.`, `devCommand` `npm run dev`,
+`devUrl` `http://localhost:3000`. Installs and the dev server run in the
+app folder: `direnv exec <worktree>/<appDir> <cmd>`.
 Never read `<REPO_DIR>/.envrc` or `<REPO_DIR>/.env` (with any tool),
 never copy `.envrc.example` to a `.envrc`, and never point `direnv exec`
 at `<REPO_DIR>` itself. If grounding shows the ticket needs a setting
@@ -352,10 +359,11 @@ whether it actually holds.
    target repo's own dev server *once*, in the worktree created above,
    before spawning any `recon-agent`. Check whether it's already running
    first (e.g. hit its health-check route) — don't start a second instance.
-   Start it per the target repo's own dev script (check its
-   `package.json`/README, don't assume a command) and wait for it to be
-   ready. Note the local URL(s) it's serving on (e.g. `http://localhost:3000`
-   with `/api` proxied to a local API server) — this is what you pass to
+   Start it with the profile's `devCommand` in the app folder
+   (`direnv exec <worktree>/<appDir> <devCommand>`, after
+   `direnv exec <worktree>/<appDir> npm ci`) and wait for it to be ready at
+   the profile's `devUrl` (e.g. `http://localhost:3000` with `/api` proxied
+   to a local API server) — this is what you pass to
    each `recon-agent` that needs it. If it fails to start, or starts but
    can't reach whatever upstream services it depends on (e.g. missing local
    credentials in a freshly cloned checkout), live API verification is

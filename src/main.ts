@@ -72,6 +72,7 @@ import { realOpenPrUrlForBranch } from "./core/github-client.ts";
 import { realGit } from "./worker/host-sign.ts";
 import { hostPush, hostPushPreflightProblem, runIdFromRunDir } from "./worker/host-push.ts";
 import { fakeEnvSummary, realFakeEnvDeps, writeFakeEnv } from "./core/fake-env.ts";
+import { realProfileDeps, resolveProjectProfile, type ResolvedProfile } from "./core/project-profile.ts";
 import { notify } from "./core/notify.ts";
 import { recordAdoptedFlights, runWorkerIteration, type WorkerDeps } from "./worker/cycle.ts";
 import { makeRunSkill, sandboxInstancePrefix, sandboxMounts, sandboxPreflightInstanceName } from "./worker/skill-runner.ts";
@@ -130,6 +131,8 @@ interface LoopContext {
   researchStance: string;
   /** The selected sandbox; attached to the runner only when it is not the default adapter. */
   sandbox: SandboxSelection;
+  /** The project profile, resolved once at startup. */
+  profile: ResolvedProfile;
 }
 
 /** Research only: find or create the ticket's mirror GitHub Issue before the run. Never throws. */
@@ -179,10 +182,10 @@ async function reconcile(
   }
 }
 
-/** execFile with a large buffer; rejects with stderr on a non-zero exit. `timeoutMs` kills the child. */
-function runCmd(cmd: string, args: string[], cwd: string, timeoutMs?: number): Promise<string> {
+/** execFile with a large buffer; rejects with stderr on a non-zero exit. `timeoutMs` kills the child; `env` defaults to process.env. */
+function runCmd(cmd: string, args: string[], cwd: string, timeoutMs?: number, env: NodeJS.ProcessEnv = process.env): Promise<string> {
   return new Promise((resolveP, reject) => {
-    execFile(cmd, args, { cwd, env: process.env, maxBuffer: 64 * 1024 * 1024, ...(timeoutMs ? { timeout: timeoutMs } : {}) }, (err, stdout, stderr) => {
+    execFile(cmd, args, { cwd, env, maxBuffer: 64 * 1024 * 1024, ...(timeoutMs ? { timeout: timeoutMs } : {}) }, (err, stdout, stderr) => {
       if (err) reject(new Error(String(stderr).trim() || err.message));
       else resolveP(String(stdout));
     });
@@ -231,6 +234,7 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
       beforeRun: (_role, key) => ensureMirrorIssue(ctx, key),
       log,
       logError,
+      profile: ctx.profile,
     }),
     logPath: resolveRepoPath(v2RunsLog(slug)),
     now: () => new Date(),
@@ -258,6 +262,8 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
               git: realGit(),
               spawn: (opts) => spawnClaudeRun(opts, { log, logError }),
               run: runCmd,
+              appDir: ctx.profile.appDir,
+              nodeBin: ctx.profile.nodeBin,
               findOpenPrUrlForBranch: realOpenPrUrlForBranch(config.github.repo),
               pushBranchSkill,
               timeoutMin: 20,
@@ -345,7 +351,11 @@ async function main(): Promise<void> {
     sandboxSelection.adapter.name !== DEFAULT_ADAPTER ? sandboxPreflightInstanceName(slug, randomBytes(3).toString("hex")) : "";
   // The robot's fake env (src/core/fake-env.ts), before preflight: a sandbox
   // covers the real env files with it. Names only, never values.
-  const fake = await writeFakeEnv(repoDirFor(config, slug), config.targetRepo.defaultBranch, realFakeEnvDeps);
+  // The project profile: app folder, the project's Node (from its version
+  // file on origin) and the host install of it. A ProfileError exits 1 here.
+  const profile = await resolveProjectProfile(config, repoDirFor(config, slug), realProfileDeps);
+  logError(`[${prefix}] project: app folder ${profile.appDir}, node ${profile.nodeMajor} (${profile.versionFile ?? "host"})`);
+  const fake = await writeFakeEnv(repoDirFor(config, slug), config.targetRepo.defaultBranch, profile, realFakeEnvDeps);
   logError(`[${prefix}] ${fakeEnvSummary(fake)}`);
   await sandboxSelection.adapter.preflight({
     repoRoot: REPO_ROOT,
@@ -354,6 +364,8 @@ async function main(): Promise<void> {
     cwd: REPO_ROOT,
     instanceName: preflightInstanceName,
     githubRepo: config.github.repo,
+    nodeMajor: profile.nodeMajor,
+    appDir: profile.appDir,
     config: sandboxSelection.config,
   });
   if (preflightOnly) {
@@ -410,6 +422,7 @@ async function main(): Promise<void> {
     slug,
     researchStance,
     sandbox: sandboxSelection,
+    profile,
   };
   try {
     // After the lock, never before: a refused second start must not remove

@@ -12,6 +12,7 @@ import {
   targetRepoAddDir,
   listAvailableProjects,
   resolveProjectConfigPath,
+  localProfile,
 } from "../../src/core/config.ts";
 import type { Config, Role } from "../../src/core/types.ts";
 import { makeV2Config } from "../fixtures/config.ts";
@@ -300,8 +301,32 @@ describe("the three project config files", () => {
     expect(c.roles.dev.pollJql).toContain("AND statusCategory != Done");
   });
 
-  it("catalog-ui-* keep their v1 labels until cutover", async () => {
-    for (const project of ["catalog-ui-management", "catalog-ui-public"]) {
+  it("catalog-ui-management config: v2 labels, sbx block, local profile, no assignee clause", async () => {
+    const { preflight } = await import("../../src/core/cli-args.ts");
+    const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")) as { version: string };
+    const c = await loadConfig(path.join(REPO_ROOT, "pipeline.catalog-ui-management.config.json"));
+    expect(() => preflight(c, "worker", pkg.version)).not.toThrow();
+    expect(c.roles.research.triggerLabel).toBe("pipeline:v2");
+    expect(c.roles.research.handoffLabel).toBe("pipeline:v2:dev");
+    expect(c.roles.dev.triggerLabel).toBe("pipeline:v2:dev");
+    expect(c.roles.dev.pollJql).not.toMatch(/assignee/);
+    expect(c.roles.research.pollJql).toContain('AND labels != "dev-loop-eval"');
+    expect(c.roles.dev.pollJql).toContain('AND labels != "dev-loop-eval"');
+    expect(c.sandbox?.sbx).toMatchObject({ template: "docker.io/library/dev-loop-sbx:v2-node26" });
+    expect(c.sandbox?.mode).toBe("discover");
+    expect(localProfile(c)).toEqual({
+      appDir: "app",
+      versionFile: "app/.nvmrc",
+      envTemplate: { path: "app/.env.example", format: "dotenv" },
+      realEnvFiles: ["app/.env.local"],
+      robotEnv: {},
+      devCommand: "npm run dev",
+      devUrl: "http://localhost:3000",
+    });
+  });
+
+  it("catalog-ui-public keeps its v1 labels until cutover", async () => {
+    for (const project of ["catalog-ui-public"]) {
       const c = await loadConfig(path.join(REPO_ROOT, `pipeline.${project}.config.json`));
       expect(c.roles.research.triggerLabel).toBe("pipeline:research");
       expect(c.roles.research.handoffLabel).toBe("pipeline:dev");
@@ -317,7 +342,7 @@ describe("the three project config files", () => {
  *     pollJql.refine, ...; dev read dev-loop's copy: jira.handoffLabel as its
  *     poll {label} (buildDevJql), pollJql.dev, codeReviewFields, ...
  *   - Intended differences, and only these:
- *       webtarsthree: triggerLabel/handoffLabel (v2 labels); dev pollJql
+ *       webtarsthree and catalog-ui-management: triggerLabel/handoffLabel (v2 labels); dev pollJql
  *         (assignee clause dropped); both pollJqls gain the dev-loop-eval
  *         exclusion (asserted exactly below).
  *       a legacy dev value that was "___" takes research's real value
@@ -381,7 +406,8 @@ describe("per-role equivalence with the legacy config files", () => {
     const config = await loadConfig(path.join(REPO_ROOT, `pipeline.${project}.config.json`));
     const actual = { ...roleView(config, role) } as Record<string, unknown>;
     const expected = expectedView(project, role);
-    if (project === "webtarsthree") {
+    // catalog-ui-management moved to v2 the same way (project profiles, 2026-11-20).
+    if (project === "webtarsthree" || project === "catalog-ui-management") {
       for (const k of ["triggerLabel", "handoffLabel"]) {
         delete actual[k];
         delete expected[k];
@@ -525,13 +551,13 @@ describe("checkLabelVersion", () => {
     }
   });
 
-  it("the catalog-ui-* configs are refused (v1 labels until cutover); webtarsthree passes", async () => {
-    for (const project of ["catalog-ui-management", "catalog-ui-public"]) {
-      const c = await loadConfig(path.join(REPO_ROOT, `pipeline.${project}.config.json`));
-      expect(checkLabelVersion(c, "2.0.0").ok).toBe(false);
+  it("catalog-ui-public is refused (v1 labels until cutover); webtarsthree and catalog-ui-management pass", async () => {
+    const pub = await loadConfig(path.join(REPO_ROOT, "pipeline.catalog-ui-public.config.json"));
+    expect(checkLabelVersion(pub, "2.0.0").ok).toBe(false);
+    for (const project of ["webtarsthree", "catalog-ui-management"]) {
+      const w = await loadConfig(path.join(REPO_ROOT, `pipeline.${project}.config.json`));
+      expect(checkLabelVersion(w, "2.0.0")).toEqual({ ok: true });
     }
-    const w = await loadConfig(path.join(REPO_ROOT, "pipeline.webtarsthree.config.json"));
-    expect(checkLabelVersion(w, "2.0.0")).toEqual({ ok: true });
   });
 });
 
@@ -691,5 +717,76 @@ describe("shipped configs use the major-only label", () => {
       expect(c.roles.research.handoffLabel).toBe("pipeline:v2:dev");
       expect(c.roles.dev.triggerLabel).toBe("pipeline:v2:dev");
     }
+  });
+});
+
+describe("targetRepo.local", () => {
+  const CATALOG = {
+    appDir: "app",
+    node: { versionFile: "app/.nvmrc" },
+    envTemplate: { path: "app/.env.example", format: "dotenv" },
+    realEnvFiles: ["app/.env.local"],
+    robotEnv: {},
+    devCommand: "npm run dev",
+    devUrl: "http://localhost:3000",
+  };
+  const withLocal = (local: unknown): unknown =>
+    makeV2Config((c) => {
+      (c.targetRepo as unknown as Record<string, unknown>).local = local;
+    });
+
+  it("no local block gives today's defaults", () => {
+    expect(localProfile(validateConfig(makeV2Config()))).toEqual({
+      appDir: ".",
+      versionFile: null,
+      envTemplate: { path: ".envrc.example", format: "export" },
+      realEnvFiles: [],
+      robotEnv: {},
+      devCommand: "npm run dev",
+      devUrl: "http://localhost:3000",
+    });
+  });
+
+  it("accepts catalog's block", () => {
+    const { node, ...rest } = CATALOG;
+    expect(localProfile(validateConfig(withLocal(CATALOG)))).toEqual({ ...rest, versionFile: node.versionFile });
+  });
+
+  it("an empty local block gives the defaults", () => {
+    expect(localProfile(validateConfig(withLocal({}))).appDir).toBe(".");
+  });
+
+  it.each(["../x", "/abs", "app/", "", "a/../b", "app\\x", "./app"])("rejects appDir %s", (appDir) => {
+    expect(() => validateConfig(withLocal({ appDir }))).toThrow(ConfigError);
+    expect(() => validateConfig(withLocal({ appDir }))).toThrow(/targetRepo\.local\.appDir/);
+  });
+
+  it.each([
+    ["node.versionFile", { node: { versionFile: "../x" } }],
+    ["envTemplate.path", { envTemplate: { path: "../x", format: "dotenv" } }],
+    ["realEnvFiles", { realEnvFiles: ["../x"] }],
+    ["node.versionFile", { node: { versionFile: "." } }],
+  ])("rejects a bad relative path in %s", (field, local) => {
+    expect(() => validateConfig(withLocal(local))).toThrow(new RegExp(`targetRepo\\.local\\.${field.replace(".", "\\.")}`));
+  });
+
+  it("rejects an unknown format", () => {
+    expect(() => validateConfig(withLocal({ envTemplate: { path: "a.env", format: "yaml" } }))).toThrow(/envTemplate\.format/);
+  });
+
+  it("rejects robotEnv names that change how commands run", () => {
+    expect(() => validateConfig(withLocal({ robotEnv: { PATH: "x" } }))).toThrow(/robotEnv/);
+    expect(() => validateConfig(withLocal({ robotEnv: { "bad name": "x" } }))).toThrow(/robotEnv/);
+    expect(() => validateConfig(withLocal({ robotEnv: { OK: 1 } }))).toThrow(/robotEnv/);
+  });
+
+  it("rejects unknown keys in local", () => {
+    expect(() => validateConfig(withLocal({ appdir: "app" }))).toThrow(/unknown key "appdir"/);
+  });
+
+  it("devUrl must be http(s)://localhost or 127.0.0.1", () => {
+    expect(() => validateConfig(withLocal({ devUrl: "https://int.example.com" }))).toThrow(/devUrl/);
+    expect(() => validateConfig(withLocal({ devUrl: "http://localhost.evil.com" }))).toThrow(/devUrl/);
+    expect(localProfile(validateConfig(withLocal({ devUrl: "http://127.0.0.1:5173/x" }))).devUrl).toBe("http://127.0.0.1:5173/x");
   });
 });

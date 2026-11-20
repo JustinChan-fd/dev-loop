@@ -142,8 +142,8 @@ describe("evals harness, dry run", () => {
     expect(readFileSync(join(stateDir, "keys.dry"), "utf8").trim().split("\n")).toEqual(["DRY-1"]);
   });
 
-  it("run.sh --all dry-runs all five scenarios without calling a stub", () => {
-    const r = run("run.sh", ["--all"]);
+  it("run.sh --all dry-runs the five root-layout scenarios without calling a stub", () => {
+    const r = run("run.sh", ["--all"], { EVAL_APP_CHECKOUT: join(tmp, "checkout") });
     expect(r.status, r.stderr).toBe(0);
     expect(stubsCalled()).toEqual([]);
     for (const name of ["clean", "ambiguous", "dev-bounce", "blocked", "queue"]) {
@@ -152,7 +152,7 @@ describe("evals harness, dry run", () => {
     // queue works two tickets: two loop iterations.
     const out = r.stdout + r.stderr;
     const queueLoops = out
-      .slice(out.indexOf("[eval] scenario queue\n"))
+      .slice(out.indexOf("[eval] scenario queue\n"), out.indexOf("[eval] scenario clean-app\n"))
       .split("\n")
       .filter((l) => l.includes("npm run loop"));
     expect(queueLoops.length).toBe(2);
@@ -268,6 +268,110 @@ describe("evals harness, dry run", () => {
     const r = run("reset.sh", ["--write"]);
     expect(r.status).toBe(0);
     expect(r.stdout + r.stderr).not.toContain("rm -rf");
+  });
+
+  // The app-layout scenario (project profiles): its checkout lives outside dev-loop's folder.
+  const appEnv = () => ({ EVAL_APP_CHECKOUT: join(tmp, "checkout") });
+
+  it("run.sh clean-app dry-runs on the rendered app config, and plants the canary only through outward", () => {
+    const r = run("run.sh", ["clean-app"], appEnv());
+    expect(r.status, r.stderr).toBe(0);
+    expect(stubsCalled()).toEqual([]);
+    const all = lines(r);
+    expect(all.filter((l) => !l.startsWith("DRY: ") && !l.startsWith("[eval] "))).toEqual([]);
+    const cfg = join(stateDir, "pipeline.eval-app.config.json");
+    const loop = all.find((l) => l.startsWith("DRY: ") && l.includes("npm run loop"));
+    expect(loop).toContain(`--config=${cfg}`);
+    expect(all.some((l) => l.startsWith("DRY: ") && l.includes("evals/check-clean-app.mjs") && l.includes(`--canary-file=${join(stateDir, "canary")}`))).toBe(true);
+    expect(all.some((l) => l.startsWith("DRY: ") && l.includes("app/.env.local"))).toBe(true);
+    // A dry run writes no canary anywhere.
+    expect(existsSync(join(tmp, "checkout", "app", ".env.local"))).toBe(false);
+    expect(existsSync(join(stateDir, "canary"))).toBe(false);
+  });
+
+  it("run.sh empties a scenario's loop log before its run, so the grader never reads an old startup line", () => {
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, "loop-clean.log"), "robot env: 3 fake setting(s) from app/.env.example\n");
+    const r = run("run.sh", ["clean"]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(join(stateDir, "loop-clean.log"), "utf8")).toBe("");
+  });
+
+  it("EVAL_SANDBOX=sbx adds --sandbox=sbx to the loop line; none adds nothing", () => {
+    const sbx = run("run.sh", ["clean"], { EVAL_SANDBOX: "sbx" });
+    expect(sbx.status, sbx.stderr).toBe(0);
+    expect(lines(sbx).find((l) => l.includes("npm run loop"))).toContain("--sandbox=sbx");
+    const none = run("run.sh", ["clean"], { EVAL_SANDBOX: "none" });
+    expect(none.status, none.stderr).toBe(0);
+    expect(lines(none).find((l) => l.includes("npm run loop"))).not.toContain("--sandbox");
+  });
+
+  it("EVAL_SANDBOX=docker is refused before anything runs", () => {
+    const r = run("run.sh", ["clean"], { EVAL_SANDBOX: "docker" });
+    expect(r.status).not.toBe(0);
+    expect(r.stdout + r.stderr).toMatch(/EVAL_SANDBOX/);
+    expect(r.stdout + r.stderr).not.toContain("DRY: ");
+    expect(stubsCalled()).toEqual([]);
+  });
+
+  it("run.sh --all dry-runs six scenarios", () => {
+    const r = run("run.sh", ["--all"], appEnv());
+    expect(r.status, r.stderr).toBe(0);
+    const graders = new Set([...(r.stdout + r.stderr).matchAll(/evals\/check-([\w-]+)\.mjs/g)].map((m) => m[1]));
+    expect([...graders].sort()).toEqual(["ambiguous", "blocked", "clean", "clean-app", "dev-bounce", "queue"]);
+  });
+
+  it("seed-app.sh dry echoes a push only to the sandbox repo, and refuses another repo", () => {
+    const r = run("seed-app.sh", [], appEnv());
+    expect(r.status, r.stderr).toBe(0);
+    expect(stubsCalled()).toEqual([]);
+    const all = lines(r);
+    expect(all.filter((l) => !l.startsWith("DRY: ") && !l.startsWith("[eval] "))).toEqual([]);
+    expect(all.some((l) => /^DRY: git .* push origin/.test(l))).toBe(true);
+    expect(all.some((l) => l.startsWith("DRY: ") && l.includes("JustinChan-fd/dev-loop-eval-sandbox"))).toBe(true);
+    const other = run("seed-app.sh", [], { ...appEnv(), EVAL_REPO: "other/repo" });
+    expect(other.status).not.toBe(0);
+    expect(other.stdout + other.stderr).not.toContain("DRY: ");
+  });
+
+  it("reset.sh --write (dry) lists the canary files to remove", () => {
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, "keys"), "TARS-9001\n");
+    const r = run("reset.sh", ["--write"], appEnv());
+    expect(r.status, r.stderr).toBe(0);
+    const out = r.stdout + r.stderr;
+    expect(out).toMatch(/DRY: rm -f .*checkout\/app\/\.env\.local/);
+    expect(out).toMatch(/DRY: rm -f .*checkout\/\.envrc/);
+  });
+
+  it("the rendered eval-app config loads through the real loader and passes the guard", async () => {
+    const out = join(tmp, "eval-app.json");
+    const checkout = join(tmp, "checkout");
+    const r = spawnSync("bash", ["-c", `. "${join(ROOT, "evals", "lib.sh")}"; render_app_config "$1" "$2"`, "_", checkout, out], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH ?? "", DRY_RUN: "1" },
+    });
+    expect(r.status, r.stderr).toBe(0);
+    const c = await loadConfig(out);
+    expect(c.targetRepo.path).toBe(checkout);
+    expect(c.targetRepo.local?.appDir).toBe("app");
+    expect(checkEvalConfig(c, "2.0.0")).toEqual([]);
+  });
+
+  it("the guard refuses an app checkout inside dev-loop's folder, or one whose origin is not the sandbox", async () => {
+    const out = join(tmp, "eval-app.json");
+    spawnSync("bash", ["-c", `. "${join(ROOT, "evals", "lib.sh")}"; render_app_config "$1" "$2"`, "_", join(ROOT, ".pipeline", "x"), out], {
+      env: { PATH: process.env.PATH ?? "", DRY_RUN: "1" },
+    });
+    expect(checkEvalConfig(await loadConfig(out), "2.0.0").join("\n")).toMatch(/targetRepo\.path/);
+    const other = join(tmp, "other");
+    mkdirSync(other);
+    spawnSync("git", ["init", "-q", other]);
+    spawnSync("git", ["-C", other, "remote", "add", "origin", "git@github.com:fandango/webtarsthree.git"]);
+    spawnSync("bash", ["-c", `. "${join(ROOT, "evals", "lib.sh")}"; render_app_config "$1" "$2"`, "_", other, out], {
+      env: { PATH: process.env.PATH ?? "", DRY_RUN: "1" },
+    });
+    expect(checkEvalConfig(await loadConfig(out), "2.0.0").join("\n")).toMatch(/origin/);
   });
 });
 
@@ -415,7 +519,7 @@ describe("evals lib guards", () => {
       }
     };
     walk(join(ROOT, "evals"));
-    expect(files.length).toBeGreaterThanOrEqual(9);
+    expect(files.length).toBeGreaterThanOrEqual(11);
     // Outside heredoc bodies, comments and quoted strings, any gh/curl/npm/
     // claude word, and any node call of jira.mjs or a check-*.mjs, must come
     // after `outward` on its line (lib.sh's `api`/`jira` wrap it themselves).

@@ -43,8 +43,11 @@ hypothesis doesn't pan out, try a different angle before reporting
   toward — this worktree gets removed after the run regardless of what you
   find); delete any scratch files you create before you finish.
 - **Optionally, the local URL of the target repo's own dev server**, if
-  `ticket-refine` started one before spawning you for this run (e.g.
-  `http://localhost:3000`, proxying `/api` to a local API server). If
+  `ticket-refine` started one before spawning you for this run: the
+  `devUrl` from the loop's `<RUN_DIR>/project.json` (e.g.
+  `http://localhost:3000`, proxying `/api` to a local API server), started
+  with its `devCommand` in its `appDir`. You never start it or derive its
+  address yourself. If
   you weren't given one, this path simply isn't available to you; say so
   rather than substituting a guess at a response shape.
 
