@@ -326,7 +326,7 @@ checks the new behaviour, not only today's.
   unchanged" regression check.
 - **An app-folder layout in the sandbox.** The sandbox repo gains an `app/`
   sub-project shaped like catalog: its own `package.json` + lockfile,
-  `app/.nvmrc` (a Node major different from the host's), a plain-dotenv
+  `app/.nvmrc` = 24, dev-loop's minimum supported Node (decided by the user; behind the latest LTS, so phase 2's check fires; a project Node different from the host's is covered by unit tests and by catalog's 26), a plain-dotenv
   `app/.env.example`, and a husky-style pre-push that runs `cd app && npm test`.
   A second config, `pipeline.eval-app.config.json`, points at the same repo
   with a `local` block (`appDir: "app"`, version file, dotenv template).
