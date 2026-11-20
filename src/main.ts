@@ -182,10 +182,10 @@ async function reconcile(
   }
 }
 
-/** execFile with a large buffer; rejects with stderr on a non-zero exit. `timeoutMs` kills the child. */
-function runCmd(cmd: string, args: string[], cwd: string, timeoutMs?: number): Promise<string> {
+/** execFile with a large buffer; rejects with stderr on a non-zero exit. `timeoutMs` kills the child; `env` defaults to process.env. */
+function runCmd(cmd: string, args: string[], cwd: string, timeoutMs?: number, env: NodeJS.ProcessEnv = process.env): Promise<string> {
   return new Promise((resolveP, reject) => {
-    execFile(cmd, args, { cwd, env: process.env, maxBuffer: 64 * 1024 * 1024, ...(timeoutMs ? { timeout: timeoutMs } : {}) }, (err, stdout, stderr) => {
+    execFile(cmd, args, { cwd, env, maxBuffer: 64 * 1024 * 1024, ...(timeoutMs ? { timeout: timeoutMs } : {}) }, (err, stdout, stderr) => {
       if (err) reject(new Error(String(stderr).trim() || err.message));
       else resolveP(String(stdout));
     });
@@ -262,6 +262,8 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
               git: realGit(),
               spawn: (opts) => spawnClaudeRun(opts, { log, logError }),
               run: runCmd,
+              appDir: ctx.profile.appDir,
+              nodeBin: ctx.profile.nodeBin,
               findOpenPrUrlForBranch: realOpenPrUrlForBranch(config.github.repo),
               pushBranchSkill,
               timeoutMin: 20,
