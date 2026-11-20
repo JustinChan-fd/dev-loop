@@ -58,6 +58,8 @@ Then set
 `sandbox.sbx` block. Packages live in `sandbox/sbx/template.sh`. Updating,
 upgrading node and rolling back:
 [adapters/sbx/templates.md](adapters/sbx/templates.md).
+The image's Node must match the project's (its `targetRepo.local.node.versionFile`),
+not the host's; a project on another major gets its own image (one per major).
 
 ## 2. GitHub token
 

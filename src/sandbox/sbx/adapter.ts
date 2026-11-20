@@ -274,10 +274,13 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
       // A never-cloned repo has no real env file and no fake yet: nothing to check.
       const repoDir = ctx.repoDir !== undefined && existsSync(join(ctx.repoDir, ".git")) ? ctx.repoDir : undefined;
       if (repoDir !== undefined && !coverable(ctx.mounts, repoDir)) {
-        // Inside another mount (the v2 clone under dev-loop's root): its top can't be left out.
-        const found = listDir(repoDir).filter((n) => /^\.env/i.test(n) && !n.endsWith(".example")).sort();
-        if (found.length > 0) {
-          throw new Error(`${found[0]} is in ${repoDir}, which the sandbox can read (it is inside dev-loop's folder): remove it; the robot uses the fake env`);
+        // Inside another mount (the v2 clone under dev-loop's root): its top, and its app folder, can't be left out.
+        const dirs = ctx.appDir && ctx.appDir !== "." ? [repoDir, join(repoDir, ctx.appDir)] : [repoDir];
+        for (const dir of dirs) {
+          const found = listDir(dir).filter((n) => /^\.env/i.test(n) && !n.endsWith(".example")).sort();
+          if (found.length > 0) {
+            throw new Error(`${found[0]} is in ${dir}, which the sandbox can read (it is inside dev-loop's folder): remove it; the robot uses the fake env`);
+          }
         }
       }
       if (repoDir !== undefined && !existsSync(fakeEnvPaths(repoDir).envrc)) {
@@ -331,10 +334,14 @@ export function makeSbxAdapter(deps: SbxAdapterDeps): SandboxAdapter {
           r = await run(["exec", name, "sh", "-c", check]);
         }
         const tries = repo !== undefined && flakyGithubStep(r) !== undefined ? GITHUB_TRIES : 1;
-        if (r.code === 0 && !r.timedOut && nodeMajor(r.stdout) === hostNodeMajor) return;
+        // The project's Node (its version file), else the host's.
+        const want = ctx.nodeMajor ?? hostNodeMajor;
+        if (r.code === 0 && !r.timedOut && nodeMajor(r.stdout) === want) return;
         if (r.timedOut || r.code === EXEC_INFRA_EXIT) throw new Error(`sbx preflight failed: ${firstLine(r.stderr)}`);
-        if (nodeMajor(r.stdout) !== hostNodeMajor) {
-          throw new Error(`sandbox image has no node ${hostNodeMajor}: add node to the template (see docs/sandbox-sbx.md)`);
+        if (nodeMajor(r.stdout) !== want) {
+          throw new Error(
+            `sandbox image has no node ${want}: build one with npm run sbx:template:build -- --tag=v2-node${want} --node=${want} and set sandbox.sbx.template (see docs/adapters/sbx/templates.md)`,
+          );
         }
         // The && chain stops at the first failure; the last line printed names the step after it.
         const last = [...r.stdout.matchAll(/^dl-step:(\w+)$/gm)].at(-1)?.[1];

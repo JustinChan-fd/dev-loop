@@ -362,6 +362,8 @@ async function main(): Promise<void> {
     cwd: REPO_ROOT,
     instanceName: preflightInstanceName,
     githubRepo: config.github.repo,
+    nodeMajor: profile.nodeMajor,
+    appDir: profile.appDir,
     config: sandboxSelection.config,
   });
   if (preflightOnly) {
