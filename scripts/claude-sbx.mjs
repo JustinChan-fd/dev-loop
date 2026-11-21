@@ -159,7 +159,7 @@ switch (cmd) {
     if (overnight) {
       const inSandbox = `${SANDBOX_OVERNIGHT_DIR}/in/${relative(join(repo, ".overnight", "in"), prompt)}`;
       const ask = [
-        `Read ${inSandbox} and do what it says. Your clone is ${repo}. Inputs: ${SANDBOX_OVERNIGHT_DIR}/in (read-only). Write your report to ${SANDBOX_OVERNIGHT_DIR}/out.`,
+        `Read ${inSandbox} and do what it says. Your clone is ${repo} (always use this absolute path: HOME here is /home/agent, so ~ is not the Mac's home). The host checkout, ignored files included, is readable at /run/sandbox/source. Inputs: ${SANDBOX_OVERNIGHT_DIR}/in (read-only). Write your report to ${SANDBOX_OVERNIGHT_DIR}/out.`,
         "You cannot push; commit on branches and the host syncs them. In this clone `origin` is the host's checkout, so the host's other branches are origin/<name> (git show origin/<name>:<path>, or git checkout -b <name> origin/<name>).",
         "This is one unattended run: stay in your turn until the work and the report are done. Background subagents are fine, but wait for them; when your turn ends, the run ends.",
       ].join(" ");
