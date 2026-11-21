@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { loadConfig } from "../../src/core/config.ts";
 import { checkEvalConfig, SANDBOX_REPO } from "../../evals/config-guard.mjs";
 import { summarize } from "../../evals/report.mjs";
@@ -437,6 +437,35 @@ describe("evals lib guards", () => {
       expect(pushBad.stderr).toMatch(/push/);
       spawnSync("git", ["-C", dir, "remote", "set-url", "--push", "origin", "https://github.com/JustinChan-fd/dev-loop-eval-sandbox.git"]);
       expect(sh(`assert_clone "${dir}" && echo ok`).stdout).toContain("ok");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("assert_clone still refuses a folder inside a repo (not its root)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "eval-sub-"));
+    try {
+      spawnSync("git", ["init", "-q", dir]);
+      spawnSync("git", ["-C", dir, "remote", "add", "origin", "git@github.com:JustinChan-fd/dev-loop-eval-sandbox.git"]);
+      mkdirSync(join(dir, "inner"));
+      const r = sh(`assert_clone "${join(dir, "inner")}" && echo ok`);
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toContain("git root mismatch");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("assert_clone accepts the same clone reached through a differently-cased path (case-insensitive macOS)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "eval-case-"));
+    try {
+      spawnSync("git", ["init", "-q", dir]);
+      spawnSync("git", ["-C", dir, "remote", "add", "origin", "git@github.com:JustinChan-fd/dev-loop-eval-sandbox.git"]);
+      const upper = join(dirname(dir), basename(dir).toUpperCase());
+      if (!existsSync(upper)) return; // case-sensitive filesystem: nothing to check
+      const r = sh(`assert_clone "${upper}" && echo ok`);
+      expect(r.stderr).not.toContain("git root mismatch");
+      expect(r.stdout).toContain("ok");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

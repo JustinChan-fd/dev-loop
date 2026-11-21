@@ -130,9 +130,14 @@ is_sandbox_url() { local u; for u in $SANDBOX_URLS; do [ "$1" = "$u" ] && return
 # Refuse git work anywhere except a clone whose origin (fetch AND push URL)
 # is the sandbox.
 assert_clone() {
-  local d=$1 top url push
+  local d=$1 top prefix url push
   top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || die "not a git repo: $d"
-  [ "$top" = "$(cd "$d" && pwd -P)" ] || die "git root mismatch for $d (got $top)"
+  # d must BE the repo root, not a folder inside some other repo. Ask git
+  # (an empty prefix means the root) instead of comparing path spellings:
+  # on case-insensitive macOS ~/Desktop/repos and ~/Desktop/Repos are one
+  # folder, and pwd -P keeps whichever case the caller typed.
+  prefix=$(git -C "$d" rev-parse --show-prefix 2>/dev/null) || die "not a git repo: $d"
+  [ -z "$prefix" ] || die "git root mismatch for $d (it is $prefix inside $top)"
   url=$(git -C "$d" remote get-url origin 2>/dev/null) || die "no origin in $d"
   is_sandbox_url "$url" || die "origin of $d is not the sandbox repo: $url"
   push=$(git -C "$d" remote get-url --push origin 2>/dev/null) || die "no origin push URL in $d"

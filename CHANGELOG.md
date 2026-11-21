@@ -42,6 +42,12 @@ POC showed but no AC covered, behind a "this spec wins" clause).
   `roles.research.attachmentCoverageWarnRuns` (default 5) runs, then refused.
 - `[research]` `size_estimate` and `ac_count` are logged on every research
   run, bounced ones too, so estimate can be compared with actual.
+- `[core]` **Evals run from either path case.** `evals/lib.sh` `assert_clone`
+  compared `git rev-parse --show-toplevel` with `pwd -P`, which keep different
+  cases on case-insensitive macOS, so a run from `~/Desktop/repos/dev-loop`
+  failed preflight with "git root mismatch" (the user's live `clean` eval,
+  2026-11-20). It now asks git whether the folder is the repo root
+  (`--show-prefix` empty); a folder inside another repo is still refused.
 - `[dev]` A landed dev entry records its PR's `diff_stats`
   (`gh pr view --json changedFiles,additions,deletions`). One-off backfill
   for older PRs: `scripts/backfill-diff-stats.mjs` (writes a sidecar, never
