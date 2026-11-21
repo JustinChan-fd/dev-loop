@@ -867,6 +867,20 @@ fandango-scoped and can't reach a user-owned repo. Sync re-signs on the
 host, and the user pushes. **Trigger**: syncing by hand becomes the
 bottleneck.
 
+### Limits for `claude:sbx --overnight` (deadline, idle stop)
+
+**Idea**: `--deadline=HH:MM` and `--idle-minutes=N` on `--overnight`, with
+defaults. When a limit trips, the run is stopped (`screen -X quit`, then
+`sbx stop`, never `rm`, so its commits stay syncable) and the log says which
+limit it was. The decisions are pure functions with tests. **Evidence**: the
+first overnight runs (2026-11-21). With `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`
+nothing ends a run that is stuck or past morning. A one-night host script
+(`/tmp/overnight-watchdog.sh`, written by the overnight session) did this
+from outside: no commit or file change in 60 minutes, no `claude` process
+left, the sandbox unreachable, or 07:00. **Gap it leaves**: a fix-and-fail
+loop that keeps editing files counts as activity. A cap on turns or cost
+would cover that. **Trigger**: the next `--overnight` run.
+
 ### `claude:sbx` from a git worktree
 
 **Idea**: let `npm run claude:sbx` start from a worktree. **Today**: sbx
