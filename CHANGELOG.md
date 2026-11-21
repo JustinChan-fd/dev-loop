@@ -69,6 +69,17 @@ permissions bypassed.
   `docs/sandbox-sbx.md` "Dev-loop sessions" show the two commands side by
   side. The guide is now v1.1.0: pillar 06 "We follow our own rules" and
   section 05 "How we build dev-loop".
+- `[core]` **Sync counts only the sandbox's own commits.** Found in the
+  user's smoke run (2026-11-21). `smoke/test` was cut from the unmerged
+  `feat/claude-sbx`, and sync measured "new" against `main`. It counted the
+  host's own 4 unmerged commits (which touch `CLAUDE.md` and `package.json`)
+  as sandbox work and held the branch as protected. That was safe (nothing
+  was created or moved) but wrong. "New" is now what no host branch, tag or
+  `origin` ref has. Those commits are re-signed on top of the host commit
+  they grew from, and the "look" line diffs from that commit, not `main`.
+  The first `--overnight` run started 2026-11-21 inside a session sandbox:
+  both overnight branches were cut off `main`, and the only blocked host was
+  `api.github.com`.
 - **Bend, written down:** this change was built in a host session, not in
   `claude:sbx`, because the launcher didn't exist yet. Every later change
   to dev-loop is offered `claude:sbx` first.

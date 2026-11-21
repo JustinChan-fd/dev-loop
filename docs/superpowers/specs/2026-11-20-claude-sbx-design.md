@@ -1,7 +1,9 @@
 # claude:sbx — dev-loop sessions inside sbx (2026-11-20)
 
-Status: built on `feat/claude-sbx` (on top of `feat/guide-versioning`); merge
-pending the user's smoke run and review.
+Status: built on `feat/claude-sbx` (on top of `feat/guide-versioning`). The
+user's smoke run passed on 2026-11-21, after the sync fix it found. The first
+`--overnight` run was launched the same night. Merge is pending the user's
+review.
 
 ## Why
 The robot runs in sbx for target repos, but work on dev-loop's own code

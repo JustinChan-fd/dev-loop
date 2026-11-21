@@ -105,7 +105,7 @@ export async function syncSandboxBranches(a: SyncArgs): Promise<BranchSync[]> {
       files: files.length,
       hits: protectedHits(touched, a.protectedPaths),
     };
-    const row = (status: BranchSync["status"], detail?: string): BranchSync[] => [{ branch, status, ...stats, ...(detail ? { detail } : {}) }];
+    const row = (status: BranchSync["status"], detail?: string): BranchSync[] => [{ branch, status, ...stats, ...(detail ? { detail } : {}), base }];
 
     if (branch.toLowerCase() === a.defaultBranch.toLowerCase()) {
       return row("exists", `commits on ${branch} in the sandbox; your ${a.defaultBranch} was not moved (read them: git log ${a.defaultBranch}..${remote}/${branch})`);

@@ -65,7 +65,7 @@ describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
     const boxTree = await b("rev-parse", "HEAD^{tree}");
 
     const r = await run();
-    expect(r).toEqual([{ branch: "feat/a", status: "synced", commits: 2, adds: 3, dels: 0, files: 2, hits: [] }]);
+    expect(r).toEqual([{ branch: "feat/a", status: "synced", commits: 2, adds: 3, dels: 0, files: 2, hits: [], base: await h("rev-parse", "main") }]);
     expect(await h("rev-parse", "feat/a^{tree}")).toBe(boxTree);
     const sigs = (await h("log", "--format=%G? %ae %s", "main..feat/a")).split("\n");
     expect(sigs).toEqual(["G t@example.com two", "G t@example.com one"]);
@@ -250,7 +250,7 @@ describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
     await boxCommit("SMOKE.md", "smoke\n", "smoke");
     const r = await run();
     expect(r.find((x) => x.branch === "feat/host")).toBeUndefined(); // nothing new there
-    expect(r.find((x) => x.branch === "smoke/test")).toEqual({ branch: "smoke/test", status: "synced", commits: 1, adds: 1, dels: 0, files: 1, hits: [] });
+    expect(r.find((x) => x.branch === "smoke/test")).toEqual({ branch: "smoke/test", status: "synced", commits: 1, adds: 1, dels: 0, files: 1, hits: [], base: hostTip });
     // Re-signed on top of the host's own commit, which is untouched.
     expect(await h("rev-parse", "smoke/test~1")).toBe(hostTip);
     expect(await h("log", "-1", "--format=%G?", "smoke/test")).toBe("G");

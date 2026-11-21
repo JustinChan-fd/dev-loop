@@ -250,6 +250,8 @@ export interface BranchSync {
   files: number;
   hits: string[];
   detail?: string;
+  /** The host commit the sandbox's new commits grew from (diff from here to see only them). */
+  base?: string;
 }
 
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -273,13 +275,14 @@ export function renderSyncSummary(name: string, branches: BranchSync[], reports:
   if (synced.length > 0) {
     out.push("", "Next:");
     for (const b of synced) {
-      out.push(`  git diff main...${b.branch}                           # look`);
+      out.push(`  git diff ${b.base ? `${b.base}..` : "main..."}${b.branch}   # look: only the sandbox's commits`);
       out.push(`  git push -u origin ${b.branch} && gh pr create        # keep: you push, then merge the PR`);
       out.push(`  git branch -D ${b.branch}                             # drop`);
     }
   }
   if (branches.some((b) => b.status === "protected")) {
-    out.push("", `Protected files changed. Read every commit first: git log -p main..sandbox-${name}/<branch>`);
+    out.push("", "Protected files changed. Read every commit first:");
+    for (const b of branches.filter((x) => x.status === "protected")) out.push(`  git log -p ${b.base ?? "main"}..sandbox-${name}/${b.branch}`);
     out.push(`Then, only if you approve: npm run claude:sbx:sync -- --name=${name} --allow-protected`);
   }
   return out.join("\n");

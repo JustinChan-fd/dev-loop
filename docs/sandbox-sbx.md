@@ -401,7 +401,7 @@ Synced from sandbox "dl-session-20261120-224501" (checked and re-signed, nothing
 Report: .overnight/out/report.md
 
 Next:
-  git diff main...feat/run-watcher                           # look
+  git diff 4a59aaa..feat/run-watcher   # look: only the sandbox's commits
   git push -u origin feat/run-watcher && gh pr create        # keep: you push, then merge the PR
   git branch -D feat/run-watcher                             # drop
 ```
@@ -410,8 +410,37 @@ Next:
 admins too), so every change reaches `main` through a PR you merge. Remove the
 sandbox when you're done: `sbx rm <name>`.
 
+**What counts as the sandbox's work.** Sync counts only commits that none of
+your branches, tags or `origin` already has, and re-signs them on top of the
+host commit they grew from. A sandbox branch cut from your unmerged
+`feat/x` brings back only its own commits; the "look" line diffs from that
+commit, not from `main`.
+
+### Reading what you see
+
+- **Inside the clone, `origin` is your Mac's checkout**, not GitHub. Your local
+  branches show up there as `origin/<branch>`, so "tracks origin/feat/x" means
+  "came from your Mac", not that it was pushed. GitHub has only what you push.
+- **The overnight log stays quiet** until `claude -p` finishes; it prints its
+  answer at the end. To see progress meanwhile, look without changing anything:
+  `screen -r <name>` (Ctrl-a d to leave it running), or list what it has made:
+  `echo 'git -C <repo> branch; git -C <repo> worktree list' | sbx exec -i <name> sh -s`.
+- **The dashboard's network log** (`npm run sbx:dashboard`) for a session
+  sandbox: `api.github.com`, `github.com` (443 and 22) are blocked by the
+  session's deny rules, and `raw.githubusercontent.com` by the default deny.
+  Allowed: `nexus3.mgo.com` (npm), the Bedrock gateway, `downloads.claude.ai`,
+  and sbx's own start-up traffic (`deb.debian.org`, `deb.nodesource.com`,
+  `dhi.io`, `api.anthropic.com`, `mcp-gateway.docker.internal`). The sandbox
+  info panel lists only allow rules; `sbx policy ls <name>` shows the
+  "deny 2 hosts" too. The "block" next to a host is a button, not a status.
+
 Checked live 2026-11-20 (sbx v0.54.0): the clone, the read-only source, the
 GitHub deny (403 from inside), nexus3 `npm ci` plus the vitest and tsc runs
 inside, the superpowers plugin through `--plugin-dir`, the whole checkout
 readable at `/run/sandbox/source`, and a sync that re-signed one branch and
-held back one that touched `CLAUDE.md`.
+held back one that touched `CLAUDE.md`. Smoke run by the user 2026-11-21: an
+attended `npm run claude:sbx` from the branch's worktree; inside, the check,
+`npm ci` and the guide tests, the superpowers skills and the GitHub 403
+passed; a sandbox commit on `smoke/test` (cut from the unmerged
+`feat/claude-sbx`) came back as one commit signed `G` with its
+`Sandbox-Commit:` trailer.

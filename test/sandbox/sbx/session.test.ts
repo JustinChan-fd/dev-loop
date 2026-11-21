@@ -201,13 +201,24 @@ describe("renderSyncSummary", () => {
     expect(s).toMatch(/feat\/x\s+1 commit\s+\+2 −0\s+1 file\s+⚠ CLAUDE\.md \(needs --allow-protected\)/);
     expect(s).toContain("Report: .overnight/out/report.md");
     expect(s).toContain("git diff main...feat/run-watcher");
+  });
+  it("diffs from the host commit the work grew from, when sync knows it (a branch cut from an unmerged one)", () => {
+    const s = renderSyncSummary("n", [{ ...ok, base: "abc1234def5678" }], []);
+    expect(s).toContain("git diff abc1234def5678..feat/run-watcher");
+    expect(s).not.toContain("git diff main...feat/run-watcher");
     expect(s).toContain("git push -u origin feat/run-watcher && gh pr create");
     expect(s).toContain("git branch -D feat/run-watcher");
+  });
+  it("names the held branch's own base in the read-first line", () => {
+    const s = renderSyncSummary("n", [{ ...prot, base: "fff0000" }], []);
+    expect(s).toContain("git log -p fff0000..sandbox-n/feat/x");
   });
   it("gives no keep/drop lines for a branch it didn't create locally", () => {
     const s = renderSyncSummary("n", [prot], []);
     expect(s).not.toContain("git push -u origin feat/x");
     expect(s).toContain("npm run claude:sbx:sync -- --name=n --allow-protected");
+    expect(s).toContain("git log -p main..sandbox-n/feat/x");
+    expect(s).not.toContain("<branch>");
   });
   it("says so when there is nothing new", () => {
     expect(renderSyncSummary("n", [], [])).toContain('No new branches in sandbox "n".');
