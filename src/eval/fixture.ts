@@ -147,7 +147,7 @@ export async function loadFixture(root: string, name: string): Promise<{ ok: tru
 
   let ticket: FixtureTicket | undefined;
   const t = await readJson(join(dir, "ticket.json"));
-  if (!t.ok) problems.push(`ticket.json: ${t.error}. Save it with \`npm run fixture:save -- <KEY> --name=${name}\` (see ${name}/PENDING.md)`);
+  if (!t.ok) problems.push(`ticket.json: ${t.error}. Save it with \`npm run fixture:save -- <KEY> --name=${name}\` (see evals/README.md, "Fixture evals")`);
   else {
     const v = validateTicket(t.value);
     if (!v.ok) problems.push(...v.errors.map((e) => `ticket.json: ${e}`));

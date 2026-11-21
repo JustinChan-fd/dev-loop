@@ -142,9 +142,10 @@ holds a secret, and never runs `git add`. Read what it wrote, set
 | Free part | `npm test` checks the dry run | `npm test` also replays saved runs |
 
 The first two fixtures are `mc-1435-xl` (the description that bounced XL)
-and `mc-1718` (the run that passed with full coverage). Each has a
-`PENDING.md` listing what's missing: `ticket.json` from `fixture:save`, and
-the pinned sha confirmed on the host.
+and `mc-1718` (the run that passed with full coverage). Both are saved
+from MC-1718 (`fixture:save`), read by hand (`reviewed: true`) and pinned
+at a sha confirmed on the host (`verified: true`). A new fixture starts
+without `ticket.json`, and the runner refuses it until both are done.
 
 ## Files
 

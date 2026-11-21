@@ -133,7 +133,11 @@ describe("evals harness, dry run", () => {
   });
 
   it("run.sh --fixture refuses an unrunnable fixture (no ticket.json yet), naming every problem, and calls no stub", () => {
-    const r = run("run.sh", ["--fixture=mc-1718"]);
+    const fx = join(tmp, "fixtures", "fx-pending");
+    mkdirSync(fx, { recursive: true });
+    writeFileSync(join(fx, "repo.json"), JSON.stringify({ project: "webtarsthree", sha: null, verified: false }));
+    writeFileSync(join(fx, "expect.json"), JSON.stringify({ outcomes: ["ready"] }));
+    const r = run("run.sh", ["--fixture=fx-pending"], { EVAL_FIXTURES_DIR: join(tmp, "fixtures") });
     expect(r.status).toBe(1);
     expect(stubsCalled()).toEqual([]);
     expect(r.stderr).toMatch(/ticket\.json: missing.*fixture:save/);
