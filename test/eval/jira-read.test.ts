@@ -18,7 +18,7 @@ describe("adfToText", () => {
   });
   it("hard breaks, mentions and links", () => {
     const t = adfToText(doc({ type: "paragraph", content: [{ type: "text", text: "a" }, { type: "hardBreak" }, { type: "mention", attrs: { text: "@Jane" } }, { type: "text", text: " see", marks: [{ type: "link", attrs: { href: "https://x.y" } }] }] }));
-    expect(t).toBe("a\n@Jane see (https://x.y)");
+    expect(t).toBe("a\n@[Jane] see (https://x.y)");
   });
   it("a plain string or nothing", () => {
     expect(adfToText("plain")).toBe("plain");

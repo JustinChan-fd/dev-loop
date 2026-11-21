@@ -192,6 +192,22 @@ describe("runFixture", () => {
     expect(r.stoppedAt).toMatch(/max-total/);
   });
 
+  it("an abort signal stops the series between runs; the current run still removes its pin", async () => {
+    const ac = new AbortController();
+    const { d, removed } = deps({ runs: 4 });
+    const inner = d.makeRunSkill;
+    d.makeRunSkill = (c) => async (a) => {
+      const r = await inner(c)(a);
+      ac.abort();
+      return r;
+    };
+    d.signal = ac.signal;
+    const r = await runFixture(d);
+    expect(r.runs).toBe(1);
+    expect(removed).toHaveLength(1);
+    expect(r.stoppedAt).toMatch(/signal/);
+  });
+
   it("caps each spawn's budget at what is left of --max-total", async () => {
     const budgets: number[] = [];
     const { d } = deps({ runs: 2, cost: 4, maxTotalUsd: 7 });

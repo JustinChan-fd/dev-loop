@@ -147,6 +147,8 @@ export interface FixtureRunDeps {
   /** makeRunSkill with the fixture spawn, for one pinned worktree and run dir. */
   makeRunSkill: (c: { pinned: Pinned; absRunDir: string }) => RunSkillFn;
   log: (m: string) => void;
+  /** Aborted on SIGINT/SIGTERM: no new run starts; the current run's pin is still removed (finally). */
+  signal?: AbortSignal;
 }
 
 export interface FixtureResult {
@@ -175,6 +177,11 @@ export async function runFixture(d: FixtureRunDeps): Promise<FixtureResult> {
   await mkdir(dirname(d.logPath), { recursive: true });
 
   for (let i = 1; i <= d.runs; i++) {
+    if (d.signal?.aborted) {
+      stoppedAt = `stopped before run ${i}: a signal was received`;
+      d.log(`[fixture] ${stoppedAt}`);
+      break;
+    }
     const left = d.maxTotalUsd - spent;
     if (left <= 0) {
       stoppedAt = `stopped before run ${i}: $${spent.toFixed(2)} spent reaches --max-total $${d.maxTotalUsd}`;

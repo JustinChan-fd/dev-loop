@@ -52,18 +52,45 @@ const isPipeline = (body: string): boolean => {
   return first.startsWith(CONTRACT.researchPass) || first.startsWith(CONTRACT.researchFail) || first.startsWith(`## ${CONTRACT.researchPass}`) || first.startsWith(`## ${CONTRACT.researchFail}`);
 };
 
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Each distinct author (comments, then linked tickets' comments) to user-N, in first-seen order. */
+function authorTable(raw: RawTicket): Map<string, string> {
+  const t = new Map<string, string>();
+  for (const c of [...raw.comments, ...raw.links.flatMap((l) => l.comments)]) if (!t.has(c.author)) t.set(c.author, `user-${t.size + 1}`);
+  return t;
+}
+
+/** `@[Name]` mentions (jira-read.ts) and every known author's name become user-N; any other mention becomes @user. */
+function scrubNames(text: string, authors: Map<string, string>): string {
+  let t = text.replace(/@\[([^\]]*)\]/g, (_m, name: string) => `@${authors.get(name) ?? "user"}`);
+  // Longest names first, so "Jane Doe" is replaced before a shorter "Jane".
+  for (const name of [...authors.keys()].filter((n) => n.trim().length > 1).sort((a, b) => b.length - a.length)) {
+    t = t.replace(new RegExp(`(?<![\\w-])${escapeRe(name)}(?![\\w-])`, "g"), authors.get(name)!);
+  }
+  return t;
+}
+
+/** Plain file names, deduplicated the way fetchAttachments does (a clash gets the id prefixed). */
+function attachmentNames(list: AttachmentMeta[]): string[] {
+  const used = new Set<string>();
+  return list.map((a) => {
+    let name = safeAttachmentName(String(a.id), a.filename);
+    if (used.has(name)) name = safeAttachmentName(String(a.id), `${a.id}-${name}`);
+    used.add(name);
+    return name;
+  });
+}
+
 export function scrubTicket(raw: RawTicket, o: { fxNumber: number; home: string }): FixtureTicket {
   const fxKey = `FX-${o.fxNumber}`;
-  const s = (t: string) => scrubText(t, { realKey: raw.key, fxKey, home: o.home });
-  const authors = new Map<string, string>();
-  const author = (a: string) => {
-    if (!authors.has(a)) authors.set(a, `user-${authors.size + 1}`);
-    return authors.get(a)!;
-  };
-  const comment = (c: RawComment): FixtureComment => ({ id: c.id, author: author(c.author), is_pipeline: isPipeline(c.body), created: c.created, body: s(c.body) });
+  const authors = authorTable(raw);
+  const s = (t: string) => scrubNames(scrubText(t, { realKey: raw.key, fxKey, home: o.home }), authors);
+  const comment = (c: RawComment): FixtureComment => ({ id: c.id, author: authors.get(c.author)!, is_pipeline: isPipeline(c.body), created: c.created, body: s(c.body) });
   const comments = raw.comments.map(comment);
   const linked: FixtureTicket["linked"] = {};
   for (const l of raw.links) linked[l.key] = { summary: s(l.summary), description: s(l.description), comments: l.comments.map(comment) };
+  const names = attachmentNames(raw.attachments);
   return {
     key: fxKey,
     summary: s(raw.summary),
@@ -73,7 +100,7 @@ export function scrubTicket(raw: RawTicket, o: { fxNumber: number; home: string 
     github: { title: "", comments: [], not_planned: [] },
     linked,
     prior_tickets: [],
-    attachments: raw.attachments.map((a) => ({ id: String(a.id), filename: safeAttachmentName(String(a.id), a.filename), size: a.size, mimeType: a.mimeType })),
+    attachments: raw.attachments.map((a, i) => ({ id: String(a.id), filename: names[i]!, size: a.size, mimeType: a.mimeType })),
     reviewed: false,
   };
 }
@@ -137,7 +164,7 @@ export async function saveFixture(a: SaveArgs, d: SaveDeps): Promise<{ ok: true;
     if (TEXT_EXT.has(extname(name).toLowerCase())) {
       const text = body.toString("utf8");
       if (containsSecret(text)) return { ok: false, error: `attachment ${name} looks like it holds a secret; refusing the save (nothing written). Remove it from the ticket or save by hand.` };
-      body = Buffer.from(scrubText(text, { realKey: a.key, fxKey, home: d.home }));
+      body = Buffer.from(scrubNames(scrubText(text, { realKey: a.key, fxKey, home: d.home }), authorTable(raw)));
     }
     files.push({ name, body });
   }

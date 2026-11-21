@@ -351,8 +351,8 @@ export function startProgressTail(
 }
 
 const DENY_DIR = /^\/[A-Za-z0-9@._/+-]*$/;
-/** A tool name (`mcp__server`, `WebFetch`) or `Tool(prefix:*)` with a plain prefix. */
-const DENY_TOOL = /^[A-Za-z][A-Za-z0-9_]*(\([A-Za-z0-9._-]+:\*\))?$/;
+/** A tool name (`mcp__server`, `WebFetch`) or `Tool(prefix:*)`: a plain prefix of words joined by single spaces (`git push`). */
+const DENY_TOOL = /^[A-Za-z][A-Za-z0-9_]*(\([A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*:\*\))?$/;
 
 /** The `--settings` JSON, or null when there is nothing to set. Throws on an unsafe deny dir. */
 export function settingsJson(opts: Pick<SpawnClaudeOpts, "excludeClaudeMd" | "denyEditsUnder" | "denyReads" | "denyTools">): string | null {

@@ -138,7 +138,7 @@ holds a secret, and never runs `git add`. Read what it wrote, set
 | Jira and GitHub writes | real (eval tickets and sandbox PRs only) | none: the skill's posts and the loop's comment and transition go to `RUN_DIR/outbox/` |
 | Phases | research and dev, through `npm run loop` | research only, through `src/eval/fixture-run.ts` (no session lock, claim, label swap or mirror Issue) |
 | Repo | the sandbox repo at `master` | any project, pinned at a commit (`repo.json`) |
-| Spawn | the normal tools | built-in tools only; Atlassian, `gh`, `curl` and the web denied; no GitHub token; `DEVLOOP_EVAL_KEYS=""` |
+| Spawn | the normal tools | built-in tools only; Atlassian, `gh`, `curl`, `git push`, `git credential` and the web denied; no GitHub token, git credential helper or SSH agent; `DEVLOOP_EVAL_KEYS=""` |
 | Free part | `npm test` checks the dry run | `npm test` also replays saved runs |
 
 The first two fixtures are `mc-1435-xl` (the description that bounced XL)

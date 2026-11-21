@@ -16,7 +16,8 @@ const ROOT = resolve(import.meta.dirname, "../../fixtures/replay");
 interface Expected {
   source: string;
   cases: Array<{ coverageWarnsSoFar: number; check: { action: string; check?: string } }>;
-  grade?: { expect: unknown; pass: boolean };
+  /** `reasons`: text each expected failure reason must contain (one per reason, same count). */
+  grade?: { expect: unknown; pass: boolean; reasons?: string[] };
 }
 
 const names = readdirSync(ROOT, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
@@ -52,6 +53,13 @@ describe("verdict replay: saved real runs through the loop's checks", () => {
         const facts = await readResearchFacts(dir, 0, DEFAULT_COVERAGE_WARN_RUNS);
         const grade = gradeRun(v.expectation, { verdict, check: checkResearchVerdict(verdict, facts), progressRaw: facts.progressRaw, manifest: facts.manifest, outbox: [], costUsd: 0 });
         expect(grade.pass, grade.reasons.join("; ")).toBe(g.pass);
+        if (g.pass) expect(grade.reasons).toEqual([]);
+        else {
+          // A failing replay must fail for the stated reasons, not just fail.
+          expect(g.reasons?.length ?? 0).toBeGreaterThan(0);
+          expect(grade.reasons).toHaveLength(g.reasons!.length);
+          for (const r of g.reasons!) expect(grade.reasons.some((x) => x.includes(r)), `${r} in ${grade.reasons.join("; ")}`).toBe(true);
+        }
       });
     }
   }

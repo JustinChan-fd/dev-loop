@@ -3,7 +3,7 @@
 // loop's own checks (checkResearchVerdict's result, groundCompleted) and never
 // re-implements them: a fixture grades what the loop would have done.
 
-import type { CheckResult, VerdictCheck } from "../roles/research/verdict-checks.ts";
+import { uncoveredAttachments, type CheckResult, type VerdictCheck } from "../roles/research/verdict-checks.ts";
 import type { AttachmentManifest } from "../core/attachments.ts";
 import type { TShirtSize, Verdict } from "../core/types.ts";
 
@@ -21,7 +21,7 @@ export interface Expectation {
   acCount?: { min?: number; max?: number };
   outbox?: { publishedSpec?: boolean; forbid?: string[]; require?: string[]; allowSpecWins?: boolean };
   maxCostUsd?: number;
-  /** 0..1, default 1: the share of runs that must pass. */
+  /** 0..1, default 1: the share of runs that must pass, to two decimals (0.67 is 2 of 3). */
   passRate?: number;
   /** Written as RUN_DIR/size-context.json for each run (default: the project's limits, no tickets). */
   sizeContext?: Record<string, unknown>;
@@ -50,6 +50,7 @@ const CHECKS: readonly string[] = ["too_large_ungrounded", "too_large_no_evidenc
 const SIZES: readonly string[] = ["S", "M", "L", "XL"];
 const KEYS = new Set(["outcomes", "failureCategory", "loopAction", "forbidVerdictCheck", "groundedBeforeScope", "coverageComplete", "sizeEstimate", "acCount", "outbox", "maxCostUsd", "passRate", "sizeContext"]);
 const SPEC_WINS = "/spec wins/i";
+const PASS_RATE_TOLERANCE = 0.005;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -156,10 +157,12 @@ export function gradeRun(exp: Expectation, run: FixtureRun): Grade {
   const check = "check" in run.check ? run.check.check : undefined;
   if (exp.forbidVerdictCheck && check !== undefined && exp.forbidVerdictCheck.includes(check)) reasons.push(`the loop's verdict check ${check} is forbidden`);
   if (exp.groundedBeforeScope && !phaseEndsBefore(run.progressRaw, "ground", "scope")) reasons.push("no ground phase_end before scope in progress.jsonl");
-  if (exp.coverageComplete && run.manifest) {
-    const covered = new Set((v.attachment_coverage ?? []).filter((c) => c.mapped_to.length > 0 || c.out_of_scope.length > 0).map((c) => c.attachment));
-    const missing = run.manifest.attachments.filter((a) => a.status === "fetched" && !covered.has(a.filename)).map((a) => a.filename);
-    if (missing.length > 0) reasons.push(`attachment_coverage does not cover: ${missing.join(", ")}`);
+  if (exp.coverageComplete) {
+    if (!run.manifest) reasons.push("coverageComplete: the run has no attachments.json to check against");
+    else {
+      const missing = uncoveredAttachments(v, run.manifest);
+      if (missing.length > 0) reasons.push(`attachment_coverage does not cover: ${missing.join(", ")}`);
+    }
   }
   if (exp.sizeEstimate) {
     if (v.size_estimate === undefined) reasons.push("no size_estimate in the verdict");
@@ -194,5 +197,6 @@ export function aggregate(exp: Expectation, grades: Grade[]): { pass: boolean; p
   const passed = grades.filter((g) => g.pass).length;
   const passRate = runs === 0 ? 0 : passed / runs;
   const reasons = grades.flatMap((g, i) => g.reasons.map((r) => `run ${i + 1}: ${r}`));
-  return { pass: runs > 0 && passRate >= (exp.passRate ?? 1), passRate, runs, reasons };
+  // expect.json writes the bar to two decimals (0.67 for 2 of 3), so compare within half a hundredth.
+  return { pass: runs > 0 && passRate >= (exp.passRate ?? 1) - PASS_RATE_TOLERANCE, passRate, runs, reasons };
 }

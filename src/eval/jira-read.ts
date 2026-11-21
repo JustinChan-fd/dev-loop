@@ -17,7 +17,9 @@ function inline(n: Node): string {
     return `${n.text ?? ""}${typeof link === "string" ? ` (${link})` : ""}`;
   }
   if (n.type === "hardBreak") return "\n";
-  if (n.type === "mention" || n.type === "emoji") return String(n.attrs?.text ?? "");
+  // A mention is tagged @[Display Name] so fixture:save can tell where the name ends and replace it.
+  if (n.type === "mention") return `@[${String(n.attrs?.text ?? "").replace(/^@/, "").replace(/[[\]]/g, "")}]`;
+  if (n.type === "emoji") return String(n.attrs?.text ?? "");
   if (n.type === "inlineCard") return String(n.attrs?.url ?? "");
   return (n.content ?? []).map((c) => inline(c as Node)).join("");
 }

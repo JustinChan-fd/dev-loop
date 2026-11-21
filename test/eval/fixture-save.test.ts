@@ -36,6 +36,21 @@ describe("scrubTicket", () => {
     expect(t.linked["MC-1431"]!.comments[0]!.author).toBe("user-2");
     expect(JSON.stringify(t)).not.toMatch(/Jane|Bob/);
   });
+  it("@-mentions of a known author become their user-N; any other @-mention becomes @user", () => {
+    const m = scrubTicket(
+      raw({ comments: [{ id: "1", author: "Jane Doe", created: "c", body: "hi" }, { id: "2", author: "Bob", created: "c", body: "@[Jane Doe] please check, cc @[Carol King]. Jane Doe agreed." }], description: "Ask @[Bob]." }),
+      { fxNumber: 1, home: "/Users/jane" },
+    );
+    expect(m.comments[1]!.body).toBe("@user-1 please check, cc @user. user-1 agreed.");
+    expect(m.description).toBe("Ask @user-2.");
+    expect(JSON.stringify(m)).not.toMatch(/Jane|Bob|Carol/);
+  });
+  it("two attachments with the same name get distinct file names", () => {
+    const m = scrubTicket(raw({ attachments: [{ id: "1", filename: "mock.png", size: 1, mimeType: "image/png" }, { id: "2", filename: "mock.png", size: 1, mimeType: "image/png" }] }), { fxNumber: 1, home: "" });
+    const names = m.attachments.map((a) => a.filename);
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).toBe("mock.png");
+  });
   it("marks the pipeline's own comments", () => {
     expect(t.comments.map((c) => c.is_pipeline)).toEqual([true, false, true]);
   });

@@ -18,7 +18,7 @@ import { FlagError } from "../core/flags.ts";
 import { realFakeEnvDeps, writeFakeEnv } from "../core/fake-env.ts";
 import { realProfileDeps, resolveProjectProfile } from "../core/project-profile.ts";
 import { buildSizeContext, type SizeContext } from "../core/size-context.ts";
-import { spawnClaudeRun } from "../core/spawn-claude.ts";
+import { killActiveChild, spawnClaudeRun } from "../core/spawn-claude.ts";
 import { loadResearchStance, REFINE_SKILL_MD_PATH } from "../roles/research/startup.ts";
 import { makeRunSkill } from "../worker/skill-runner.ts";
 import { loadFixture } from "./fixture.ts";
@@ -73,7 +73,19 @@ async function main(): Promise<number> {
   const sizeContext = async (): Promise<SizeContext> =>
     (f.expect.sizeContext as SizeContext | undefined) ?? buildSizeContext({ devRuns: [], research: [], sidecar: {}, config, now: new Date() });
 
+  // Ctrl-C: stop the running claude -p (SIGTERM, then SIGKILL) and start no
+  // new run. runFixture's finally then removes the pinned worktree; exit after.
+  const stop = new AbortController();
+  const onSignal = (sig: NodeJS.Signals) => {
+    logError(`[fixture] ${sig}: stopping the current run; its worktree is removed before exit`);
+    stop.abort();
+    void killActiveChild();
+  };
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+
   const result = await runFixture({
+    signal: stop.signal,
     fixture: f,
     config,
     runs: args.runs,
@@ -113,6 +125,7 @@ async function main(): Promise<number> {
       `$${result.costUsd.toFixed(2)}${result.stoppedAt ? ` (${result.stoppedAt})` : ""}`,
   );
   for (const r of result.reasons) log(`  - ${r}`);
+  if (stop.signal.aborted) return 130;
   return result.pass ? 0 : 1;
 }
 

@@ -114,8 +114,12 @@ describe("gradeRun", () => {
     expect(gradeRun({ coverageComplete: true }, run({ manifest: m, verdictJson: { ...v, attachment_coverage: cov(["a.html", "b.json"]) } })).pass).toBe(true);
     const g = gradeRun({ coverageComplete: true }, run({ manifest: m, verdictJson: { ...v, attachment_coverage: cov(["a.html"]) } }));
     expect(g.reasons.join()).toMatch(/b\.json/);
-    // No manifest or nothing fetched: trivially complete.
-    expect(gradeRun({ coverageComplete: true }, run()).pass).toBe(true);
+    // Matched by the fetched file's basename too, exactly as the loop's check does.
+    const renamed: AttachmentManifest = { ticket: "FX-1", dir: "attachments", attachments: [{ id: "1", filename: "a b.html", size: 1, status: "fetched", path: "attachments/a_b.html" }] };
+    expect(gradeRun({ coverageComplete: true }, run({ manifest: renamed, verdictJson: { ...v, attachment_coverage: cov(["a_b.html"]) } })).pass).toBe(true);
+    // Nothing fetched: trivially complete. No manifest at all: not graded as complete.
+    expect(gradeRun({ coverageComplete: true }, run({ manifest: { ticket: "FX-1", dir: "a", attachments: [] } })).pass).toBe(true);
+    expect(gradeRun({ coverageComplete: true }, run()).reasons.join()).toMatch(/no attachments\.json/);
   });
   it("sizeEstimate and acCount; a missing value fails", () => {
     expect(gradeRun({ sizeEstimate: ["M"], acCount: { min: 5, max: 12 } }, run()).pass).toBe(true);
@@ -150,6 +154,12 @@ describe("aggregate", () => {
     expect(aggregate({}, [ok, ok])).toMatchObject({ pass: true, passRate: 1, runs: 2 });
     expect(aggregate({}, [ok, bad]).pass).toBe(false);
     expect(aggregate({ passRate: 0.5 }, [ok, bad])).toMatchObject({ pass: true, passRate: 0.5 });
+  });
+  it("2 of 3 meets a passRate of 0.67 (the bar is a share of runs, compared with a small tolerance)", () => {
+    expect(aggregate({ passRate: 0.67 }, [ok, ok, bad]).pass).toBe(true);
+    expect(aggregate({ passRate: 0.67 }, [ok, bad, bad]).pass).toBe(false);
+    expect(aggregate({ passRate: 0.34 }, [ok, bad, bad]).pass).toBe(false);
+    expect(aggregate({ passRate: 0.33 }, [ok, bad, bad]).pass).toBe(true);
   });
   it("no runs never passes", () => {
     expect(aggregate({}, [])).toMatchObject({ pass: false, runs: 0 });

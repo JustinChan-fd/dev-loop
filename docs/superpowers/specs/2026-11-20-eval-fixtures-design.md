@@ -83,7 +83,7 @@ An attachment named in `ticket.json` with no file in `attachments/` becomes a `f
 - `acCount: {min?, max?}`.
 - `outbox: {publishedSpec?: boolean, forbid?: string[], require?: string[]}`: regexes (`/.../flags` or plain text, case-insensitive) checked against every outbox file. `forbid` always includes `/spec wins/i` unless `allowSpecWins: true`.
 - `maxCostUsd: number`.
-- `passRate: number` (0 to 1, default 1): used by `aggregate`.
+- `passRate: number` (0 to 1, default 1): used by `aggregate`. It is written to two decimals and compared within 0.005, so `0.67` means 2 of 3 runs.
 
 Functions:
 
@@ -92,7 +92,7 @@ Functions:
 - `aggregate(exp, grades) -> {pass, passRate, runs, reasons}`.
 - `phaseEndsBefore(progressRaw, a, b)`.
 
-It reuses `checkResearchVerdict`, `groundCompleted` and `parseVerdict`. It never re-implements them.
+It reuses `checkResearchVerdict`, `parseVerdict`, and `uncoveredAttachments` (the loop's own coverage test, exported for it). It never re-implements them. `coverageComplete` with no `attachments.json` is a failure, not a silent pass.
 
 ## Fixture runs
 
@@ -106,7 +106,7 @@ It reuses `checkResearchVerdict`, `groundCompleted` and `parseVerdict`. It never
 4. Spawn through `makeRunSkill` (no `beforeRun`, no Jira attachments), with the fixture spawn options from the leak guard.
 5. Run `runResearchPhase` with an `OutboxJiraClient`. Its `addComment` and `transitionStatus` go to `outbox/loop-NNN-<action>.json`, and every other method throws.
 6. Grade, then append a `FixtureRunLine` to `runs/v2/fixtures/<fixture>.jsonl`.
-7. `finally`: remove the pinned worktree.
+7. `finally`: remove the pinned worktree. On SIGINT/SIGTERM the CLI stops the `claude -p` child (`killActiveChild`) and aborts the series. The current run's `finally` still removes its worktree, and no new run starts.
 
 Runs are sequential. Budget: `--max-budget-usd` $5 per run, `--runs` capped at 5, and `--max-total` (default $25) stops the series once spent cost reaches it.
 
@@ -123,7 +123,7 @@ When `RUN_DIR/ticket.json` exists, the skill:
 
 Re-pickups work the same way: a prior `❌ research-loop -` comment with `is_pipeline: true`, then a human "accept as scoped" comment, tests the "scope ruling is final" rule.
 
-The prompt gains `ground-dir=<abs>` only in fixture mode (`buildSkillPrompt`'s reserved keys), so real runs are byte-identical.
+The prompt gains ` ground-dir=<abs>` only in fixture mode. `fixtureSpawn` appends it to the line `buildSkillPrompt` built, after checking the path with `checkAbsPath`. `buildSkillPrompt` itself is unchanged, so real runs are byte-identical.
 
 ### Repo pinning
 
@@ -143,7 +143,7 @@ The profile is pinned too. The Node major comes from `git show <sha>:<versionFil
 
 - `allowedTools`: the built-ins only (`Bash,Read,Grep,Glob`), with no `mcp__*`;
 - `denyTools`: `mcp__atlassian`, `mcp__claude_ai_Atlassian`, `Bash(gh:*)`, `Bash(curl:*)`, `WebFetch`, `WebSearch` (a new `settingsJson` input, validated);
-- `env`: `DEVLOOP_EVAL_KEYS=""`, `GH_TOKEN` and `GITHUB_TOKEN` deleted, `GH_CONFIG_DIR=<RUN_DIR>/.gh-empty`.
+- `env`: `DEVLOOP_EVAL_KEYS=""`, `GH_TOKEN`/`GITHUB_TOKEN`/`GH_ENTERPRISE_TOKEN` deleted, `GH_CONFIG_DIR=<RUN_DIR>/.gh-empty`. Git gets no way to authenticate, because the pinned worktree's `origin` is the real repo: every credential helper is cleared (`GIT_CONFIG_COUNT=1`, `credential.helper=""`), there's no system config, no prompt or askpass, `GIT_SSH_COMMAND=/bin/false`, and `SSH_AUTH_SOCK` is unset. `Bash(git push:*)` and `Bash(git credential:*)` are denied too (found by the fresh review).
 
 Live is refused when `CLAUDECODE` is set (same rule as `run.sh`).
 
@@ -151,15 +151,15 @@ Live is refused when `CLAUDECODE` is set (same rule as `run.sh`).
 
 `src/eval/fixture-save.ts`. Read-only: it never writes to Jira and never runs `git add`.
 
-- It reads the issue (summary, type, description as text, attachments metadata), all comments, and its links. It then downloads the attachments through `fetchAttachments` with the same limits and copies the run's files when `--from-run=<dir>` is given.
+- It reads the issue (summary, type, description as text, attachment metadata), all comments, and its links (`src/eval/jira-read.ts`, GETs only). It then downloads each attachment, up to the same 2 MB per-file limit. Every attachment is kept: the run-time `fetchAttachments` applies the type and total limits, and marks anything it skips or fails. Duplicate names get the same id prefix `fetchAttachments` gives them. (Copying a run's files with `--from-run` was dropped: the replay tests copy runs by hand, scrubbed.)
 - Scrubbing:
   - `redactSensitive` on all text;
-  - each distinct author becomes `user-N`, and pipeline comments (`✅/❌ research-loop -`) are marked `is_pipeline: true`;
+  - each distinct author becomes `user-N`, and so does their name wherever it appears in text, including @-mentions (any other @-mention becomes `@user`). Pipeline comments (`✅/❌ research-loop -`) are marked `is_pipeline: true`;
   - the real key becomes `FX-<n>` everywhere in the text;
   - absolute paths become relative.
 - It refuses to save if a text attachment contains a secret (`containsSecret`).
 - It writes `reviewed: false`, because images can't be scrubbed. The runner refuses an unreviewed fixture.
-- It refuses to overwrite an existing fixture folder unless `--replace` is given.
+- It refuses to overwrite an existing `ticket.json` unless `--replace` is given. A folder holding only `repo.json`, `expect.json` and `PENDING.md` is filled in.
 
 ## Files
 
@@ -172,9 +172,13 @@ Live is refused when `CLAUDECODE` is set (same rule as `run.sh`).
 - `src/eval/jira-read.ts`, `src/eval/fixture-save.ts`: the save path.
 - `src/core/paths.ts`: `v2FixtureRunDir`, `v2FixtureRunsLog`, `FIXTURE_NAME`.
 - `src/core/spawn-claude.ts`: `denyTools` in `settingsJson`.
-- `src/core/build-prompt.ts`: optional `groundDir`.
 - `evals/fixtures/mc-1435-xl/`, `evals/fixtures/mc-1718/`.
 - `test/fixtures/replay/*`, `test/roles/research/verdict-replay.test.ts`, `test/eval/*.test.ts`.
+
+## Known limits (from the fresh review, left as is)
+
+- The fixture runner takes no session lock. Its `refreshFakeEnv` rewrites the shared `<REPO_DIR>/.claude/worktrees/.envrc` from the pinned commit's template, and the pin may `git fetch origin`. So don't run a live fixture on a project while its real loop is running. The fake env is rewritten again before the loop's next run.
+- The fixture CLI does not run `main.ts`'s `checkRepoDirPlacement` check.
 
 ## Not in this change
 

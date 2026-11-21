@@ -34,6 +34,24 @@ describe("fixture leak guard", () => {
     expect(base.env.GH_TOKEN).toBe("x");
   });
 
+  it("git cannot authenticate either: no credential helper, no prompt, no SSH agent or key", () => {
+    const g = fixtureSpawnGuard({ ...base, env: { ...base.env, SSH_AUTH_SOCK: "/tmp/agent.sock", GIT_ASKPASS: "/x" } }, "/abs/run/.gh-empty");
+    expect(g.env.SSH_AUTH_SOCK).toBeUndefined();
+    expect(g.env.GIT_TERMINAL_PROMPT).toBe("0");
+    expect(g.env.GIT_ASKPASS).toBe("/bin/false");
+    expect(g.env.GIT_SSH_COMMAND).toBe("/bin/false");
+    expect(g.env.GIT_CONFIG_NOSYSTEM).toBe("1");
+    // credential.helper set to "" clears every helper from the global config (osxkeychain etc).
+    expect(g.env.GIT_CONFIG_COUNT).toBe("1");
+    expect(g.env.GIT_CONFIG_KEY_0).toBe("credential.helper");
+    expect(g.env.GIT_CONFIG_VALUE_0).toBe("");
+  });
+
+  it("denies git push and git credential too", () => {
+    const g = fixtureSpawnGuard(base, "/abs/run/.gh-empty");
+    for (const t of ["Bash(git push:*)", "Bash(git credential:*)"]) expect(g.denyTools).toContain(t);
+  });
+
   it("refuses a relative gh config dir", () => {
     expect(() => fixtureSpawnGuard(base, "rel/.gh")).toThrow(/absolute/);
   });

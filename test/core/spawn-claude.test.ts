@@ -419,10 +419,11 @@ describe("spawnClaudeRun", () => {
       permissions: { deny: ["Read(//abs/.env)", "WebFetch"] },
     });
     expect(settingsJson({ denyTools: [] })).toBeNull();
+    expect(JSON.parse(settingsJson({ denyTools: ["Bash(git push:*)"] })!)).toEqual({ permissions: { deny: ["Bash(git push:*)"] } });
   });
 
   it("denyTools rejects anything but a tool name or Tool(prefix:*)", () => {
-    for (const bad of ["", "Bash(rm -rf /)", "Read(//x)", "a b", "Bash(gh:*) ", 'x"y']) {
+    for (const bad of ["", "Bash(rm -rf /)", "Read(//x)", "a b", "Bash(gh:*) ", 'x"y', "Bash( gh:*)", "Bash(git  push:*)"]) {
       expect(() => settingsJson({ denyTools: [bad] })).toThrow(/denyTools/);
     }
   });
