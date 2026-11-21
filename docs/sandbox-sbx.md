@@ -36,6 +36,8 @@ sbx v0.54.0.
 | `npm run sbx:cleanup` | removes this project's leftover `dl-*` sandboxes |
 | `npm run sbx:template:build -- --tag=v3` | rebuilds the template from `sandbox/sbx/template.sh` ([templates.md](adapters/sbx/templates.md)) |
 | `npm run sandbox:approvals` | what a discover run was refused, with the allow lines to review |
+| `npm run claude:sbx` | Claude Code on dev-loop itself, inside a sandbox ([Dev-loop sessions](#dev-loop-sessions)) |
+| `npm run claude:sbx:sync` | bring a session sandbox's branches back, re-signed; never pushes |
 
 `cleanup`, `smoke` and `template:build` take `-- --project=<name>` (default
 `webtarsthree`); `sbx:preflight` is fixed to webtarsthree and passes
@@ -285,3 +287,180 @@ Checked live 2026-11-17: in a sandbox on a fresh webtarsthree worktree,
 `vitest run` ran 8013 tests (7844 passed, 1 known failure on master:
 `placements-body-limit.integration.test.js`). The TARS-1634 run that called
 vitest "not runnable" had skipped this install.
+
+## Dev-loop sessions
+
+The sections above run the *robot* on a target repo. This one is for working
+on dev-loop's own code with Claude Code inside sbx. There are two ways to start:
+
+```sh
+claude --dangerously-skip-permissions   # normal session, unchanged
+npm run claude:sbx                      # same, but inside the sandbox
+```
+
+| | `claude --dangerously-skip-permissions` | `npm run claude:sbx` |
+|---|---|---|
+| Runs on | your Mac | a Docker sbx sandbox (Linux) |
+| Repo it edits | your checkout | its own clone (`sbx --clone`); your checkout is untouched |
+| GitHub / push | yes, your `gh` login | blocked; you push after sync |
+| Jira MCP | yes | no |
+| Commit signing | your SSH key | unsigned inside; re-signed on your Mac at sync |
+| Real env files | readable (deny rules only) | not there (the clone has tracked files only) |
+| Plugins (superpowers) | yes | yes (read-only) |
+| Survives a closed terminal | no | with `--overnight` (screen + caffeinate) |
+| Getting work back | it's already there | automatic when you exit; `npm run claude:sbx:sync` after `--overnight` |
+| Use it for | attended work you're watching | unattended or long runs, or untrusted input |
+
+Choosing which one is your call, each session. Long unattended work (an
+overnight build, a long eval) is offered `claude:sbx` first; the overnight
+launcher only starts inside a sandbox.
+
+### What `npm run claude:sbx` sets up
+
+Config: `sbx.session.config.json` at the repo root (the same `sandbox.sbx`
+fields and checks as a project, plus a `session` block; see
+[config.md](config.md#dev-loop-session-sandbox-sbxsessionconfigjson)).
+
+- **Its own clone.** `sbx create --clone`: the sandbox works on a private
+  clone of the committed files and never writes your checkout. But sbx also
+  mounts **the whole checkout read-only** at `/run/sandbox/source`, ignored
+  files included: `runs/`, `.pipeline/`, `evals/.state/`, `.worktrees/`,
+  `node_modules/`. The agent can read those (run logs, ticket keys, eval
+  state), not change them. So `claude:sbx` refuses to start while a real env
+  file of any name or case is anywhere in the checkout (the loop's own fake
+  `.envrc` under `.pipeline/` is allowed; it holds placeholders). Run it from
+  the main checkout: sbx refuses `--clone` from a git worktree. A branch you
+  have only in a worktree is still in the clone (same repo): `git checkout <branch>`.
+- **GitHub blocked for this sandbox only** (`--deny-network github.com` and
+  `api.github.com`). The robot's sandboxes are unchanged. The stored sbx
+  `github` token is fandango-scoped anyway: `JustinChan-fd/dev-loop` is owned
+  by a user account, not the fandango org, so the token can't reach it.
+- **No signing key.** Commits inside are unsigned. Your Mac re-signs them at
+  sync with its own key and identity.
+- **npm** installs from `nexus3.mgo.com` (`~/.npmrc` with
+  `replace-registry-host=always`): the lockfile names `npm.fandango.com`, which
+  the sandbox policy doesn't allow. If an install is still blocked, review it
+  and allow it yourself: `sbx policy allow network npm.fandango.com`.
+  `npm ci` installs the Linux builds (rolldown, TypeScript 7 native).
+- **Plugins.** Each `session.plugins` entry (superpowers) is mounted
+  read-only from `~/.claude/plugins` and loaded with `--plugin-dir`.
+- **Overnight inputs and outputs.** `.overnight/in` (git-ignored) is mounted
+  read-only at `/home/agent/.dev-loop/overnight/in`; `.overnight/out` is
+  writable at `/home/agent/.dev-loop/overnight/out`, for the report only.
+  They sit outside the clone's path because sbx refuses a mount inside it.
+- **A real sandbox check** before Claude starts: Linux, `/home/agent`, no
+  readable SSH private key, a read-only `/run/sandbox/source`, and GitHub
+  not reachable. A sandbox
+  that fails is removed. `npm run claude:sbx -- --check` runs the same check
+  from inside.
+
+### Unattended
+
+```sh
+npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md --stream
+                                        # starts it, then follows it live here
+tail -f .overnight/logs/<name>.log      # or follow it from any terminal, any time
+screen -r <name>                        # or attach; Ctrl-a d detaches again
+```
+
+What you see, one line per event (like the loop's `--stream`): each tool call
+(`tool Bash {"command":"npm test"}`), what the agent says, a short result
+(`result ✗ …` on an error), a `↳` on a subagent's lines, and a final
+`DONE success · 41 turns · $3.46 · 52.0 min`. Secrets are redacted and long
+lines cut. Every raw event is also kept in `.overnight/logs/<name>.jsonl`.
+With `--stream`, Ctrl-c stops the watching, not the run. Inside `screen -r`,
+Ctrl-c reaches the run; detach with Ctrl-a d instead.
+
+The prompt file must be under `.overnight/in`. `claude -p` ends the run when
+its turn ends, so the launcher tells it to stay in its turn until the work is
+done. It sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, because without it
+`claude -p` stops its background subagents 10 minutes after its last turn.
+It runs `claude -p` in a
+detached `screen`, under `caffeinate` (the Mac stays awake for as long as the
+job runs), logging to `.overnight/logs/<name>.log`. That folder is host-only:
+`.overnight/out` is writable from inside, so nothing on the host writes there.
+
+### Getting the work back: `claude:sbx:sync`
+
+An attended `claude:sbx` syncs when you exit Claude. After `--overnight`, run
+`npm run claude:sbx:sync` (add `-- --name=<sandbox>` when more than one
+`dl-session-*` sandbox exists). It fetches the `sandbox-<name>` git remote and,
+for each branch with new commits:
+
+- refuses an unsafe branch name, one that would shadow a ref here
+  (`origin/main`, a tag, `refs/…`, `…/HEAD`), names that differ only in case
+  (this Mac's disk folds case, so `MAIN` would land on `main`), a branch with
+  no history in common with `main`, a merge commit, and commits on `main`.
+  One bad branch is reported; the others still sync;
+- lists the protected files **any** commit touched, in any case
+  (`session.protectedPaths`; a change then revert still counts). Such a branch
+  is fetched but **not** made into a local branch until you have read every
+  commit (`git log -p`) and rerun with `--allow-protected`. Until then, don't
+  `git checkout` it or `git worktree add` it by name: git would make a local
+  branch straight from the sandbox remote, unsigned and unchecked. Sync
+  refuses to go on while such a branch exists (it says to `git branch -D` it).
+  Two sandboxes with a branch of the same name: the first synced gets the
+  local name; the second reports `exists`, whatever order you run them in;
+- rebuilds each commit with your key (`git commit-tree -S`: same tree, same
+  message plus a `Sandbox-Commit: <name> <sha>` trailer, your identity),
+  checks the tree is unchanged and every commit is signed, then creates the
+  local branch. An existing local branch, in any case, is never moved.
+
+The protected list is a speed bump, not the control. Anything synced runs on
+your Mac the moment you run `npm test` there. Read the whole diff before you
+run or push it.
+
+It never pushes or checks anything out. It prints:
+
+```
+Synced from sandbox "dl-session-20261120-224501" (checked and re-signed, nothing pushed):
+
+  feat/run-watcher  3 commits  +120 −4  7 files  ✓ no protected files
+
+Report: .overnight/out/report.md
+
+Next:
+  git diff 4a59aaa..feat/run-watcher   # look: only the sandbox's commits
+  git push -u origin feat/run-watcher && gh pr create        # keep: you push, then merge the PR
+  git branch -D feat/run-watcher                             # drop
+```
+
+`main` on GitHub requires a PR (no direct pushes, no force-push, enforced for
+admins too), so every change reaches `main` through a PR you merge. Remove the
+sandbox when you're done: `sbx rm <name>`.
+
+**What counts as the sandbox's work.** Sync counts only commits that none of
+your branches, tags or `origin` already has, and re-signs them on top of the
+host commit they grew from. A sandbox branch cut from your unmerged
+`feat/x` brings back only its own commits; the "look" line diffs from that
+commit, not from `main`.
+
+### Reading what you see
+
+- **Inside the clone, `origin` is your Mac's checkout**, not GitHub. Your local
+  branches show up there as `origin/<branch>`, so "tracks origin/feat/x" means
+  "came from your Mac", not that it was pushed. GitHub has only what you push.
+- **The overnight log is live**: one line per tool call as it happens
+  (`tail -f .overnight/logs/<name>.log`). Runs started before this change
+  logged only the final answer. To see what it has made so far, without
+  changing anything:
+  `echo 'git -C <repo> branch; git -C <repo> worktree list' | sbx exec -i <name> sh -s`.
+- **The dashboard's network log** (`npm run sbx:dashboard`) for a session
+  sandbox: `api.github.com`, `github.com` (443 and 22) are blocked by the
+  session's deny rules, and `raw.githubusercontent.com` by the default deny.
+  Allowed: `nexus3.mgo.com` (npm), the Bedrock gateway, `downloads.claude.ai`,
+  and sbx's own start-up traffic (`deb.debian.org`, `deb.nodesource.com`,
+  `dhi.io`, `api.anthropic.com`, `mcp-gateway.docker.internal`). The sandbox
+  info panel lists only allow rules; `sbx policy ls <name>` shows the
+  "deny 2 hosts" too. The "block" next to a host is a button, not a status.
+
+Checked live 2026-11-20 (sbx v0.54.0): the clone, the read-only source, the
+GitHub deny (403 from inside), nexus3 `npm ci` plus the vitest and tsc runs
+inside, the superpowers plugin through `--plugin-dir`, the whole checkout
+readable at `/run/sandbox/source`, and a sync that re-signed one branch and
+held back one that touched `CLAUDE.md`. Smoke run by the user 2026-11-21: an
+attended `npm run claude:sbx` from the branch's worktree; inside, the check,
+`npm ci` and the guide tests, the superpowers skills and the GitHub 403
+passed; a sandbox commit on `smoke/test` (cut from the unmerged
+`feat/claude-sbx`) came back as one commit signed `G` with its
+`Sandbox-Commit:` trailer.

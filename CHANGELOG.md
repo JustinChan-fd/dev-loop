@@ -51,6 +51,127 @@ plan [2026-11-20-run-watcher](docs/superpowers/plans/2026-11-20-run-watcher.md).
   and it is the same check the loop uses, so the dashboard and the loop agree
   on what "live" means.
 
+Dev-loop sessions in sbx (`npm run claude:sbx`). Design:
+[claude:sbx](docs/superpowers/specs/2026-11-20-claude-sbx-design.md).
+Found on 2026-11-20, before an overnight unattended build: the robot ran in
+sbx for target repos, but work on dev-loop's own code ran on the host with
+permissions bypassed.
+
+- `[core]` **`npm run claude:sbx`: Claude Code on dev-loop itself, inside a
+  sandbox.** It is the same as plain `claude --dangerously-skip-permissions`
+  (unchanged), but inside sbx:
+  - `sbx create --clone`: the sandbox gets its own clone, and the host
+    checkout is read-only and never written;
+  - GitHub is denied for this sandbox only;
+  - there is no signing key inside;
+  - npm installs from nexus3;
+  - superpowers is mounted read-only (`--plugin-dir`);
+  - `.overnight/in` is mounted read-only and `.overnight/out` writable.
+
+  A real sandbox check runs before Claude starts: Linux, `/home/agent`, no
+  readable SSH key, a read-only clone source, and GitHub not reachable.
+  sbx also mounts the whole host checkout read-only (ignored files
+  included), so it refuses to start while a real env file is anywhere in
+  the checkout. A sandbox that fails it is
+  removed. `--overnight --prompt-file=.overnight/in/<f>.md` runs it detached
+  under `screen` and `caffeinate`. Config: `sbx.session.config.json`, whose
+  `sandbox.sbx` block is checked by the same validator as a project's. The
+  decisions are pure functions in `src/sandbox/sbx/session.ts`, with tests.
+- `[core]` **`npm run claude:sbx:sync` brings the sandbox's branches back,
+  re-signed, and never pushes.** It also runs when an attended `claude:sbx`
+  exits.
+  - It fetches the `sandbox-<name>` remote.
+  - It refuses unsafe branch names, names that would shadow a ref
+    (`origin/main`, a tag), names that differ only in case (the Mac's disk
+    folds case: `MAIN` would land on `main`), merge commits, unrelated
+    history and commits on `main` (`main` is never moved). One bad branch is
+    reported; the others still sync.
+  - A branch where any commit touches a protected path, in any case, is held
+    until `--allow-protected`: `.claude/` (settings, hooks, skills, agents), `CLAUDE.md`, `scripts/check-*`, `.github/`, `.mcp.json`, `package.json`, `package-lock.json`, `.npmrc`, `sbx.session.config.json`.
+  - Each commit is rebuilt with `git commit-tree -S` on the host (same tree,
+    same message plus a `Sandbox-Commit:` trailer, the host's identity). The
+    trees and signatures are checked before a local branch is created. An
+    existing branch, in any case, is never moved.
+  - It prints the look / keep / drop commands.
+  - It is tested against real git (`test/sandbox/sbx/session-sync.test.ts`).
+- `[core]` **Main is PR-only.** On GitHub, `main` requires a PR, allows no
+  force-push and no deletion, and enforces this for admins too (set
+  2026-11-20). The stale `core.hooksPath = app/.husky` was removed from the
+  local `.git/config`. dev-loop has no `app/`, so no hooks ever ran from it.
+- `[core]` **New pillar (CLAUDE.md): long unattended work runs in a sandbox,
+  and you're asked first.** Sandbox or host is the user's call each session.
+  Unsandboxed is an explicit choice, never the default. Every change reaches
+  `main` through a PR the user merges. README "Starting a session" and
+  `docs/sandbox-sbx.md` "Dev-loop sessions" show the two commands side by
+  side. The guide is now v1.1.0: pillar 06 "We follow our own rules" and
+  section 05 "How we build dev-loop".
+- `[core]` **Sync counts only the sandbox's own commits.** Found in the
+  user's smoke run (2026-11-21). `smoke/test` was cut from the unmerged
+  `feat/claude-sbx`, and sync measured "new" against `main`. It counted the
+  host's own 4 unmerged commits (which touch `CLAUDE.md` and `package.json`)
+  as sandbox work and held the branch as protected. That was safe (nothing
+  was created or moved) but wrong. "New" is now what no host branch, tag or
+  `origin` ref has. Those commits are re-signed on top of the host commit
+  they grew from, and the "look" line diffs from that commit, not `main`.
+- `[core]` **Sync catches a branch git made straight from the sandbox.**
+  Found syncing run 2 (2026-11-21). Sync held `feat/run-watcher` (it touches
+  `package.json`), so only `sandbox-<name>/feat/run-watcher` existed. Then
+  `git worktree add <dir> feat/run-watcher` let git pick that remote ref and
+  make a local branch with the sandbox's unsigned commits. The
+  `--allow-protected` rerun saw nothing new and said nothing. Now a local
+  branch whose upstream is the sandbox remote, and not the one sync signed,
+  is reported as failed with `git branch -D` to fix it. Sync never moves or
+  deletes it. The "held" message also says not to check out or add a
+  worktree for the branch until it's synced. Found by the overnight session;
+  the user had already deleted the branch and re-synced.
+- `[core]` **`--overnight` no longer stops its own subagents after 10
+  minutes.** Found in the first overnight run (2026-11-21), which ended after
+  12 minutes with no commits. The sandboxed `claude -p` passed the check, ran
+  `npm ci`, cut both branches off `main` and started two builder subagents,
+  then ended its turn. `claude -p` stops background tasks 10 minutes after
+  the last turn unless `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`. The loop
+  sets that for its own runs; the launcher didn't. `--overnight` now always
+  passes it as 0 and runs `claude -p` with stdin from `/dev/null`, which
+  removes a 3 s wait. Its prompt says that `origin` is the host's checkout
+  and that the run ends when the turn does. The session relaunched it with
+  the variable set (run 2).
+- `[core]` **`--overnight` shows what it's doing, live.** It was hard to
+  tell what was happening: the log held only `claude -p`'s final answer. It
+  now runs with `--output-format stream-json`, and a host-side filter
+  (`scripts/claude-sbx-stream.mjs`, pure formatter `formatStreamLine`, with
+  tests) prints one line per event to `.overnight/logs/<name>.log` and the
+  screen session: tool calls, the agent's words, short results, `↳` for
+  subagents, and the final cost and turns. Secrets are redacted and control
+  characters stripped. The raw events are kept in `<name>.jsonl`.
+  `--stream` follows the log in the launching terminal; Ctrl-c there stops
+  only the watching. The filter can't take the run down with it: it guards
+  every write and reads to the end.
+- **Bend, written down:** `scripts/claude-sbx.mjs` (the thin launcher that
+  runs sbx, screen and git) has no unit tests of its own, like the existing
+  `scripts/sbx.mjs`. Every decision it makes is a pure function in
+  `src/sandbox/sbx/session.ts` or `session-sync.ts`, with tests, and the
+  script itself was proven by the live runs and the user's smoke run.
+- **Bend, written down:** this change was built in a host session, not in
+  `claude:sbx`, because the launcher didn't exist yet. Every later change
+  to dev-loop is offered `claude:sbx` first.
+
+Guide versioning. Design:
+[guide versioning](docs/superpowers/specs/2026-11-20-guide-versioning-design.md).
+
+- `[core]` **The guide page has its own version and a "What's new" page.**
+  `docs/guide/how-dev-loop-works.html` now carries `DATA.guideVersion`
+  (starting at 1.0.0) and `DATA.loopVersion`, and its footer reads "Guide
+  v1.0.0 · checked against dev-loop 2.2.0 · 2026-11-20 · What's new". The
+  new `docs/guide/changelog.html` lists each guide version with an anchor
+  (`#v1-0-0`), so a link can point at one. Both pages read the entries from
+  one file, `docs/guide/guide-changes.js`. v1.0.0 is backfilled from the 14
+  commits that touched the guide. Bump rule (CLAUDE.md, "The guide page"):
+  patch for wording, minor for a new section, step or repo, major for a
+  restructure. A vitest check (`test/guide/guide-version.test.ts`) fails
+  when the page's version, date or loop version drifts from the newest
+  entry or package.json. GitHub Pages already publishes all of
+  `docs/guide/`, so the new page needs no workflow change.
+
 Bounce criteria v2. Design:
 [bounce criteria v2](docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md),
 plan [2026-11-20-bounce-criteria-v2](docs/superpowers/plans/2026-11-20-bounce-criteria-v2.md).
