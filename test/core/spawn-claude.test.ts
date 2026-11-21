@@ -411,6 +411,22 @@ describe("spawnClaudeRun", () => {
     expect(settingsJson({ denyReads: [] })).toBeNull();
   });
 
+  it("denyTools: tool rules appended to the same permissions.deny list (eval fixtures)", () => {
+    expect(JSON.parse(settingsJson({ denyTools: ["mcp__atlassian", "Bash(gh:*)", "WebFetch"] })!)).toEqual({
+      permissions: { deny: ["mcp__atlassian", "Bash(gh:*)", "WebFetch"] },
+    });
+    expect(JSON.parse(settingsJson({ denyReads: ["/abs/.env"], denyTools: ["WebFetch"] })!)).toEqual({
+      permissions: { deny: ["Read(//abs/.env)", "WebFetch"] },
+    });
+    expect(settingsJson({ denyTools: [] })).toBeNull();
+  });
+
+  it("denyTools rejects anything but a tool name or Tool(prefix:*)", () => {
+    for (const bad of ["", "Bash(rm -rf /)", "Read(//x)", "a b", "Bash(gh:*) ", 'x"y']) {
+      expect(() => settingsJson({ denyTools: [bad] })).toThrow(/denyTools/);
+    }
+  });
+
   it("denyReads rejects a relative path or a glob character", () => {
     for (const bad of ["rel/.envrc", "/abs/*", "/abs/(x)"]) expect(() => settingsJson({ denyReads: [bad] })).toThrow(/denyReads/);
   });

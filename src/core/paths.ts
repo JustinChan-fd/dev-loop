@@ -107,6 +107,23 @@ export function v2RunDir(project: string, session: string, ticket: string, phase
   return contain(`.pipeline/v2/${project}/${session}/${ticket}/${phase}-${runId}`, REPO_ROOT, V2);
 }
 
+/** An eval fixture's name (evals/fixtures/<name>/). */
+export const FIXTURE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/** .pipeline/v2/fixtures/<fixture>/<ticket>/research-<runId>: a fixture run's RUN_DIR (eval fixtures). */
+export function v2FixtureRunDir(fixture: string, ticket: string, runId: string): string {
+  check("fixture", fixture, FIXTURE_NAME);
+  check("ticket", ticket, TICKET_KEY);
+  check("runId", runId, RUN_ID);
+  return contain(`.pipeline/v2/fixtures/${fixture}/${ticket}/research-${runId}`, REPO_ROOT, V2);
+}
+
+/** runs/v2/fixtures/<fixture>.jsonl: a fixture's own log. Never a project's v2 log. */
+export function v2FixtureRunsLog(fixture: string): string {
+  check("fixture", fixture, FIXTURE_NAME);
+  return contain(`runs/v2/fixtures/${fixture}.jsonl`, REPO_ROOT, V2);
+}
+
 /** .pipeline/v2/<project>/repo */
 export function v2CloneDir(project: string): string {
   check("project", project, PROJECT_SLUG);
