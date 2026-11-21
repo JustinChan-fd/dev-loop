@@ -868,28 +868,39 @@ person checks visual ACs. **Evidence**: 4 of the 6 fixes on catalog PR #237
 were items the POC showed but no AC covered.
 
 
-### Monitoring view for many loops, batches and sandboxes (`npm run status`)
+### Run watcher: what is left after the POC
 
-**Idea**: once batch orchestration (v2 design §8) and several loops per
-project (§7 claim) exist, one screen that shows every project at a glance.
-Today you watch one terminal per loop, plus `npm run stats` after the fact;
-the batch design only plans an end-of-batch report table, nothing live.
+The local, read-only page (`npm run dashboard`, design
+`docs/superpowers/specs/2026-11-20-run-watcher-design.md`) replaced the
+planned `npm run status` terminal view. It covers live runs, history,
+per-run logs and a timeline. Still to do, each on its own when wanted:
 
-**Shape (suggested order)**:
-1. `npm run status` — a read-only terminal view, refreshing every few
-   seconds, one block per project: live loops and their current ticket +
-   phase, today's landed/bounced/error counts and cost, parked tickets (2.2.0
-   `parked` outcome) with what was refused. No new dependencies.
-2. When batch lands: add the batch's ticket DAG with each node's state
-   (waiting / running / PR open / blocked) and base branch.
-3. Only if the terminal view gets cramped: a local-only browser page with the
-   same data plus PR/Jira links and cost charts.
+- **Batch view with data.** Today it is only the empty state. It needs a
+  batch file written by the future batch orchestrator (v2 design §8): the
+  tickets, what each depends on, and each one's base branch. The page then
+  lays them out in tiers, as the mockup's Future: batch scenario shows.
+- **Parked tickets at a glance.** A parked run shows as a Parked card, but
+  "currently parked" (the ticket's latest record) and what was refused (the
+  `parked.denied` list and allow hint) aren't summarized. `npm run
+  sandbox:approvals` still owns that.
+- **Live cost.** A live card says "Cost: when it ends", because
+  `usage.json` is written only at the end.
+- **GitHub issue link.** Nothing on disk records the mirror Issue's
+  number; the loop could write it to the run dir when it finds or creates
+  it, and the page would link it.
+- **Subagent filter.** Possible only if the skills name the subagent in
+  their progress lines (some do, not reliably).
 
-**Why it is cheap**: the data is all on disk already — session locks and
-their in-flight record (`.pipeline/.../sessions/`), each run's
-`progress.jsonl`, and `runs/v2/<project>.jsonl`. The view only reads; no loop
-logic changes. Sandbox CPU/memory stays in sbx's own dashboard (`sbx` with no
-args) alongside it; sandbox instance names (`dl-<len>-<project>-<ticket>-<role>-<id>`) let the
-two be matched by eye.
+Sandbox CPU and memory stay in sbx's own dashboard (`npm run
+sbx:dashboard`).
 
-**Raised**: 2026-11-12, while planning the 2.2.0 sandbox adapter.
+**Raised**: 2026-11-12 (as the monitoring view); POC built 2026-11-21.
+
+### Run watcher: collapsed finished cards
+
+**Idea**: once there are many finished runs, show finished cards collapsed
+to one line (key, status, where it ended, when), expanding on click. The
+user decided on 2026-11-20 to keep every card fully expanded for the POC
+and to defer this.
+
+**Raised**: 2026-11-20, in the dashboard design session.

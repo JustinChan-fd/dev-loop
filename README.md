@@ -64,7 +64,33 @@ The skill is `ticket-to-pr` (`.claude/skills/ticket-to-pr/SKILL.md`) with the
   `pipeline.<project>.config.json`. Adding a project means adding a config; see
   `docs/config.md`.
 - Both skills and all their subagents are fully authored.
-- Not yet built: the live dashboard.
+- The run watcher (`npm run dashboard`) shows live and finished runs; see
+  below.
+
+## Watching runs (dashboard)
+
+```sh
+npm run dashboard                                  # every project
+npm run dashboard -- --project=webtarsthree        # one project
+npm run dashboard -- --port=5000                   # another port
+```
+
+It prints the URL, by default http://127.0.0.1:4317/. Start it next to a
+running loop, or on its own to look back through history. It is a local web
+page with three views: **Runs** (live and finished runs as cards, each with
+its step bar and full log), **Timeline** (by run, by worker, or every
+progress line) and **Batch** (empty until batch mode exists).
+
+- **Read-only.** It only reads files. It never writes under `.pipeline/` or
+  `runs/`, never touches a session lock, and never calls Jira or GitHub. It
+  doesn't start, stop or change any run.
+- **v2 logs only:** `runs/v2/<project>.jsonl` and `.pipeline/v2/<project>/`.
+  The pre-2.0.0 v1 logs are not shown.
+- It listens on 127.0.0.1 only. It loads no env file. Ticket keys link to
+  Jira only when `JIRA_BASE_URL` is set in its environment.
+- `--root=<dir>` watches another dev-loop checkout's logs.
+
+Design: `docs/superpowers/specs/2026-11-20-run-watcher-design.md`.
 
 ## Running tests
 

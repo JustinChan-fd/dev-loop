@@ -15,6 +15,39 @@ History before 2.0.0 lives in two files, one per former repo:
 
 ## [Unreleased]
 
+Run watcher (POC; merge pending user review). Design:
+[run watcher](docs/superpowers/specs/2026-11-20-run-watcher-design.md),
+plan [2026-11-20-run-watcher](docs/superpowers/plans/2026-11-20-run-watcher.md).
+
+- `[core]` **`npm run dashboard`: a local, read-only live page of the runs.**
+  `src/dashboard/` serves http://127.0.0.1:4317/ (`--project=<name>`,
+  `--port=<n>`, `--root=<dir>`). Runs view: live and finished runs as cards
+  with a labeled step bar that shows where a finished run ended and how (a
+  bounce is indigo, never red), the latest message, and the full log grouped
+  by step. Timeline view: by run, by worker, or every progress line. Batch
+  view: an empty state until batch mode exists. It reads v2 logs only
+  (`runs/v2`, `.pipeline/v2`; not the reset archive), updates over SSE from
+  `fs.watch` plus a 2-second poll, and never writes a file, touches a lock or
+  calls Jira or GitHub (a structure test checks the code for writes,
+  spawns and `fetch`). Step lists come from each skill's declared progress
+  phases: dev is `intake, plan, red, green, verify, pr`, with no `qa` step.
+  A lock with a dead process is a warning, not a running card. `package.json`
+  gains the one `dashboard` script line; no new dependencies.
+
+  Pillar check (each change against each pillar):
+
+  | Change | Agents judge, loop does mechanics | Handoff is a contract | Security | TDD | A bounce beats a guess | Plain loop unchanged |
+  |---|---|---|---|---|---|---|
+  | `src/dashboard/model.ts`, `read.ts` (pure model, read-only reader) | fine: plain tested TypeScript, no agent | fine: reads facts (logs, locks, pids), acts on nothing | fine: reads only; `run_dir` paths are checked against the v2 run-dir shape before any read | fine: RED then GREEN commits | fine: a missing or unreadable file is said ("log gone", lock warning), never guessed | fine: no loop file changed; it reuses `paths.ts`, `config.ts`, `isProcessAlive` |
+  | `src/dashboard/server.ts`, `page.html` | fine | fine | fine: 127.0.0.1 only, Host check, `/log` only for runs in the snapshot, no env file loaded (the Jira token never enters it) | fine: server tests RED then GREEN | fine | fine |
+  | `package.json` `dashboard` script | fine | n/a | fine: no `--env-file` | covered by a structure test | n/a | **bend**: `package.json` is shared with the loop's scripts. One line added, nothing else touched. Acceptable: the brief asks for `npm run dashboard`, and no other script changes |
+  | Docs (README, guide `DATA.companions`, future-enhancements, spec, plan) | fine | n/a | n/a | n/a | n/a | fine: the guide only adds a "Watch it" line; no step in the loop's picture changes |
+
+  One **bend** on scope: the dashboard reads a lock's pid liveness with the
+  loop's own `isProcessAlive`, which runs `ps -o lstart=`. It is read-only,
+  and it is the same check the loop uses, so the dashboard and the loop agree
+  on what "live" means.
+
 Bounce criteria v2. Design:
 [bounce criteria v2](docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md),
 plan [2026-11-20-bounce-criteria-v2](docs/superpowers/plans/2026-11-20-bounce-criteria-v2.md).

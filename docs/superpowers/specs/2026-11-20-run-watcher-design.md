@@ -47,7 +47,8 @@ stopped the build.
    get a card.
 6. **Live runs.** A run is live when a `sessions/<name>.lock` names it in
    `inFlight` and the lock's pid is alive (`isProcessAlive` from
-   `src/core/session.ts`, which only sends signal 0). A lock with a dead pid
+   `src/core/session.ts`: signal 0 plus a read-only `ps -o lstart=` to
+   match the start time, the same check the loop uses). A lock with a dead pid
    is shown as a warning line ("dev-1's lock names TARS-1 dev, but its
    process is gone; the loop records it on its next start"), never as a
    running card. A run that is both live and in the log shows once, as
@@ -55,7 +56,7 @@ stopped the build.
 7. **Lock parsing** lives in `src/dashboard/` (it reuses `TICKET_KEY`,
    `SESSION_ID` and `isProcessAlive`), because `session.ts`'s own parser is
    private and the loop's code stays unchanged.
-8. **Cost so far** for a live run reads "not yet": `usage.json` is written
+8. **Cost** on a live card reads "when it ends": `usage.json` is written
    only when the run ends. **Commit** is left out: no structured field holds
    the commit SHA (it is only in free-text notes).
 9. **Jira link:** `JIRA_BASE_URL` from the environment of the dashboard
@@ -90,7 +91,13 @@ stopped the build.
     process, or calls `fetch`.
 17. **Batch view**: the empty state only ("Batch runs will show here …"),
     since no batch file exists yet.
-18. **Timeline Window** keeps the mockup's 1 hour, 4 hours and 24 hours,
+18. **Malformed phase names stay off the step bar.** A real research log
+    (TARS-1650) wrote `"phase": "ground phase_start"` with an empty event.
+    Only step-shaped names (`^[a-z][a-z-]*$`) not in the declared list are
+    added to the bar; every line still shows in the log.
+19. **Extra facts on finished cards:** "Category" (the failure category,
+    when there is one) and "Log: gone" when the progress file is missing.
+20. **Timeline Window** keeps the mockup's 1 hour, 4 hours and 24 hours,
     default 1 hour. With one worker running occasionally, an empty window is
     common; the empty state says to try a longer one.
 
