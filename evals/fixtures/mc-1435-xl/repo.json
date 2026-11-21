@@ -1,0 +1,6 @@
+{
+  "project": "catalog-ui-management",
+  "sha": "3be2731f",
+  "verified": false,
+  "verify_cmd": "git -C ~/Desktop/Repos/catalog-ui-management log -1 --format='%H %P' 7521af60   # the parent (2nd field) must start with 3be2731f, the base of PR #237; write the full parent sha here and set verified: true"
+}

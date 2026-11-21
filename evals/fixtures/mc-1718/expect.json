@@ -1,0 +1,12 @@
+{
+  "outcomes": ["ready"],
+  "loopAction": ["accept"],
+  "forbidVerdictCheck": ["coverage_warned", "coverage_missing", "attachment_unreadable"],
+  "groundedBeforeScope": true,
+  "coverageComplete": true,
+  "sizeEstimate": ["M", "L"],
+  "acCount": { "min": 4, "max": 20 },
+  "outbox": { "publishedSpec": true, "require": ["/variant B/i", "/out of scope/i"] },
+  "maxCostUsd": 5,
+  "passRate": 0.67
+}

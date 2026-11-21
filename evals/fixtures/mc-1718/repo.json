@@ -1,0 +1,6 @@
+{
+  "project": "catalog-ui-management",
+  "sha": null,
+  "verified": false,
+  "verify_cmd": "git -C ~/Desktop/Repos/catalog-ui-management rev-list -1 --before=2026-11-21T04:10:45Z origin/main   # origin/main when MC-1718's research run started; write it here and set verified: true"
+}

@@ -114,3 +114,17 @@ describe("loadFixture", () => {
     expect(!r.ok && r.problems.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("the committed fixtures (evals/fixtures/)", () => {
+  const ROOT = join(import.meta.dirname, "../../evals/fixtures");
+  for (const name of ["mc-1435-xl", "mc-1718"]) {
+    it(`${name}: repo.json and expect.json are valid, and the runner refuses it until its PENDING.md steps are done`, async () => {
+      const { readFile } = await import("node:fs/promises");
+      const { validateExpectation } = await import("../../src/eval/grade-fixture.ts");
+      expect(validateRepoPin(JSON.parse(await readFile(join(ROOT, name, "repo.json"), "utf8"))).ok).toBe(true);
+      expect(validateExpectation(JSON.parse(await readFile(join(ROOT, name, "expect.json"), "utf8"))).ok).toBe(true);
+      const r = await loadFixture(ROOT, name);
+      if (!r.ok) expect(r.problems.join("\n")).toMatch(/ticket\.json|UNVERIFIED|reviewed/);
+    });
+  }
+});

@@ -4,6 +4,7 @@
 #   DRY_RUN=0 npm run eval -- clean    LIVE: real Jira tickets, sandbox PRs, paid claude runs
 #   DRY_RUN=0 npm run eval -- --all    LIVE, all six in order; stops at the first failure
 #   EVAL_SANDBOX=sbx npm run eval -- clean   the same, with --sandbox=sbx (unset or none: no sandbox)
+#   npm run eval -- --fixture=<name> [--runs=N]   a fixture eval (no Jira, no GitHub): dry prints the plan
 # DRY_RUN unset/empty/1 is dry; exactly 0 is live; anything else is refused.
 #
 # A real run costs money (one research + one dev phase run per ticket) and
@@ -32,9 +33,25 @@ RUN_TIMEOUT_S="${EVAL_RUN_TIMEOUT_S:-12600}"
 
 usage() {
   log "usage: [DRY_RUN=0] npm run eval -- <$(echo "$SCENARIOS" | tr ' ' '|')> | --all"
+  log "       [DRY_RUN=0] npm run eval -- --fixture=<name> [--runs=1..5] [--max-total=<usd>]"
   log "  dry by default (DRY_RUN unset/empty/1); DRY_RUN=0 is a LIVE, paid run; any other DRY_RUN value is refused"
   exit 2
 }
+
+# Fixture evals (evals/fixtures/<name>/): research on a ticket kept in local
+# files, no Jira or GitHub at all, so no preflight and no keys. Dry prints the
+# plan (src/eval/fixture-run-cli.ts parses DRY_RUN the same way and refuses a
+# fixture that is not runnable); live goes through `outward` like every paid run.
+case "${1-}" in
+  --fixture=*)
+    cd "$ROOT" || die "cannot cd to the repo root"
+    if is_dry; then
+      exec node src/eval/fixture-run-cli.ts "$@"
+    fi
+    outward node src/eval/fixture-run-cli.ts "$@"
+    exit $?
+    ;;
+esac
 
 [ "$#" -eq 1 ] || usage
 case "$1" in

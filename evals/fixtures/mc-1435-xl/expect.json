@@ -1,0 +1,11 @@
+{
+  "outcomes": ["ready", "bounced"],
+  "failureCategory": { "forbid": ["too_large"] },
+  "forbidVerdictCheck": ["too_large_ungrounded", "too_large_no_evidence", "coverage_missing", "coverage_warned"],
+  "groundedBeforeScope": true,
+  "coverageComplete": true,
+  "sizeEstimate": ["S", "M", "L"],
+  "outbox": { "forbid": ["/variant (A|C) is (chosen|in scope)/i"] },
+  "maxCostUsd": 5,
+  "passRate": 0.67
+}
