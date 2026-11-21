@@ -12,6 +12,12 @@
   runs, or what runs where (sandbox vs host). CLAUDE.md says so too.
   All facts live in the DATA block in the script below; the page draws
   itself from it. Batch mode is not built yet: it is listed, disabled.
+
+  VERSIONED. Every change to docs/guide/ bumps DATA.guideVersion, sets
+  DATA.updated, and adds an entry at the top of guide-changes.js (shown on
+  changelog.html), in the same change. Bump rule: patch = a wording fix;
+  minor = a new section, step or repo; major = a restructure.
+  test/guide/guide-version.test.ts fails if they drift.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -252,6 +258,9 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
 .no { color: var(--muted); }
 .note { color: var(--muted); font-size: .92rem; }
+.guide-foot { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+.guide-foot a { color: var(--ink); white-space: nowrap; }
+.toc a.whatsnew { border-style: dashed; }
 
 /* Sections: each opens with a rule, a number and a title, so the page reads as parts. */
 main { gap: 0; padding-block: 0 56px; }
@@ -359,7 +368,7 @@ ol.steps li.rest { opacity: .45; }
       <svg class="ext" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M9.5 2.5h4v4M13.5 2.5 7 9M12 9.5v3.25c0 .41-.34.75-.75.75h-8c-.41 0-.75-.34-.75-.75v-8c0-.41.34-.75.75-.75H6.5"/></svg>
     </a>
     <nav class="toc" aria-label="On this page"><span class="toc-label">On this page</span>
-      <a href="#pillars-h">1. Key pillars</a><a href="#workflow-h">2. See it work</a><a href="#env-h">3. Settings and secrets</a><a href="#repos-h">4. Repos</a>
+      <a href="#pillars-h">1. Key pillars</a><a href="#workflow-h">2. See it work</a><a href="#env-h">3. Settings and secrets</a><a href="#repos-h">4. Repos</a><a class="whatsnew" href="changelog.html">What's new</a>
     </nav>
   </header>
 </div>
@@ -447,13 +456,19 @@ ol.steps li.rest { opacity: .45; }
 
 
   <p class="note" id="updated"></p>
+  <footer class="note guide-foot" id="guide-foot"></footer>
   </div>
 </main>
 
+<script src="guide-changes.js"></script>
 <script>
 /* ===== DATA: the only place facts live. Update when dev-loop changes. ===== */
 const DATA = {
+  /* The guide's own version; bump it with an entry in guide-changes.js (see the header comment). */
+  guideVersion: "1.0.0",
   updated: "2026-11-20",
+  /* package.json version this page was checked against. */
+  loopVersion: "2.2.0",
   /* Jira statuses every repo's config uses (jira.claimStatus / statusNames). */
   status: { todo: "To Do", bounced: "Blocked", prOpen: "Code Review" },
   repos: [
@@ -988,7 +1003,18 @@ document.addEventListener("keydown", (e) => {
 
 drawRepos();
 render();
-document.getElementById("updated").textContent = `Last checked against the code: ${DATA.updated}. Batch mode is planned and will get its own picture.`;
+document.getElementById("updated").textContent = "Batch mode is planned and will get its own picture.";
+(function guideFoot() {
+  const foot = document.getElementById("guide-foot");
+  const latest = (window.GUIDE_CHANGES || [])[0];
+  const anchor = "v" + DATA.guideVersion.replace(/\./g, "-");
+  foot.append(`Guide v${DATA.guideVersion} · checked against dev-loop ${DATA.loopVersion} · ${DATA.updated} · `);
+  const a = document.createElement("a");
+  a.href = `changelog.html#${anchor}`;
+  a.textContent = "What's new";
+  if (latest) a.title = latest.title;
+  foot.append(a);
+})();
 </script>
 </body>
 </html>
