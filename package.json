@@ -12,6 +12,7 @@
     "build": "tsc",
     "check-auth": "node --env-file=\"${DEVLOOP_ENV_FILE:-.env}\" scripts/check-jira-auth.mjs",
     "stats": "node scripts/stats.mjs",
+    "dashboard": "node src/dashboard/server.ts",
     "sandbox:approvals": "node scripts/sandbox-approvals.mjs",
     "sbx:status": "node scripts/sbx.mjs status",
     "sbx:dashboard": "node scripts/sbx.mjs dashboard",

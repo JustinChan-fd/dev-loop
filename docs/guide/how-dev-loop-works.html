@@ -394,6 +394,7 @@ ol.steps li.rest { opacity: .45; }
       <dl class="facts">
         <div><dt>Runs</dt><dd id="job-skills" aria-live="polite"></dd></div>
         <div><dt title="Every minute it asks Jira for tickets that match all of these">Picks up</dt><dd><ul class="pickup" id="pickup"></ul></dd></div>
+        <div><dt title="Start it in another terminal, next to the loop">Watch it</dt><dd id="companions"></dd></div>
       </dl>
       </details>
     </form>
@@ -486,6 +487,11 @@ const DATA = {
   modes: [
     { id: "single", label: "One ticket at a time", flag: "" },
     { id: "batch", label: "Batch (coming later)", flag: "", disabled: true },
+  ],
+  /* Things you can start next to the loop. They only watch: no step above changes. */
+  companions: [
+    { id: "dashboard", label: "Run watcher", cmd: "npm run dashboard", url: "http://127.0.0.1:4317/",
+      what: "a live page of every run: which step each is on, where each finished one ended, and its full log. It only reads the logs (v2), so it changes nothing." },
   ],
 };
 /* ======================================================================== */
@@ -856,6 +862,13 @@ function drawPickup() {
   document.getElementById("pickup").innerHTML = rows.map(([k, v]) => `<li><b>${k}</b> ${v}</li>`).join("") + `<li class="every">checked every minute</li>`;
 }
 
+/* The companions: same command for every option, since they only watch. */
+function drawCompanions() {
+  const proj = `--project=${repo().id}`;
+  document.getElementById("companions").innerHTML = DATA.companions.map((c) =>
+    `<code>${c.cmd} -- ${proj}</code> opens the ${c.label.toLowerCase()} at <code>${c.url}</code>: ${c.what}`).join("<br>");
+}
+
 function render() {
   // a repo without sbx set up can't pick it
   const r = repo();
@@ -874,6 +887,7 @@ function render() {
     return `<code>/${k}</code> (${sk.job}; with ${extra.map((h) => `<code>${h}</code>`).join(", ")})`;
   }).join(", then ");
   drawPickup();
+  drawCompanions();
   drawEnv();
   drawLegend();
   document.getElementById("env-sub").textContent = state.sandbox !== "none" ? `Grouped by where each one lives. With sbx, the robot can read only the two folders it works in; sbx adds every token on the way out, so the robot never holds one. It gets fake settings instead of the real ${repo().realEnv ?? ".envrc"}.` : `Grouped by where each one lives. With no safety room, the robot runs as you, so it could read what you can, except dev-loop\u2019s Jira login. It gets fake settings instead of the real ${repo().realEnv ?? ".envrc"}.`;
