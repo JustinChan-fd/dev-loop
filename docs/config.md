@@ -719,6 +719,21 @@ gets the reason `blocker <K> has no merged PR in <repo> — needs a human`. The
 gate never clears it on its own. A human clears it by **removing the Jira
 link** (a manager's decision), and the ticket is picked up on the next poll.
 
+**`jira.blockerClearedStatuses`** (optional, a list of exact Jira status
+names) lets a blocker clear on its Jira status. This covers a blocker whose
+work lives in another repo, such as a backend ticket on INT. When the PR
+rule does not clear a blocker and the list is set, the gate reads the
+blocker's live status. A listed name clears it, and so does any status in
+Jira's Done category. Names match exactly, because Jira has no order of
+statuses, so "Development Complete or later" is written out as every status
+after it. The skip reason names the status, e.g. `…; its status In Progress
+is not in jira.blockerClearedStatuses`. A status clear is not cached, since
+a ticket can move back. A failed status read keeps the ticket blocked. With
+no list, the status is never read. webtarsthree, catalog-ui-management and
+catalog-ui-public all set `["Development Complete", "Deployed to INT",
+"Deployed to STG", "Ready for Release", "Deployed to PROD"]`. The eval
+config leaves it unset, so the `blocked` scenario still tests the PR rule.
+
 ### Appendix A (Jira wiring)
 
 Every Jira-specific value above starts as the literal placeholder string

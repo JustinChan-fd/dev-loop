@@ -250,3 +250,77 @@ describe("gateTicket", () => {
     expect(d.execGhFindMergedPr).not.toHaveBeenCalled();
   });
 });
+
+describe("blocker cleared by Jira status (jira.blockerClearedStatuses)", () => {
+  const LIST = ["Development Complete", "Deployed to INT"];
+  const status = (name: string, done = false) => vi.fn(async () => ({ name, done }));
+  const NEEDS = "blocker MC-9 has no merged PR in org/repo — needs a human (Done without a PR, or another repo)";
+
+  it("a cross-project blocker in a listed status is cleared, and gh is not called", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: status("Deployed to INT") });
+    const r = await isBlockerCleared("MC-9", d);
+    expect(r).toEqual({ cleared: true, reason: "blocker MC-9 is Deployed to INT (in jira.blockerClearedStatuses)" });
+    expect(d.execGhFindMergedPr).not.toHaveBeenCalled();
+  });
+
+  it("a blocker in Jira's Done category is cleared", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: status("Closed", true) });
+    const r = await isBlockerCleared("MC-9", d);
+    expect(r).toEqual({ cleared: true, reason: "blocker MC-9 is Closed (Done)" });
+  });
+
+  it("a blocker in an unlisted status stays blocked, and the reason names its status", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: status("In Progress") });
+    const r = await isBlockerCleared("MC-9", d);
+    expect(r).toEqual({ cleared: false, reason: `${NEEDS}; its status In Progress is not in jira.blockerClearedStatuses` });
+  });
+
+  it("a same-project blocker with an open PR and an unlisted status stays blocked", async () => {
+    const d = deps({
+      clearedStatuses: LIST,
+      getBlockerStatus: status("Code Review"),
+      findLandedPrUrl: vi.fn(async () => "https://github.com/org/repo/pull/7"),
+    });
+    const r = await isBlockerCleared("TARS-1", d);
+    expect(r.cleared).toBe(false);
+    expect(r.reason).toBe("blocker TARS-1 PR open: https://github.com/org/repo/pull/7; its status Code Review is not in jira.blockerClearedStatuses");
+  });
+
+  it("a same-project blocker with a merged PR is cleared by the PR, without a status read", async () => {
+    const getBlockerStatus = status("In Progress");
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus, execGhFindMergedPr: vi.fn(async () => merged("https://github.com/org/repo/pull/3")) });
+    const r = await isBlockerCleared("TARS-1", d);
+    expect(r).toEqual({ cleared: true, reason: "blocker TARS-1 merged: https://github.com/org/repo/pull/3" });
+    expect(getBlockerStatus).not.toHaveBeenCalled();
+  });
+
+  it("a status read that throws fails closed, and the reason says so", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: vi.fn(async () => { throw new Error("Jira 503"); }) });
+    const r = await isBlockerCleared("MC-9", d);
+    expect(r).toEqual({ cleared: false, reason: `${NEEDS}; its status check failed: Jira 503` });
+  });
+
+  it("without the list, the status is never read (today's behaviour)", async () => {
+    const getBlockerStatus = status("Deployed to INT");
+    const r = await isBlockerCleared("MC-9", deps({ getBlockerStatus }));
+    expect(r).toEqual({ cleared: false, reason: NEEDS });
+    expect(getBlockerStatus).not.toHaveBeenCalled();
+  });
+
+  it("a status clear is not cached (a status can move back)", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: status("Deployed to INT") });
+    await isBlockerCleared("MC-9", d);
+    expect(d.mergedCache.size).toBe(0);
+  });
+
+  it("status names match exactly (case and spacing matter)", async () => {
+    const d = deps({ clearedStatuses: LIST, getBlockerStatus: status("deployed to int") });
+    expect((await isBlockerCleared("MC-9", d)).cleared).toBe(false);
+  });
+
+  it("gateTicket reads the blocker's status through jira.getStatusDetail", async () => {
+    const jira = new StubJiraClient({ blockedBy: { "MC-5": ["MC-1431"] }, statusDetail: { "MC-1431": { name: "Deployed to INT", done: false } } });
+    const r = await gateTicket("MC-5", { ...deps(), clearedStatuses: LIST, jira });
+    expect(r).toEqual({ pass: true });
+  });
+});

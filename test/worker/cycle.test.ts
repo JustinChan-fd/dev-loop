@@ -793,6 +793,30 @@ describe("runWorkerIteration — the cycle (§6.3)", () => {
     expect(runSkillCalls(h)).toEqual([]);
   });
 
+  it("a cross-project blocker in a jira.blockerClearedStatuses status lets the ticket run", async () => {
+    h = await harness({ config: (c) => { c.jira.blockerClearedStatuses = ["Deployed to INT"]; } });
+    h.jira.research = [ticket("TARS-1")];
+    h.jira.blockers = { "TARS-1": ["MC-9"] };
+    h.jira.statusDetails = { "MC-9": { name: "Deployed to INT", done: false } };
+
+    await runWorkerIteration(h.deps);
+
+    expect((await records(h)).filter((r) => r.outcome === "skipped-blocked")).toEqual([]);
+    expect(h.jira.calls("claimTicket").map((e) => e[1])).toEqual(["TARS-1"]);
+  });
+
+  it("without jira.blockerClearedStatuses the same blocker still skips the ticket", async () => {
+    h = await harness();
+    h.jira.research = [ticket("TARS-1")];
+    h.jira.blockers = { "TARS-1": ["MC-9"] };
+    h.jira.statusDetails = { "MC-9": { name: "Deployed to INT", done: false } };
+
+    await runWorkerIteration(h.deps);
+
+    expect((await records(h)).map((r) => r.outcome)).toEqual(["skipped-blocked"]);
+    expect(h.jira.calls("getStatusDetail")).toEqual([]);
+  });
+
   it("handoff swap fails three iterations running → one handoff-pending record", async () => {
     h = await harness();
     h.jira.research = [ticket("TARS-1")];

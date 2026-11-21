@@ -238,6 +238,13 @@ export interface JiraConfig {
   repoLabel: string;
   statusNames: StatusNamesConfig;
   claimStatus: ClaimStatusConfig;
+  /**
+   * Status names (exact) that clear an "is blocked by" blocker from any repo
+   * or project, e.g. "Deployed to INT". Jira's Done category always clears
+   * too once this is set. Absent: only a merged PR in github.repo clears a
+   * blocker (src/core/blocker-gate.ts).
+   */
+  blockerClearedStatuses?: string[];
 }
 
 /**

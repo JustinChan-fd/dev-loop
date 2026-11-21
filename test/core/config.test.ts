@@ -174,6 +174,27 @@ describe("validateConfig", () => {
     expect(validateConfig(structuredClone(valid))).toEqual(valid);
   });
 
+  it("accepts jira.blockerClearedStatuses as a list of status names", () => {
+    const c = validateConfig({ ...structuredClone(valid), jira: { ...structuredClone(valid.jira), blockerClearedStatuses: ["Deployed to INT"] } });
+    expect(c.jira.blockerClearedStatuses).toEqual(["Deployed to INT"]);
+  });
+
+  it.each([
+    ["a string", "Deployed to INT"],
+    ["an empty name", [""]],
+    ["a non-string", [3]],
+    ["a name with a quote", ['Deployed "INT"']],
+  ])("rejects jira.blockerClearedStatuses that is %s", (_what, v) => {
+    expect(() => validateConfig({ ...structuredClone(valid), jira: { ...structuredClone(valid.jira), blockerClearedStatuses: v } })).toThrow(
+      /jira\.blockerClearedStatuses/,
+    );
+  });
+
+  it.each(PROJECTS)("%s: blockers in Development Complete or later clear the gate", async (project) => {
+    const c = await loadConfig(path.join(REPO_ROOT, `pipeline.${project}.config.json`));
+    expect(c.jira.blockerClearedStatuses).toEqual(["Development Complete", "Deployed to INT", "Deployed to STG", "Ready for Release", "Deployed to PROD"]);
+  });
+
   it("rejects autoPromoteLabel", () => {
     expect(() => validateConfig({ ...valid, autoPromoteLabel: "auto-promote" })).toThrow(
       /autoPromoteLabel was removed in 2.0.0/,

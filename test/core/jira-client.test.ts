@@ -348,6 +348,26 @@ describe("RealJiraClient", () => {
     expect(init.method ?? "GET").toBe("GET");
   });
 
+  it("getStatusDetail returns the status name and whether its category is done", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ fields: { status: { name: "Closed", statusCategory: { key: "done" } } } }), { status: 200 }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ fields: { status: { name: "Deployed to INT", statusCategory: { key: "indeterminate" } } } }), { status: 200 }),
+    );
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+
+    await expect(client.getStatusDetail("MC-1")).resolves.toEqual({ name: "Closed", done: true });
+    await expect(client.getStatusDetail("MC-2")).resolves.toEqual({ name: "Deployed to INT", done: false });
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://example.atlassian.net/rest/api/3/issue/MC-1?fields=status");
+  });
+
+  it("getStatusDetail refuses an invalid key without a request", async () => {
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+    await expect(client.getStatusDetail("../x")).rejects.toThrow(/invalid ticket key/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("getStatus rejects on a non-2xx response", async () => {
     fetchMock.mockResolvedValueOnce(new Response("nope", { status: 500 }));
     const client = new RealJiraClient(CREDENTIALS, makeConfig());

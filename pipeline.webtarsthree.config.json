@@ -8,7 +8,8 @@
   "jira": {
     "repoLabel": "repo:webtarsthree",
     "statusNames": { "bounced": "Blocked", "prOpen": "Code Review" },
-    "claimStatus": { "from": "To Do", "to": "In Progress" }
+    "claimStatus": { "from": "To Do", "to": "In Progress" },
+    "blockerClearedStatuses": ["Development Complete", "Deployed to INT", "Deployed to STG", "Ready for Release", "Deployed to PROD"]
   },
   "roles": {
     "research": {

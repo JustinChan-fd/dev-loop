@@ -18,6 +18,14 @@
  * it can't have a PR in this repo, so it gets the "needs a human" reason
  * straight away. A human clears such a blocker by removing the link; the
  * ticket is picked up on the next poll.
+ *
+ * A project may also list Jira status names (`jira.blockerClearedStatuses`)
+ * that clear a blocker from any repo or project, e.g. "Deployed to INT" for
+ * a backend ticket in another repo. When the PR rule above does not clear a
+ * blocker and the list is set, the blocker's live status is read: a listed
+ * name (exact match) or Jira's Done category clears it. A status clear is not
+ * cached (a status can move back), and a failed status read stays blocked.
+ * No list: the status is never read.
  */
 
 import type { JiraClient } from "./jira-client.ts";
@@ -45,6 +53,10 @@ export interface BlockerGateDeps {
    * ticket key.
    */
   projectKey: string;
+  /** jira.blockerClearedStatuses: exact status names that clear a blocker. Absent or empty: the status is never read. */
+  clearedStatuses?: string[];
+  /** The blocker's live status: its name and whether it is in Jira's Done category. */
+  getBlockerStatus?: (key: string) => Promise<{ name: string; done: boolean }>;
 }
 
 export interface BlockerCheck {
@@ -77,6 +89,20 @@ const needsHuman = (key: string, repo: string): string =>
   `blocker ${key} has no merged PR in ${repo} — needs a human (Done without a PR, or another repo)`;
 
 export async function isBlockerCleared(blockerKey: string, deps: BlockerGateDeps): Promise<BlockerCheck> {
+  const byPr = await isClearedByPr(blockerKey, deps);
+  const list = deps.clearedStatuses ?? [];
+  if (byPr.cleared || list.length === 0 || !deps.getBlockerStatus || !TICKET_KEY.test(String(blockerKey))) return byPr;
+  try {
+    const { name, done } = await deps.getBlockerStatus(blockerKey);
+    if (list.includes(name)) return { cleared: true, reason: `blocker ${blockerKey} is ${name} (in jira.blockerClearedStatuses)` };
+    if (done) return { cleared: true, reason: `blocker ${blockerKey} is ${name} (Done)` };
+    return { cleared: false, reason: `${byPr.reason}; its status ${String(name).slice(0, 60)} is not in jira.blockerClearedStatuses` };
+  } catch (err) {
+    return { cleared: false, reason: `${byPr.reason}; its status check failed: ${errorText(err)}` };
+  }
+}
+
+async function isClearedByPr(blockerKey: string, deps: BlockerGateDeps): Promise<BlockerCheck> {
   if (typeof blockerKey !== "string" || !TICKET_KEY.test(blockerKey)) {
     return { cleared: false, reason: `blocker ${safeKey(blockerKey)} check failed: invalid key` };
   }
@@ -133,7 +159,11 @@ export async function gateTicket(
     return { pass: false, blockedBy: [], reasons: [`blockers of ${ticketKey} check failed: ${errorText(err)}`] };
   }
 
-  const checkDeps: BlockerGateDeps = { ...deps, projectKey: projectOf(ticketKey) };
+  const checkDeps: BlockerGateDeps = {
+    ...deps,
+    projectKey: projectOf(ticketKey),
+    getBlockerStatus: deps.getBlockerStatus ?? ((key) => deps.jira.getStatusDetail(key)),
+  };
   const blockedBy: string[] = [];
   const reasons: string[] = [];
   for (const key of blockers) {

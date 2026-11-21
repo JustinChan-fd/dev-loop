@@ -19,6 +19,13 @@ Steps 1–3 built (plan 2026-11-12-sandbox-adapter-foundation.md, then the
 sbx adapter, not yet dogfooded). Design:
 [docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md).
 
+- `[core]` **A blocker can clear on its Jira status** (`jira.blockerClearedStatuses`).
+  Found on the first catalog run: MC-1435 "is blocked by" MC-1431, a
+  catalog-svc-management ticket already Deployed to INT. The gate only knew
+  merged PRs in this repo, so it skipped MC-1435 as needing a human. Now a
+  blocker in a listed status (exact name) or Jira's Done category clears.
+  The three project configs list Development Complete through Deployed to
+  PROD. The eval config and any config without the list keep the old rule.
 - `[core]` **Project profiles** (spec `docs/superpowers/specs/2026-11-20-project-profiles-design.md`).
   A project config may carry `targetRepo.local`: its app folder, Node version
   file, env template (and its format), extra real env files, robot-only

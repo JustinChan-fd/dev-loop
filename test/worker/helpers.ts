@@ -97,6 +97,14 @@ export class FakeJira extends StubJiraClient {
     return this.statuses[key] ?? "In Progress";
   }
 
+  /** Blocker status for the gate; unknown keys read "In Progress". */
+  statusDetails: Record<string, { name: string; done: boolean }> = {};
+
+  async getStatusDetail(key: string): Promise<{ name: string; done: boolean }> {
+    this.events.push(["getStatusDetail", key]);
+    return { ...(this.statusDetails[key] ?? { name: "In Progress", done: false }) };
+  }
+
   async getBlockedBy(key: string): Promise<string[]> {
     this.events.push(["getBlockedBy", key]);
     return [...(this.blockers[key] ?? [])];

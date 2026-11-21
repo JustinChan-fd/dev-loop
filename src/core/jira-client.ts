@@ -131,6 +131,9 @@ export interface JiraClient {
   /** The ticket's current Jira status name (`GET issue?fields=status`). */
   getStatus(ticketKey: string): Promise<string>;
 
+  /** The ticket's status name and whether it is in Jira's Done category (`GET issue?fields=status`). The blocker gate reads it. */
+  getStatusDetail(ticketKey: string): Promise<{ name: string; done: boolean }>;
+
   /**
    * Keys of the tickets this one "is blocked by": issue links whose
    * `type.inward` is "is blocked by" and that carry an `inwardIssue`.
@@ -178,8 +181,11 @@ export class StubJiraClient implements JiraClient {
    * `opts.blockedBy` makes getBlockedBy answer from that map (unlisted key
    * -> []) instead of throwing, for tests of the blocker gate.
    */
-  constructor(opts: { blockedBy?: Record<string, string[]> } = {}) {
+  private readonly statusDetail?: Record<string, { name: string; done: boolean }>;
+
+  constructor(opts: { blockedBy?: Record<string, string[]>; statusDetail?: Record<string, { name: string; done: boolean }> } = {}) {
     this.blockedBy = opts.blockedBy;
+    this.statusDetail = opts.statusDetail;
   }
 
   private static notConfigured(method: string): Error {
@@ -241,6 +247,12 @@ export class StubJiraClient implements JiraClient {
 
   async getStatus(_ticketKey: string): Promise<string> {
     throw StubJiraClient.notConfigured("getStatus");
+  }
+
+  /** `opts.statusDetail` answers from that map (unlisted key -> "In Progress"); otherwise not configured. */
+  async getStatusDetail(ticketKey: string): Promise<{ name: string; done: boolean }> {
+    if (!this.statusDetail) throw StubJiraClient.notConfigured("getStatusDetail");
+    return { ...(this.statusDetail[ticketKey] ?? { name: "In Progress", done: false }) };
   }
 
   async getBlockedBy(ticketKey: string): Promise<string[]> {
@@ -565,6 +577,16 @@ export class RealJiraClient implements JiraClient {
     const response = await this.request(`/rest/api/3/issue/${ticketKey}?fields=status`);
     const data = (await response.json()) as JiraStatusFieldResponse;
     return data.fields.status.name;
+  }
+
+  /** The ticket's status name and whether its statusCategory is "done". */
+  async getStatusDetail(ticketKey: string): Promise<{ name: string; done: boolean }> {
+    if (!TICKET_KEY.test(ticketKey)) {
+      throw new Error(`RealJiraClient.getStatusDetail: invalid ticket key ${JSON.stringify(ticketKey)}`);
+    }
+    const response = await this.request(`/rest/api/3/issue/${ticketKey}?fields=status`);
+    const data = (await response.json()) as JiraStatusFieldResponse;
+    return { name: data.fields.status.name, done: data.fields.status.statusCategory.key === "done" };
   }
 
   /**

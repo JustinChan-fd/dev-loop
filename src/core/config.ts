@@ -97,6 +97,15 @@ function jqlValue(o: Obj, k: string, at: string): string {
   return v;
 }
 
+/** A list of Jira status names (compared exactly; same character rules as jqlValue). */
+function statusList(v: unknown, at: string): void {
+  if (!Array.isArray(v)) throw new ConfigError(`${at} must be a list of status names`);
+  v.forEach((name, i) => {
+    if (typeof name !== "string" || name.length === 0) throw new ConfigError(`${at}[${i}] must be a non-empty string`);
+    if (JQL_UNSAFE.test(name)) throw new ConfigError(`${at}[${i}] must not contain a double quote, backslash or newline: ${JSON.stringify(name)}`);
+  });
+}
+
 function positive(o: Obj, k: string, at: string, integer = false): number {
   const v = o[k];
   if (typeof v !== "number" || !Number.isFinite(v) || v <= 0 || (integer && !Number.isInteger(v))) {
@@ -137,7 +146,8 @@ export function validateConfig(raw: unknown): Config {
   str(github, "repo", "github");
 
   const jira = obj(root.jira, "jira");
-  keys(jira, "jira", ["repoLabel", "statusNames", "claimStatus"]);
+  keys(jira, "jira", ["repoLabel", "statusNames", "claimStatus"], ["blockerClearedStatuses"]);
+  if ("blockerClearedStatuses" in jira) statusList(jira.blockerClearedStatuses, "jira.blockerClearedStatuses");
   jqlValue(jira, "repoLabel", "jira");
   const statusNames = obj(jira.statusNames, "jira.statusNames");
   keys(statusNames, "jira.statusNames", ["bounced", "prOpen"]);

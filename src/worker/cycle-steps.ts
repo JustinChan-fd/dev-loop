@@ -71,6 +71,7 @@ async function gate(ctx: Ctx, key: string): Promise<boolean> {
     repo: config.github.repo,
     defaultBranch: config.targetRepo.defaultBranch,
     jira: ctx.deps.jira,
+    clearedStatuses: config.jira.blockerClearedStatuses,
   });
   if (g.pass) return true;
   const prev = lastSkipBlockers(ctx.records, key);
