@@ -80,6 +80,11 @@ permissions bypassed.
   The first `--overnight` run started 2026-11-21 inside a session sandbox:
   both overnight branches were cut off `main`, and the only blocked host was
   `api.github.com`.
+- **Bend, written down:** `scripts/claude-sbx.mjs` (the thin launcher that
+  runs sbx, screen and git) has no unit tests of its own, like the existing
+  `scripts/sbx.mjs`. Every decision it makes is a pure function in
+  `src/sandbox/sbx/session.ts` or `session-sync.ts`, with tests, and the
+  script itself was proven by the live runs and the user's smoke run.
 - **Bend, written down:** this change was built in a host session, not in
   `claude:sbx`, because the launcher didn't exist yet. Every later change
   to dev-loop is offered `claude:sbx` first.
