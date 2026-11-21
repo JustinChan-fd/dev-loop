@@ -77,6 +77,17 @@ permissions bypassed.
   was created or moved) but wrong. "New" is now what no host branch, tag or
   `origin` ref has. Those commits are re-signed on top of the host commit
   they grew from, and the "look" line diffs from that commit, not `main`.
+- `[core]` **Sync catches a branch git made straight from the sandbox.**
+  Found syncing run 2 (2026-11-21). Sync held `feat/run-watcher` (it touches
+  `package.json`), so only `sandbox-<name>/feat/run-watcher` existed. Then
+  `git worktree add <dir> feat/run-watcher` let git pick that remote ref and
+  make a local branch with the sandbox's unsigned commits. The
+  `--allow-protected` rerun saw nothing new and said nothing. Now a local
+  branch whose upstream is the sandbox remote, and not the one sync signed,
+  is reported as failed with `git branch -D` to fix it. Sync never moves or
+  deletes it. The "held" message also says not to check out or add a
+  worktree for the branch until it's synced. Found by the overnight session;
+  the user had already deleted the branch and re-synced.
 - `[core]` **`--overnight` no longer stops its own subagents after 10
   minutes.** Found in the first overnight run (2026-11-21), which ended after
   12 minutes with no commits. The sandboxed `claude -p` passed the check, ran

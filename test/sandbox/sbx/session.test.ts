@@ -219,6 +219,8 @@ describe("renderSyncSummary", () => {
     expect(s).not.toContain("git push -u origin feat/x");
     expect(s).toContain("npm run claude:sbx:sync -- --name=n --allow-protected");
     expect(s).toContain("git log -p main..sandbox-n/feat/x");
+    // A checkout or worktree of the held name would make an unsigned branch from the sandbox remote.
+    expect(s).toMatch(/Don't check out or add a worktree for feat\/x until it is synced/);
     expect(s).not.toContain("<branch>");
   });
   it("says so when there is nothing new", () => {

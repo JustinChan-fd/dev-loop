@@ -236,6 +236,19 @@ describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
     expect(r.find((x) => x.branch === "feat/good")).toMatchObject({ status: "synced" });
   });
 
+  it("flags a local branch made from the sandbox remote (checkout / worktree add DWIM): unsigned, never checked", async () => {
+    await b("checkout", "-q", "-b", "feat/p");
+    await boxCommit(".claude/x.sh", "x\n", "protected");
+    expect((await run())[0]).toMatchObject({ branch: "feat/p", status: "protected" });
+    // What `git worktree add <dir> feat/p` does when only the sandbox remote has feat/p.
+    await h("branch", "--track", "feat/p", `sandbox-${NAME}/feat/p`);
+    const r = await run(true);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ branch: "feat/p", status: "failed" });
+    expect(r[0].detail).toMatch(/tracks sandbox-dl-session-t.*1 sandbox commit unsigned.*git branch -D feat\/p/);
+    expect(await h("log", "-1", "--format=%G?", "feat/p")).toBe("N"); // left alone, only reported
+  });
+
   it("counts only commits the host lacks: a branch cut from an unmerged host branch syncs just its own commit", async () => {
     // The host has an unmerged branch that touches a protected file.
     await h("checkout", "-q", "-b", "feat/host");

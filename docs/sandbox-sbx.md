@@ -395,7 +395,12 @@ for each branch with new commits:
 - lists the protected files **any** commit touched, in any case
   (`session.protectedPaths`; a change then revert still counts). Such a branch
   is fetched but **not** made into a local branch until you have read every
-  commit (`git log -p`) and rerun with `--allow-protected`;
+  commit (`git log -p`) and rerun with `--allow-protected`. Until then, don't
+  `git checkout` it or `git worktree add` it by name: git would make a local
+  branch straight from the sandbox remote, unsigned and unchecked. Sync
+  refuses to go on while such a branch exists (it says to `git branch -D` it).
+  Two sandboxes with a branch of the same name: the first synced gets the
+  local name; the second reports `exists`, whatever order you run them in;
 - rebuilds each commit with your key (`git commit-tree -S`: same tree, same
   message plus a `Sandbox-Commit: <name> <sha>` trailer, your identity),
   checks the tree is unchanged and every commit is signed, then creates the

@@ -30,6 +30,7 @@ export interface SyncArgs {
 }
 
 const lines = (s: string): string[] => s.split("\n").map((l) => l.trim()).filter(Boolean);
+const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? "" : "s"}`;
 const firstLine = (e: unknown): string => lines(e instanceof Error ? e.message : String(e))[0] ?? "unknown error";
 
 export async function syncSandboxBranches(a: SyncArgs): Promise<BranchSync[]> {
@@ -72,8 +73,30 @@ export async function syncSandboxBranches(a: SyncArgs): Promise<BranchSync[]> {
   }
   return out;
 
+  async function sandboxCopy(branch: string, tip: string): Promise<BranchSync | undefined> {
+    const same = (await localRefs()).get(`refs/heads/${branch}`.toLowerCase());
+    if (!same || !isSafeBranchName(branch)) return undefined;
+    const local = same.slice("refs/heads/".length);
+    // What DWIM leaves behind: the local branch's upstream is this sandbox's remote.
+    const upstream = await run("config", "--get", `branch.${local}.remote`).catch(() => "");
+    if (upstream !== remote) return undefined;
+    const signedTip = await run("rev-parse", "--verify", "-q", `refs/dl-sync/${a.name}/${branch}-signed`).catch(() => "");
+    if (signedTip && (await run("rev-parse", same)) === signedTip) return undefined;
+    // The sandbox's commits it carries: not on any other host branch, tag or origin.
+    const carried = lines(await run("rev-list", tip, "--not", `--exclude=${local}`, "--branches", "--tags", "--remotes=origin")).length;
+    return {
+      branch, status: "failed", ...empty,
+      detail: `your local ${local} tracks ${remote} and holds ${plural(carried, "sandbox commit")} unsigned and never checked (made by git checkout or git worktree add); remove it (git branch -D ${local}, and its worktree) and rerun`,
+    };
+  }
+
   async function syncOne(branch: string): Promise<BranchSync[]> {
     const tip = await run("rev-parse", "--verify", `refs/remotes/${remote}/${branch}^{commit}`);
+    // A local branch made straight from the sandbox remote (git checkout / worktree add
+    // pick it when the name is unique) holds the sandbox's unsigned commits and hides them
+    // from the "new" count below. Report it; never move or delete it.
+    const dwim = await sandboxCopy(branch, tip);
+    if (dwim) return [dwim];
     // "New" means not reachable from anything the host already has: its branches, tags and
     // origin. A sandbox branch cut from your unmerged feat/x carries only its own commits.
     const shas = lines(await run("rev-list", "--reverse", "--topo-order", tip, "--not", ...HOST_REFS));

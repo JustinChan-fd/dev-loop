@@ -359,6 +359,8 @@ export function renderSyncSummary(name: string, branches: BranchSync[], reports:
     out.push("", "Protected files changed. Read every commit first:");
     for (const b of branches.filter((x) => x.status === "protected")) out.push(`  git log -p ${b.base ?? "main"}..sandbox-${name}/${b.branch}`);
     out.push(`Then, only if you approve: npm run claude:sbx:sync -- --name=${name} --allow-protected`);
+    const held = branches.filter((x) => x.status === "protected").map((x) => x.branch).join(", ");
+    out.push(`Don't check out or add a worktree for ${held} until it is synced: git would make an unsigned branch straight from the sandbox.`);
   }
   return out.join("\n");
 }
