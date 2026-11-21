@@ -119,8 +119,10 @@ ol{list-style:none;margin:0;padding:0}
 .pill.status{height:24px;padding:0 10px 0 8px;font-size:12.5px;font-weight:700;color:var(--c);
   background:color-mix(in srgb,var(--c) 14%,var(--surface));border-color:color-mix(in srgb,var(--c) 45%,var(--surface))}
 /* 3. what's happening / what happened */
-.card .note{margin:0;padding:9px 12px;border-radius:6px;background:var(--sunk);font-size:14px;line-height:1.45;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .note{margin:0;padding:9px 12px;border-radius:6px;background:var(--sunk);font-size:14px;line-height:1.45}
+.card .note .txt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .note[data-note]{cursor:pointer}
+.card .note.full .txt{-webkit-line-clamp:unset;display:block}
 .card .note.quiet-note{background:color-mix(in srgb,var(--quiet) 12%,var(--surface));color:var(--ink)}
 .card .note .lead{color:var(--muted);margin-right:6px}
 .card .note.quiet-note .lead{color:var(--quiet);font-weight:500}
@@ -274,7 +276,7 @@ button.tl-seg{border:0;font:inherit;font-size:11px;padding:0 4px;text-align:left
   const changed = new Set();
 
   // ================= view state (filters kept in the URL hash) =================
-  const V = { view:"runs", proj:"all", phase:"all", worker:"all", out:"all", group:"none", win:60, since:720, tl:"run", more:0, open:null, fopen:false };
+  const V = { view:"runs", proj:"all", phase:"all", worker:"all", out:"all", group:"none", win:60, since:720, tl:"run", more:0, open:null, note:null, fopen:false };
   const HASHED = ["view","proj","phase","worker","out","group","win","since","tl"];
   const OK = { view:["runs","timeline","batch"], phase:["all","research","dev"], out:["all","running","landed","soft","bad"], group:["none","proj","worker"], tl:["run","worker","activity"] };
   function readHash(){
@@ -456,7 +458,7 @@ button.tl-seg{border:0;font:inherit;font-size:11px;padding:0 4px;text-align:left
         <span class="who">${keyLink(r.ticket)}<span class="pill status">${esc(status)}</span></span>${time}
         <span class="pills">${pill(r.phase, r.phase === "research" ? "Research" : "Dev", "Phase")}${pill("proj", projName(r.project), "Project")}${r.session ? pill("worker", r.session, "Worker") : ""}</span></div>
       ${track(r)}
-      <p class="note${q ? " quiet-note" : ""}" title="${esc(r.note)}">${note}</p>
+      <p class="note${q ? " quiet-note" : ""}${V.note === r.id ? " full" : ""}" data-note="${esc(r.id)}" title="${V.note === r.id ? "Click to shorten" : "Click to read it all"}"><span class="txt">${note}</span></p>
       <dl class="kv">${facts}</dl>
       <div class="ft">${cardLinks(r)}<button class="logbtn" data-open="${esc(r.id)}" aria-expanded="${open}">${open ? "Hide log" : "Show log"} <span class="n">${r.lines}</span>${PI.chev}</button></div>
       ${detail(r)}</article>`;
@@ -620,6 +622,8 @@ button.tl-seg{border:0;font:inherit;font-size:11px;padding:0 4px;text-align:left
 
   app.addEventListener("click", e => {
     if (e.target.closest("a")) return;
+    const n = e.target.closest("[data-note]");
+    if (n) { V.note = V.note === n.dataset.note ? null : n.dataset.note; render(); return; }
     const t = e.target.closest("[data-view],[data-out],[data-open],[data-clear],[data-ftoggle],[data-tl],[data-more],[data-since-next]"); if (!t) return;
     if (t.dataset.tl) { V.tl = t.dataset.tl; V.open = null; }
     else if (t.dataset.view) { V.view = t.dataset.view; V.open = null; }

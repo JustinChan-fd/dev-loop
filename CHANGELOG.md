@@ -33,6 +33,9 @@ plan [2026-11-20-run-watcher](docs/superpowers/plans/2026-11-20-run-watcher.md).
   phases: dev is `intake, plan, red, green, verify, pr`, with no `qa` step.
   A lock with a dead process is a warning, not a running card. `package.json`
   gains the one `dashboard` script line; no new dependencies.
+  From a git worktree it reads the main checkout's logs by default (a
+  worktree's own `runs/` are empty). A finished run's summary shows two
+  whole lines and opens in full on click.
 
   Pillar check (each change against each pillar):
 

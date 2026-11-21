@@ -13,7 +13,7 @@
  * docs/superpowers/specs/2026-11-20-run-watcher-design.md.
  */
 
-import { watch, type FSWatcher } from "node:fs";
+import { readFileSync, statSync, watch, type FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join, resolve } from "node:path";
@@ -28,6 +28,23 @@ const POLL_MS = 2000;
 const HEARTBEAT_MS = 15_000;
 const REPO_ROOT = resolve(import.meta.dirname, "../..");
 
+/**
+ * Where the runs are when --root isn't given: this checkout, or, from a git
+ * worktree (.git is a file), the main checkout the worktree belongs to. A
+ * worktree's own runs/ and .pipeline/ are empty; the loop writes to the main one.
+ */
+export function defaultRoot(checkout: string): string {
+  try {
+    const dotGit = join(checkout, ".git");
+    if (statSync(dotGit).isDirectory()) return checkout;
+    const m = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, "utf8"));
+    const i = m ? m[1].lastIndexOf("/.git/worktrees/") : -1;
+    return i > 0 ? m![1].slice(0, i) : checkout;
+  } catch {
+    return checkout;
+  }
+}
+
 export interface DashboardArgs {
   project?: string;
   port: number;
@@ -40,7 +57,7 @@ export function parseDashboardArgs(argv: readonly string[]): DashboardArgs {
   const portRaw = f.values["--port"];
   const port = portRaw === undefined ? DEFAULT_PORT : Number(portRaw);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new FlagError(`dashboard: --port=${portRaw} must be a port number (1-65535)`);
-  const out: DashboardArgs = { port, root: resolve(f.values["--root"] ?? REPO_ROOT) };
+  const out: DashboardArgs = { port, root: resolve(f.values["--root"] ?? defaultRoot(REPO_ROOT)) };
   if (f.values["--project"] !== undefined) out.project = f.values["--project"];
   return out;
 }

@@ -88,7 +88,9 @@ progress line) and **Batch** (empty until batch mode exists).
   The pre-2.0.0 v1 logs are not shown.
 - It listens on 127.0.0.1 only. It loads no env file. Ticket keys link to
   Jira only when `JIRA_BASE_URL` is set in its environment.
-- `--root=<dir>` watches another dev-loop checkout's logs.
+- Run from a git worktree, it reads the main checkout's logs (the loop
+  writes there; a worktree's own are empty). `--root=<dir>` watches another
+  dev-loop checkout's logs.
 
 Design: `docs/superpowers/specs/2026-11-20-run-watcher-design.md`.
 
