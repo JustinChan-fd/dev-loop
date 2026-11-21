@@ -429,3 +429,36 @@ describe("structure: docs/projects registry", () => {
     }
   });
 });
+
+describe("structure: the run watcher only reads", () => {
+  const DASH = join(ROOT, "src/dashboard");
+  const files = walk(DASH).filter((f) => /\.(ts|html)$/.test(f));
+
+  it("has its server, model, reader and page", () => {
+    expect(files.map(rel).sort()).toEqual(["src/dashboard/model.ts", "src/dashboard/page.html", "src/dashboard/read.ts", "src/dashboard/server.ts"]);
+  });
+
+  it("never writes, renames, deletes or creates files, spawns a process or calls out", () => {
+    const banned = /\b(writeFile|appendFile|rename|unlink|rmdir|rm|mkdir|mkdtemp|copyFile|cp|symlink|link|truncate|chmod|chown|utimes|open|createWriteStream|execFile|execFileSync|execSync|spawn|spawnSync|fork|fetch)\s*\(|(?<!\.)\bexec\s*\(|node:child_process|from "node:net"|XMLHttpRequest|WebSocket|navigator\.sendBeacon/;
+    const hits: string[] = [];
+    for (const f of files) {
+      readFileSync(f, "utf8").split("\n").forEach((l, i) => {
+        if (/^\s*(\/\/|\*)/.test(l)) return;
+        // The page may fetch its own server's JSON (relative URLs only).
+        const line = l.replace(/\bfetch\(\s*["'`]\/(snapshot|log)\b/g, "");
+        if (banned.test(line)) hits.push(`${rel(f)}:${i + 1}: ${l.trim()}`);
+      });
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("imports nothing from the loop that writes (only paths, config, session liveness, types)", () => {
+    const imports = files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/from "(\.\.\/[^"]+)"/g)].map((m) => m[1]));
+    for (const i of imports) expect(["../core/paths.ts", "../core/config.ts", "../core/session.ts", "../core/types.ts", "../core/flags.ts"]).toContain(i);
+  });
+
+  it("npm run dashboard runs the server directly, with no env file (the Jira token never loads)", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    expect(pkg.scripts.dashboard).toBe("node src/dashboard/server.ts");
+  });
+});
