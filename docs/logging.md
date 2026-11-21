@@ -193,7 +193,9 @@ v2 records to `runs/v2/<project>.jsonl` (2.0.0 Task 13). The runner passes
 each skill its v2 run dir as `run-dir=` (absolute) and its target checkout as
 `repo-dir=` (Task 15, `docs/skills.md` "Invocation contract"); the skill writes
 `progress.jsonl`, `draft-spec.md` and `verdict.json` there, and raw claude
-usage goes to `usage.json` beside them. No skill derives a run path, and the
+usage goes to `usage.json` beside them. The loop also writes
+`project.json`, `attachments.json` + `attachments/`, and (research only)
+`size-context.json` there before the spawn. No skill derives a run path, and the
 cwd-relative legacy path functions are gone. Reset works on the v2 layout only
 (`docs/reset.md`); `runs/v2/<project>.reset-archive.jsonl` holds what it
 archived.
@@ -204,6 +206,22 @@ One JSON line per ticket iteration (`src/core/iteration-log.ts`), append-only.
 `phases` has one entry per skill run (empty for `skipped-blocked` /
 `claim-error`). `detail` and `jira_sync_error` are redacted before writing. `jira_status_changed: true` is set when the iteration changed the ticket's Jira status (a claim or transition); only such records hold the ticket back for the 2-minute recent window.
 Readers skip blank, truncated and malformed lines.
+
+Phase-entry fields added by bounce criteria v2 (2.3.0), each optional:
+
+- `diff_stats` (dev, landed): `{files, additions, deletions}` of the PR,
+  read with `gh pr view --json changedFiles,additions,deletions` after the
+  run. Absent when the read failed; never changes the outcome. Older
+  landed PRs: `node scripts/backfill-diff-stats.mjs --project=<slug>
+  [--dry-run]` writes `<log>.diff-stats.json` beside each log (keyed by PR
+  URL) and never rewrites the log.
+- `size_estimate` (`S|M|L|XL`) and `ac_count` (research, every outcome).
+- `size_evidence` (research, an accepted too_large bounce).
+- `verdict_check` (research): set when the loop's verdict check acted:
+  `too_large_ungrounded`, `too_large_no_evidence`, `coverage_missing`
+  (refused, entry is `agent_error`), `coverage_warned` (accepted, counted
+  toward the warn period), `attachment_unreadable` (loop-made `blocked`
+  bounce). See `docs/skills.md` "Loop checks on the research verdict".
 
 Outcomes: `landed`, `bounced`, `error`, `killed`, `skipped-blocked`,
 `claim-error`, `handoff-pending`, `handoff-done`, `skipped-pr-exists`,
