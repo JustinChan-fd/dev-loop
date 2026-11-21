@@ -63,6 +63,9 @@ describe("step lists", () => {
   it("appends phases a run logged that the list doesn't declare, in the order seen", () => {
     expect(stepsFor(DEV, ["intake", "qa", "pr", "qa", "deploy"])).toEqual([...DEV, "qa", "deploy"]);
   });
+  it("never adds a malformed phase name to the bar (a real run logged \"ground phase_start\" as its phase)", () => {
+    expect(stepsFor(FALLBACK_STEPS.research, ["triage", "ground phase_start", "", "Verify", "attack phase_end"])).toEqual(FALLBACK_STEPS.research);
+  });
 });
 
 describe("parseRunDir", () => {

@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Run watcher</title>
+<link rel="icon" href="data:,">
+<!-- dev-loop run watcher (src/dashboard/server.ts serves this file). Read-only.
+     Styles and render functions lifted from docs/superpowers/specs/2026-11-20-run-watcher-mockup.html,
+     without its demo data and controls. Follows the system theme only. -->
+<style>
+
+:root{
+  --bg:#E8ECF0; --surface:#FFFFFF; --sunk:#F2F4F7; --ink:#17202B; --muted:#5A6777; --line:#D4DAE1;
+  --run:#0A7389; --landed:#1D7C4D; --bounced:#4A54C4; --error:#C13A2D; --killed:#687180; --parked:#86691C; --quiet:#A0590A;
+  --waiting:#8A94A3; --pr:#6A3FB0; --blocked:#B5491F;
+  --run-soft:#D9EEF2; --quiet-soft:#F6E7D3; --on-c:#FFFFFF;
+  --font:"Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"Atkinson Hyperlegible Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1318; --surface:#161D25; --sunk:#1C242E; --ink:#E5EAF0; --muted:#94A2B2; --line:#2A3542;
+    --run:#3CC0D6; --landed:#4FC48C; --bounced:#8E96F6; --error:#F07A6E; --killed:#9AA3AE; --parked:#D6B65C; --quiet:#E8A44C;
+    --waiting:#6F7B8A; --pr:#B794F4; --blocked:#F08A5D;
+    --run-soft:#123039; --quiet-soft:#3A2A14; --on-c:#0E1318; color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--font);font-variant-numeric:tabular-nums}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--run);outline-offset:2px;border-radius:4px}
+
+/* ---------- dashboard shell ---------- */
+.dash{font-size:14px;line-height:1.4;padding-bottom:18px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--run);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--run) 55%,transparent)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.spacer{flex:1}
+.views{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.views button{border:0;background:none;padding:4px 10px;cursor:pointer;font-size:13px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.views button+button{border-left:1px solid var(--line)}
+.views button[aria-pressed="true"]{background:var(--sunk);color:var(--ink);font-weight:500}
+.views svg{width:14px;height:14px}
+.views .vt{display:none}
+@container (min-width:420px){ .views .vt{display:inline} }
+
+.filters{display:flex;flex-wrap:wrap;gap:6px 10px;padding:8px 14px;border-bottom:1px solid var(--line);align-items:center;font-size:13px}
+.filters label{display:inline-flex;gap:4px;align-items:center;color:var(--muted)}
+.filters select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:2px 6px;font-size:13px;max-width:150px}
+.filters .clear{border:0;background:none;color:var(--run);cursor:pointer;font-size:13px;padding:2px 4px}
+.ftoggle{display:none;border:1px solid var(--line);background:none;border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer}
+@container (max-width:419px){
+  .ftoggle{display:inline-block}
+  .filters:not(.open) label{display:none}
+}
+
+.counts{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+.count-scope{padding:6px 14px 0;font-size:12px;color:var(--muted)}
+.count{padding:9px 8px;text-align:center;border-left:1px solid var(--line);background:none;border-top:0;border-right:0;border-bottom:0;cursor:pointer}
+.count:first-child{border-left:0}
+.count[aria-pressed="true"]{background:var(--sunk)}
+.count b{display:flex;justify-content:center;align-items:center;gap:6px;font-size:19px;line-height:1.1}
+.count span{font-size:12px;color:var(--muted)}
+.count .cost{display:none}
+@container (min-width:640px){ .count .cost{display:inline} }
+
+.sec-h{display:flex;align-items:baseline;gap:8px;padding:12px 14px 6px;margin:0;font-size:13px;font-weight:700}
+.sec-h .n{color:var(--muted);font-weight:400}
+.sec-h .aside{margin-left:auto;font-weight:400;color:var(--muted)}
+.key{font-weight:700;white-space:nowrap}
+a.key{color:inherit;text-decoration:none}a.key:hover{text-decoration:underline}
+.links{display:inline-flex;gap:4px;align-items:center}
+.lnk{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:0 5px;white-space:nowrap}
+.lnk:hover{color:var(--ink);border-color:var(--ink)}
+.lnk svg{width:11px;height:11px}
+.sha{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tag{display:inline-block;font-size:12px;padding:0 6px;border-radius:4px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.g{display:inline-flex;width:16px;height:16px;flex:none}
+.g svg{width:16px;height:16px}
+.spin{transform-origin:8px 8px;animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.flash{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:var(--run-soft)}to{background:transparent}}
+.quiet-note{color:var(--quiet)}
+ol{list-style:none;margin:0;padding:0}
+.o-landed{color:var(--landed)} .o-bounced{color:var(--bounced)} .o-error{color:var(--error)}
+.o-killed{color:var(--killed)} .o-parked{color:var(--parked)}
+.empty{padding:12px 14px;color:var(--muted)}
+.grp.day{margin-top:6px}
+.older{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;color:var(--muted);font-size:13px;padding:4px 0 8px}
+.older button,.cards .more{border:1px solid var(--line);background:var(--surface);color:var(--run);border-radius:6px;padding:3px 10px;font-size:13px;cursor:pointer}
+.cards .more{justify-self:start}
+
+/* ---------- Runs view: full-width cards ---------- */
+.o-running{color:var(--run)} .o-quiet{color:var(--quiet)}
+.cards{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:2px 14px 6px}
+.cards>.empty{padding:6px 0}
+.card{container-type:inline-size;display:grid;gap:12px;min-width:0;padding:14px 16px 12px;border:1px solid var(--line);
+  border-left:3px solid var(--c);border-radius:8px;background:var(--surface)}
+/* 1. identity: who and how it's doing */
+.card .hd{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"g key time" "pills pills pills";gap:6px 10px;align-items:center}
+.card .hd>.g{grid-area:g}
+.card .hd .who{grid-area:key;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
+.card .hd .key{font-size:17px;letter-spacing:-.005em}
+.card .hd .time{grid-area:time;text-align:right;line-height:1.15}
+.card .hd .time b{display:block;font-size:15px;font-weight:700}
+.card .hd .time span{font-size:12px;color:var(--muted)}
+.card .hd .pills{grid-area:pills;display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px 0 7px;border-radius:999px;font-size:12px;line-height:1;
+  border:1px solid var(--line);color:var(--muted);white-space:nowrap;background:transparent}
+.pill svg{width:12px;height:12px;flex:none}
+.pill.status{height:24px;padding:0 10px 0 8px;font-size:12.5px;font-weight:700;color:var(--c);
+  background:color-mix(in srgb,var(--c) 14%,var(--surface));border-color:color-mix(in srgb,var(--c) 45%,var(--surface))}
+/* 3. what's happening / what happened */
+.card .note{margin:0;padding:9px 12px;border-radius:6px;background:var(--sunk);font-size:14px;line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .note.quiet-note{background:color-mix(in srgb,var(--quiet) 12%,var(--surface));color:var(--ink)}
+.card .note .lead{color:var(--muted);margin-right:6px}
+.card .note.quiet-note .lead{color:var(--quiet);font-weight:500}
+/* 4. facts */
+.kv{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0}
+.kv div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.kv dt{font-size:12px;color:var(--muted)}
+.kv dd{margin:0;font-size:13.5px;font-weight:500;white-space:nowrap}
+.kv dd.warn{color:var(--quiet)}
+/* 5. actions */
+.card .ft{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.card .ft .links{display:flex;flex-wrap:wrap;gap:6px}
+.lnk{height:26px;padding:0 9px;font-size:12.5px;border-radius:6px;gap:5px}
+.lnk svg{width:12px;height:12px}
+.logbtn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);background:var(--sunk);font-size:13px;font-weight:500;color:var(--ink)}
+.logbtn:hover{border-color:var(--ink)}
+.logbtn svg{width:12px;height:12px;transition:transform .15s}
+.logbtn[aria-expanded="true"] svg{transform:rotate(180deg)}
+.logbtn .n{color:var(--muted);font-weight:400}
+
+/* step track: every step labeled, the end step says how it ended */
+.track{display:flex;flex-wrap:wrap;gap:3px}
+.track .s{flex:1 1 76px;min-width:0;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;gap:3px;
+  font-size:11.5px;line-height:1;white-space:nowrap;overflow:hidden;padding:0 4px;
+  border:1px solid var(--line);color:var(--muted);background:transparent}
+.track .s .nm{overflow:hidden;text-overflow:ellipsis}
+.track .s .ic{flex:none;font-size:11px}
+.track .s.done{background:color-mix(in srgb,var(--sc) 20%,var(--surface));border-color:color-mix(in srgb,var(--sc) 45%,var(--surface));color:var(--ink)}
+.track .s.done .ic{color:var(--sc)}
+.track .s.cur{background:var(--sc);border-color:var(--sc);color:#fff;font-weight:700}
+.track .s.cur.live{box-shadow:0 0 0 0 color-mix(in srgb,var(--sc) 60%,transparent);animation:ring 1.8s ease-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--sc) 55%,transparent)}80%,100%{box-shadow:0 0 0 5px transparent}}
+.track .s.cur.q{background:repeating-linear-gradient(135deg,var(--quiet) 0 5px,color-mix(in srgb,var(--quiet) 70%,var(--surface)) 5px 10px);border-color:var(--quiet);color:#fff;animation:none}
+.track .s.skip{border-style:dashed;opacity:.75}
+.track .s.cur,.track .s.cur.q{color:var(--on-c)}
+
+/* expanded log, grouped by step */
+.log{display:grid;gap:10px;margin:2px 0 0;padding:10px 12px;border-radius:6px;background:var(--sunk);cursor:default}
+.log section{display:grid;gap:2px}
+.log h5{display:flex;gap:8px;align-items:baseline;margin:0 0 2px;font-size:12.5px;font-weight:700}
+.log h5 .ic{color:var(--sc)}
+.log h5 .dur{font-weight:400;color:var(--muted)}
+.log ol{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid color-mix(in srgb,var(--sc) 50%,var(--line));margin-left:5px}
+.log li{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:2px 0 2px 10px;font-size:13px;line-height:1.45}
+.log li .t{color:var(--muted);font-family:var(--mono);font-size:12px;white-space:nowrap;padding-top:1px}
+.log li.res{font-weight:500}
+.log .unreached{font-size:12.5px;color:var(--muted);padding-left:23px}
+.log .src{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+@container (max-width:520px){ .log li{grid-template-columns:1fr;gap:0} }
+
+/* group headings (group by project / worker) */
+.grp{display:flex;gap:8px;align-items:baseline;padding:8px 14px 4px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);background:var(--sunk)}
+.grp b{color:var(--ink);font-weight:500}
+
+/* ---------- Timeline view ---------- */
+.tl-axis,.tl-lane{display:grid;grid-template-columns:1fr;gap:4px;padding:6px 14px}
+.tl-axis{font-size:11px;color:var(--muted);padding-top:10px;padding-bottom:2px;position:sticky;top:0}
+.ticks{display:flex;justify-content:space-between}
+.ticks span:not(:first-child):not(:last-child){display:none}
+.tl-lane{border-top:1px solid var(--line)}
+.tl-lab{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px}
+.tl-track{position:relative;height:22px;border-radius:3px;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),var(--line) calc(25% - 1px) 25%)}
+.tl-seg{position:absolute;top:2px;bottom:2px;border-radius:3px;min-width:3px;cursor:pointer;overflow:hidden;
+  font-size:11px;line-height:18px;color:#fff;padding:0 4px;white-space:nowrap;text-overflow:ellipsis}
+.tl-seg.live{background:repeating-linear-gradient(135deg,var(--run) 0 6px,color-mix(in srgb,var(--run) 70%,var(--surface)) 6px 12px);background-size:17px 17px;animation:march 1s linear infinite}
+.tl-seg.live.q{background:repeating-linear-gradient(135deg,var(--quiet) 0 6px,var(--quiet-soft) 6px 12px);color:var(--ink)}
+@keyframes march{to{background-position:17px 0}}
+.tl-seg .sl{display:none}
+.now-line{position:absolute;right:0;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.3}
+.tl-lane.ph{grid-template-columns:1fr}
+@container (min-width:640px){
+  .tl-axis,.tl-lane{grid-template-columns:minmax(150px,24%) 1fr;align-items:center;column-gap:14px}
+  .ticks span{display:inline!important}
+  .tl-seg .sl{display:inline}
+}
+.tl-legend{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+.tl-legend i.dash{background:none!important;border:1px dashed var(--muted)}
+.tl-legend span{display:inline-flex;gap:5px;align-items:center}
+.tl-legend i{width:12px;height:8px;border-radius:2px;display:inline-block}
+
+/* timeline style switch */
+.tl-mode{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:10px 14px 4px;font-size:13px;color:var(--muted)}
+.tl-mode .views button{font-size:12px}
+.tl-mode p{margin:0;flex-basis:100%;font-size:12px}
+.tl-lane.byrun .tl-lab .det{color:var(--muted)}
+.tl-seg.ph-r{box-shadow:inset 0 -3px 0 color-mix(in srgb,#fff 35%,transparent)}
+.tl-gap{font-size:12px;color:var(--muted);padding:4px 14px;border-top:1px dashed var(--line)}
+/* activity feed */
+.act{padding:4px 14px 8px}
+.act h4{margin:12px 0 4px;font-size:12px;font-weight:500;color:var(--muted);position:sticky;top:0;background:var(--surface);padding:2px 0}
+.act ol{border-left:2px solid var(--line);margin-left:46px}
+.act li{position:relative;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:6px 0 6px 14px;font-size:13px}
+.act li::before{content:"";position:absolute;left:-6px;top:11px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--c)}
+.act .at{position:absolute;left:-56px;top:6px;width:46px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.act .who{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.act .what{grid-column:1 / -1}
+.act li.res .what{font-weight:500}
+
+/* ---------- Batch view ---------- */
+.batch-head{display:flex;flex-wrap:wrap;gap:4px 14px;padding:12px 14px 4px;align-items:baseline}
+.batch-head h3{margin:0;font-size:15px}
+.progress{height:6px;margin:6px 14px 4px;border-radius:3px;background:var(--sunk);display:flex;overflow:hidden}
+.progress i{height:100%}
+.tiers{display:grid;gap:10px;padding:10px 14px}
+.tier h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--muted)}
+.tier .nodes{display:grid;gap:6px}
+.node{border:1px solid var(--line);border-left:3px solid var(--waiting);border-radius:6px;padding:7px 9px;background:var(--surface);font-size:13px;display:grid;grid-template-columns:16px 1fr auto;gap:2px 8px;align-items:center}
+.node .sub{grid-column:2 / 4;color:var(--muted);font-size:12px}
+.node.st-running{border-left-color:var(--run)} .node.st-pr{border-left-color:var(--pr)}
+.node.st-landed{border-left-color:var(--landed)} .node.st-blocked{border-left-color:var(--blocked)}
+.node.st-bounced{border-left-color:var(--bounced)} .node.st-waiting{border-style:dashed;border-left-style:solid}
+@container (min-width:640px){
+  .tiers{grid-template-columns:repeat(var(--tiers),minmax(0,1fr));align-items:start}
+}
+.workers{display:grid;gap:6px;padding:4px 14px 8px}
+.wk{display:grid;grid-template-columns:52px 16px 1fr auto;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+.wk .name{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
+/* ---------- product page (not in the mockup) ---------- */
+#app{container-type:inline-size;max-width:1320px;margin:0 auto;min-height:100vh;background:var(--surface)}
+.conn{font-size:12px;font-weight:400;color:var(--muted)}
+.conn.off{color:var(--error)}
+.pulse.off{background:var(--muted);animation:none}
+.warns{margin:0;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--quiet);background:color-mix(in srgb,var(--quiet) 8%,var(--surface))}
+.warns li{margin:2px 0}
+button.tl-seg{border:0;font:inherit;font-size:11px;padding:0 4px;text-align:left}
+.log .gone{font-size:13px;color:var(--muted)}
+.key.plain{color:inherit}
+</style>
+</head>
+<body>
+<div class="dash" id="app"><p class="empty">Loading runs…</p></div>
+<script>
+(() => {
+  "use strict";
+  const MIN = 60e3, PAGE = 20;
+  const LABEL = { landed:"Landed", bounced:"Bounced", error:"Error", killed:"Stopped", parked:"Parked", running:"Running", quiet:"Quiet",
+                  waiting:"Waiting", pr:"PR open", blocked:"Blocked" };
+  const BAD = ["error","killed"], SOFT = ["bounced","parked"];
+  const SINCE = [[720,"Last 12 hours"],[1440,"Last 24 hours"],[10080,"Last 7 days"],[43200,"Last 30 days"],[0,"All time"]];
+  const WIN = [[60,"1 hour"],[240,"4 hours"],[1440,"24 hours"]];
+  const ICON = { done:"✓", landed:"✓", bounced:"↩", error:"✕", killed:"■", parked:"Ⅱ", quiet:"…" };
+
+  /** The latest snapshot from the server (null until the first one). */
+  let S = null, connected = false;
+  /** Logs fetched for Show log, by run id: { lines, data | null, error | null }. */
+  const LOGS = new Map();
+  const changed = new Set();
+
+  // ================= view state (filters kept in the URL hash) =================
+  const V = { view:"runs", proj:"all", phase:"all", worker:"all", out:"all", group:"none", win:60, since:720, tl:"run", more:0, open:null, fopen:false };
+  const HASHED = ["view","proj","phase","worker","out","group","win","since","tl"];
+  const OK = { view:["runs","timeline","batch"], phase:["all","research","dev"], out:["all","running","landed","soft","bad"], group:["none","proj","worker"], tl:["run","worker","activity"] };
+  function readHash(){
+    try {
+      const h = new URLSearchParams(location.hash.slice(1));
+      for (const k of HASHED) {
+        const v = h.get(k); if (v === null) continue;
+        if (k === "win") { if (WIN.some(w => w[0] === +v)) V.win = +v; }
+        else if (k === "since") { if (SINCE.some(s => s[0] === +v)) V.since = +v; }
+        else if (!OK[k] || OK[k].includes(v)) V[k] = v;
+      }
+    } catch {}
+  }
+  const saveHash = () => { try { const p = new URLSearchParams(); for (const k of HASHED) p.set(k, V[k]); history.replaceState(null, "", "#" + p); } catch {} };
+  readHash();
+
+  // ================= formatting =================
+  const clock = ms => { const s = Math.max(0, Math.round(ms/1000)), m = Math.floor(s/60), h = Math.floor(m/60);
+    return h ? `${h}:${String(m%60).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${m}:${String(s%60).padStart(2,"0")}`; };
+  const ago = ms => { const s = Math.round(ms/1000); if (s < 45) return "just now"; const m = Math.round(s/60);
+    if (m < 60) return `${m}m ago`; const h = Math.floor(m/60); if (h < 24) return `${h}h ${m%60}m ago`; const d = Math.floor(h/24); return d < 14 ? `${d}d ago` : `${Math.floor(d/7)}w ago`; };
+  const mins = ms => `${Math.max(1, Math.round(ms/MIN))}m`;
+  const abs = t => new Date(t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const money = n => `$${(n || 0).toFixed(2)}`;
+  const projName = slug => (S?.projects.find(p => p.slug === slug)?.name) ?? slug;
+  const isLive = r => r.live;
+  const kindOf = r => r.status;
+  /** Live clocks: a span the 1-second tick rewrites in place (no full re-render). */
+  const tick = (mode, t, text) => `<span data-tick="${mode}" data-t="${t}">${text}</span>`;
+
+  function glyph(kind){
+    const c = `var(--${kind === "running" ? "run" : kind})`;
+    const svg = {
+      running:`<circle cx="8" cy="8" r="6" fill="none" stroke="${c}" stroke-opacity=".25" stroke-width="2"/><path class="spin" d="M8 2a6 6 0 0 1 6 6" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`,
+      quiet:`<circle cx="8" cy="8" r="6" fill="none" stroke="${c}" stroke-width="2" stroke-dasharray="2.4 2.4"/><path d="M8 5v3.5l2 1.5" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`,
+      landed:`<circle cx="8" cy="8" r="7" fill="${c}"/><path d="M4.8 8.3l2.2 2.2 4.2-4.6" fill="none" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+      bounced:`<circle cx="8" cy="8" r="6.2" fill="none" stroke="${c}" stroke-width="1.6"/><path d="M10.8 10.5V8.6a2 2 0 0 0-2-2H5.4M7.2 4.6l-2 2 2 2" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+      error:`<path d="M8 1l7 7-7 7-7-7z" fill="${c}"/><path d="M6 6l4 4M10 6l-4 4" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/>`,
+      killed:`<rect x="2" y="2" width="12" height="12" rx="2.5" fill="${c}"/><rect x="5.5" y="5.5" width="5" height="5" rx="1" fill="var(--surface)"/>`,
+      parked:`<circle cx="8" cy="8" r="6.2" fill="none" stroke="${c}" stroke-width="1.6"/><path d="M6.4 5.5v5M9.6 5.5v5" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>`,
+    }[kind] ?? "";
+    return `<span class="g" role="img" aria-label="${LABEL[kind] ?? kind}"><svg viewBox="0 0 16 16">${svg}</svg></span>`;
+  }
+  const PI = {
+    research:`<svg viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 7.5l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    dev:`<svg viewBox="0 0 12 12"><path d="M4 3L1.5 6 4 9M8 3l2.5 3L8 9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    proj:`<svg viewBox="0 0 12 12"><path d="M1.5 3.2c0-.4.3-.7.7-.7h2.4l1 1.2h4.2c.4 0 .7.3.7.7v4.9c0 .4-.3.7-.7.7H2.2c-.4 0-.7-.3-.7-.7z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
+    worker:`<svg viewBox="0 0 12 12"><path d="M6 1.2v1.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="1.2" r=".8" fill="currentColor"/><rect x="2" y="3" width="8" height="6.4" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="4.4" cy="5.8" r=".85" fill="currentColor"/><circle cx="7.6" cy="5.8" r=".85" fill="currentColor"/><path d="M4.6 7.8h2.8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><path d="M1 5.4v1.8M11 5.4v1.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+    jira:`<svg viewBox="0 0 12 12"><path d="M6 1l5 5-5 5-5-5z M6 4l2 2-2 2-2-2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+    pr:`<svg viewBox="0 0 12 12"><circle cx="3" cy="2.6" r="1.3" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="3" cy="9.4" r="1.3" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="9" cy="9.4" r="1.3" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M3 3.9v4.2M9 8.1V5.3c0-.9-.6-1.5-1.5-1.5H6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`,
+    chev:`<svg viewBox="0 0 12 12"><path d="M3 4.5L6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  };
+  const jiraHref = key => S?.jiraBase ? `${S.jiraBase}/browse/${encodeURIComponent(key)}` : null;
+  const keyLink = key => { const h = jiraHref(key);
+    return h ? `<a class="key" href="${esc(h)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(key)} in Jira">${esc(key)}</a>` : `<span class="key plain" title="Set JIRA_BASE_URL to link tickets">${esc(key)}</span>`; };
+  const prNum = url => (/\/pull\/(\d+)/.exec(url || "") || [])[1];
+  function cardLinks(r){
+    const a = (href, icon, text, title) => `<a class="pill lnk" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(title)}">${PI[icon]}${esc(text)}</a>`;
+    const j = jiraHref(r.ticket), n = prNum(r.pr);
+    return `<span class="links">${j ? a(j, "jira", "Jira", `Open ${r.ticket} in Jira`) : ""}${r.pr ? a(r.pr, "pr", n ? `PR #${n}` : "PR", "Pull request") : ""}</span>`;
+  }
+  const fl = id => changed.has(id) ? " flash" : "";
+
+  // ================= filtering =================
+  const runs = () => S ? S.runs : [];
+  const passBase = r => (V.proj === "all" || r.project === V.proj) && (V.phase === "all" || r.phase === V.phase) && (V.worker === "all" || r.session === V.worker);
+  const passOut = r => V.out === "all" ? true : V.out === "running" ? r.live : r.live ? false :
+    V.out === "landed" ? r.status === "landed" : V.out === "soft" ? SOFT.includes(r.status) : BAD.includes(r.status);
+  const sinceLabel = () => (SINCE.find(x => x[0] === V.since) || SINCE[0])[1];
+  const winLabel = () => (WIN.find(x => x[0] === V.win) || WIN[0])[1];
+  const cutoff = () => V.since ? Date.now() - V.since * MIN : -Infinity;
+  const inRange = r => r.ended > cutoff();
+  const filtered = () => ({ live: runs().filter(r => r.live && passBase(r) && passOut(r)),
+    done: runs().filter(r => !r.live && passBase(r) && passOut(r) && (V.view !== "runs" || inRange(r))) });
+
+  // ================= chrome =================
+  const VICONS = {
+    runs:`<svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+    timeline:`<svg viewBox="0 0 16 16"><path d="M2 4h6M5 8h8M3 12h5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    batch:`<svg viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="2" fill="currentColor"/><circle cx="12.5" cy="3.5" r="2" fill="currentColor"/><circle cx="12.5" cy="12.5" r="2" fill="currentColor"/><path d="M5 7l6-3M5 9l6 3" stroke="currentColor" stroke-width="1.3"/></svg>`
+  };
+  function topBar(){
+    const v = (k, t) => `<button data-view="${k}" aria-pressed="${V.view === k}" title="${t}">${VICONS[k]}<span class="vt">${t}</span></button>`;
+    return `<div class="bar"><span class="brand"><span class="pulse${connected ? "" : " off"}" aria-hidden="true"></span>Run watcher
+        <span class="conn${connected ? "" : " off"}" aria-live="polite">${connected ? "live, read-only" : "reconnecting…"}</span></span><span class="spacer"></span>
+      <span class="views" role="group" aria-label="View">${v("runs","Runs")}${v("timeline","Timeline")}${v("batch","Batch")}</span></div>`;
+  }
+  function filterBar(){
+    const opts = (k, vals, lab) => `<label>${lab}<select data-filter="${k}"><option value="all">All</option>${vals.map(([x, t]) => `<option value="${esc(x)}" ${V[k] === x ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`;
+    const projs = (S?.projects ?? []).map(p => [p.slug, p.name]);
+    const workers = [...new Set(runs().map(r => r.session).filter(Boolean))].sort().map(w => [w, w]);
+    const active = ["proj","phase","worker","out"].filter(k => V[k] !== "all").length;
+    const grp = V.view === "runs" || (V.view === "timeline" && V.tl === "run") ? `<label>Group<select data-group><option value="none">None</option><option value="proj" ${V.group==="proj"?"selected":""}>Project</option><option value="worker" ${V.group==="worker"?"selected":""}>Worker</option></select></label>` : "";
+    const win = V.view === "timeline" ? `<label>Window<select data-win>${WIN.map(([w, t]) => `<option value="${w}" ${V.win===w?"selected":""}>${t}</option>`).join("")}</select></label>` : "";
+    const since = V.view === "runs" ? `<label>Show<select data-since>${SINCE.map(([m, t]) => `<option value="${m}" ${V.since===m?"selected":""}>${t}</option>`).join("")}</select></label>` : "";
+    return `<div class="filters ${V.fopen ? "open" : ""}"><button class="ftoggle" data-ftoggle aria-expanded="${V.fopen}">Filters${active ? ` (${active})` : ""}</button>
+      ${projs.length > 1 ? opts("proj", projs, "Project") : ""}${opts("phase", [["research","research"],["dev","dev"]], "Phase")}${opts("worker", workers, "Worker")}${since}${grp}${win}
+      ${active ? `<button class="clear" data-clear>Clear filters</button>` : ""}</div>`;
+  }
+  function warnings(){
+    const w = S?.warnings ?? [];
+    return w.length ? `<ul class="warns" aria-label="Warnings">${w.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  }
+  function legend(){
+    if (V.view === "batch") return "";
+    const sw = (c, t, cls = "") => `<span><i class="${cls}" style="background:var(--${c})"></i>${t}</span>`;
+    return `<div class="tl-legend" aria-label="Legend">${sw("run","Running")}${sw("quiet","Quiet")}${sw("landed","Landed")}${sw("bounced","Bounced")}${sw("error","Error")}${sw("killed","Stopped")}${sw("parked","Parked")}${V.view === "runs" ? sw("line","Not reached","dash") : ""}</div>`;
+  }
+  function counts(){
+    const w0 = V.view === "timeline" ? Date.now() - V.win * MIN : cutoff();
+    const b = runs().filter(r => !r.live && passBase(r) && r.ended > w0), live = runs().filter(r => r.live && passBase(r));
+    const cost = b.reduce((a, r) => a + (r.cost || 0), 0);
+    const c = (out, kind, n, label) => `<button class="count" data-out="${out}" aria-pressed="${V.out === out}">
+      <b>${glyph(kind)}${n}</b><span>${label}${out === "landed" ? `<span class="cost">, ${money(cost)} spent</span>` : ""}</span></button>`;
+    const scope = `<div class="count-scope">Counts for ${V.view === "timeline" ? `the last ${winLabel()}` : V.since ? sinceLabel().toLowerCase() : "all time"}. Click one to show only those.</div>`;
+    return scope + `<div class="counts" role="group" aria-label="Filter by outcome">
+      ${c("running","running",live.length,"running")}${c("landed","landed",b.filter(r => r.status === "landed").length,"landed")}
+      ${c("soft","bounced",b.filter(r => SOFT.includes(r.status)).length,"bounced or parked")}${c("bad","error",b.filter(r => BAD.includes(r.status)).length,"failed")}</div>`;
+  }
+
+  // ================= Runs view =================
+  const stepColor = (s, r) => s.k === "done" ? (r.status === "landed" ? "landed" : "run") : s.k === "cur" ? (s.end ?? (s.quiet ? "quiet" : "run")) : null;
+  function track(r){
+    return `<div class="track" role="list" aria-label="Steps for ${esc(r.ticket)} ${r.phase}">${r.track.map(s => {
+      const ic = s.k === "done" ? ICON.done : s.end ? ICON[s.end] : s.quiet ? ICON.quiet : "";
+      const tip = s.k === "done" ? "done" : s.k === "cur" ? (s.end ? `ended here: ${LABEL[s.end].toLowerCase()}` : s.quiet ? "running, quiet" : "running now") : s.k === "skip" ? "not reached" : "still to come";
+      const c = stepColor(s, r);
+      return `<span role="listitem" class="s ${s.k}${s.k === "cur" && r.live ? " live" : ""}${s.quiet ? " q" : ""}" style="--sc:var(--${c || "line"})" title="${esc(s.name)}: ${tip}">${ic ? `<span class="ic" aria-hidden="true">${ic}</span>` : ""}<span class="nm">${esc(s.name)}</span></span>`;
+    }).join("")}</div>`;
+  }
+  function detail(r){
+    if (V.open !== r.id) return "";
+    const L = LOGS.get(r.id);
+    const src = `<div class="src">${esc(r.runDir)}/progress.jsonl</div>`;
+    if (!L || (!L.data && !L.error)) return `<div class="log" aria-label="Progress log"><div class="gone">Loading the log…</div>${src}</div>`;
+    if (L.error) return `<div class="log" aria-label="Progress log"><div class="gone">The log can't be loaded: ${esc(L.error)}</div>${src}</div>`;
+    const d = L.data;
+    if (d.gone || !d.groups.length) {
+      return `<div class="log" aria-label="Progress log"><div class="gone">${d.gone ? "This run's progress file is gone (reset, or its run dir was cleaned)." : "No progress lines yet."}
+        ${r.live ? "" : ` What the runs log recorded: ${esc(r.note || "(no detail)")}`}</div>${src}</div>`;
+    }
+    const body = d.groups.map(g => {
+      const st = r.track.find(x => x.name === g.step) || { k:"done" };
+      const c = stepColor(st, r) || "run";
+      const ic = st.k === "done" ? ICON.done : st.end ? ICON[st.end] : st.quiet ? ICON.quiet : "●";
+      const what = st.k === "done" ? "" : st.end ? `, ${LABEL[st.end].toLowerCase()} here` : st.quiet ? ", quiet" : st.k === "cur" ? ", running" : "";
+      return `<section style="--sc:var(--${c})"><h5><span class="ic" aria-hidden="true">${ic}</span>${esc(g.step)}<span class="dur">${mins(g.end - g.start)}${what}</span></h5>
+        <ol>${g.lines.map(h => { const res = h.event === "result" || /^RESULT:/.test(h.detail);
+          return `<li class="${res ? "res" : ""}"><span class="t">${abs(h.ts)}</span><span>${esc(res ? "Result: " + h.detail.replace(/^RESULT:\s*/, "") : h.detail)}</span></li>`; }).join("")}</ol></section>`;
+    }).join("");
+    const unreached = r.track.filter(s => s.k === "skip" || s.k === "todo").map(s => s.name);
+    return `<div class="log" aria-label="Progress log">${body}
+      ${unreached.length ? `<div class="unreached">${r.live ? "Still to come" : "Not reached"}: ${unreached.map(esc).join(", ")}</div>` : ""}${src}</div>`;
+  }
+  const pill = (icon, text, title) => `<span class="pill" title="${title}">${PI[icon]}${esc(text)}</span>`;
+  function stepPos(r){ const i = r.track.findIndex(s => s.name === r.at); return i < 0 ? null : `${i + 1} of ${r.track.length}`; }
+  function card(r){
+    const live = r.live, q = r.status === "quiet", kind = kindOf(r);
+    const status = live ? (r.at ? `${q ? "Quiet at" : "Running"} ${r.at}` : q ? "Quiet" : "Running")
+      : r.status === "landed" ? "Landed" : r.at ? `${LABEL[r.status]} at ${r.at}` : LABEL[r.status];
+    const time = live
+      ? `<span class="time" title="Started ${abs(r.started)}"><b>${tick("clock", r.started, clock(Date.now() - r.started))}</b><span>elapsed</span></span>`
+      : `<span class="time" title="Ended ${abs(r.ended)}"><b>${tick("ago", r.ended, ago(Date.now() - r.ended))}</b><span>finished</span></span>`;
+    const lastT = r.last ?? r.started;
+    const note = live && q
+      ? `<span class="lead">No update for ${tick("mins", lastT, mins(Date.now() - lastT))}.</span>Last: ${esc(r.note)}`
+      : esc(r.note || (live ? "" : "(no detail recorded)"));
+    const kv = (k, v, cls = "") => `<div><dt>${k}</dt><dd class="${cls}">${v}</dd></div>`;
+    const pos = stepPos(r);
+    const facts = live
+      ? kv("Step", pos ?? "starting") + kv("Started", abs(r.started)) + kv("Last update", r.last ? tick("ago", r.last, ago(Date.now() - r.last)) : "none yet", q ? "warn" : "") + kv("Cost", "when it ends")
+      : kv("Ended at", r.at ? `${esc(r.at)}, ${pos}` : "unknown") + kv("Took", mins(r.ended - r.started)) + kv("Finished", abs(r.ended)) + kv("Cost", money(r.cost))
+        + (r.failureCategory ? kv("Category", esc(r.failureCategory)) : "") + (r.logGone ? kv("Log", "gone") : "");
+    const color = live ? (q ? "quiet" : "run") : r.status;
+    const open = V.open === r.id;
+    return `<article class="card${fl(r.id)}" style="--c:var(--${color})">
+      <div class="hd">${glyph(kind)}
+        <span class="who">${keyLink(r.ticket)}<span class="pill status">${esc(status)}</span></span>${time}
+        <span class="pills">${pill(r.phase, r.phase === "research" ? "Research" : "Dev", "Phase")}${pill("proj", projName(r.project), "Project")}${r.session ? pill("worker", r.session, "Worker") : ""}</span></div>
+      ${track(r)}
+      <p class="note${q ? " quiet-note" : ""}" title="${esc(r.note)}">${note}</p>
+      <dl class="kv">${facts}</dl>
+      <div class="ft">${cardLinks(r)}<button class="logbtn" data-open="${esc(r.id)}" aria-expanded="${open}">${open ? "Hide log" : "Show log"} <span class="n">${r.lines}</span>${PI.chev}</button></div>
+      ${detail(r)}</article>`;
+  }
+  const dayKey = t => new Date(t).toDateString();
+  function dayLabel(t){
+    const d = new Date(t), today = new Date(), y = new Date(Date.now() - 864e5);
+    if (d.toDateString() === today.toDateString()) return "Today";
+    if (d.toDateString() === y.toDateString()) return "Yesterday";
+    return d.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric", ...(d.getFullYear() !== today.getFullYear() ? { year:"numeric" } : {}) });
+  }
+  /** Day headers count every finished run of that day in the list, not only this page of it. */
+  function byDay(rows, all){
+    let last = null, out = "";
+    for (const r of rows) {
+      const k = dayKey(r.ended);
+      if (k !== last) { const n = all.filter(x => dayKey(x.ended) === k);
+        out += `<div class="grp day"><b>${dayLabel(r.ended)}</b><span>${n.length} ${n.length === 1 ? "run" : "runs"}, ${money(n.reduce((a, x) => a + (x.cost || 0), 0))}</span></div>`; last = k; }
+      out += card(r);
+    }
+    return out;
+  }
+  function grouped(rows, all, live){
+    if (V.group === "none") return live ? rows.map(card).join("") : byDay(rows, all);
+    const key = r => V.group === "proj" ? r.project : r.session;
+    const keys = [...new Set(rows.map(key))].sort();
+    return keys.map(g => { const rs = rows.filter(r => key(r) === g);
+      return `<div class="grp"><b>${esc(V.group === "proj" ? projName(g) : g)}</b><span>${rs.length}</span></div>` + rs.map(card).join(""); }).join("");
+  }
+  function runsView(){
+    const f = filtered(), filteredAny = V.proj + V.phase + V.worker !== "allallall";
+    const showLive = V.out === "all" || V.out === "running", showDone = V.out !== "running";
+    const older = V.since ? runs().filter(r => !r.live && passBase(r) && passOut(r) && !inRange(r)).length : 0;
+    const nextSince = SINCE[Math.min(SINCE.length - 1, SINCE.findIndex(x => x[0] === V.since) + 1)];
+    const shown = f.done.slice(0, PAGE * (V.more + 1));
+    return counts() +
+      (showLive ? `<h3 class="sec-h">Running <span class="n">${f.live.length}</span></h3>
+        <div class="cards">${f.live.length ? grouped(f.live, f.live, true) : `<div class="empty">Nothing running${filteredAny ? " that matches these filters" : ""}. A run shows up here as soon as a worker starts it.</div>`}</div>` : "") +
+      (showDone ? `<h3 class="sec-h">Finished <span class="n">${f.done.length}</span><span class="aside">${sinceLabel().toLowerCase()}, newest first</span></h3>
+        <div class="cards">${f.done.length ? grouped(shown, f.done, false) : `<div class="empty">No finished runs in ${V.since ? "the " + sinceLabel().toLowerCase() : "the logs"}${filteredAny ? " that match these filters" : ""}.</div>`}
+        ${f.done.length > shown.length ? `<button class="more" data-more>Show ${Math.min(PAGE, f.done.length - shown.length)} more</button>` : ""}
+        ${older ? `<div class="older">${older} older ${older === 1 ? "run" : "runs"} not shown. <button data-since-next>Show ${nextSince[1].toLowerCase()}</button></div>` : ""}</div>` : "");
+  }
+
+  // ================= Timeline view =================
+  function tlRows(){
+    const t = Date.now(), W = V.win * MIN, w0 = t - W, f = filtered();
+    const rows = [...f.live.map(r => ({ r, end:t })), ...f.done.map(r => ({ r, end:r.ended }))].filter(x => x.end > w0);
+    const pos = (a, b) => { const l = Math.max(0, (a - w0) / W), rr = Math.min(1, (b - w0) / W); return { l: l*100, w: Math.max(0, rr - l) * 100 }; };
+    return { t, W, w0, rows, pos };
+  }
+  const ticksFor = () => V.win === 60 ? ["60m ago","45m","30m","15m","now"] : V.win === 240 ? ["4h ago","3h","2h","1h","now"] : ["24h ago","18h","12h","6h","now"];
+  const axis = label => `<div class="tl-axis"><span>${label}</span><span class="ticks">${ticksFor().map(x => `<span>${x}</span>`).join("")}</span></div>`;
+  function tlSeg(x, pos, t, showKey){
+    const r = x.r, p = pos(r.started, x.end), q = r.status === "quiet";
+    const style = r.live ? "" : `background:var(--${r.status})`;
+    const tip = `${r.ticket} ${r.phase}, ${r.live ? (r.at ?? "starting") + ", " + clock(t - r.started) : LABEL[r.status] + " after " + mins(x.end - r.started)}: ${r.note}`;
+    return `<button class="tl-seg${r.live ? " live" + (q ? " q" : "") : ""}${r.phase === "research" ? " ph-r" : ""}${fl(r.id)}" data-open="${esc(r.id)}" style="left:${p.l}%;width:${p.w}%;${style}"
+      title="${esc(tip)}" aria-label="${esc(tip)}">${showKey ? `<span class="sl">${esc(r.ticket)}</span>` : ""}</button>`;
+  }
+  function tlByRun(){
+    const { t, rows, pos } = tlRows();
+    rows.sort((a, b) => V.group === "worker" ? (a.r.session.localeCompare(b.r.session) || b.r.started - a.r.started) : b.r.started - a.r.started);
+    const lane = x => {
+      const r = x.r;
+      const det = r.live ? `${r.phase}, ${r.at ?? "starting"}, ${clock(t - r.started)}` : `${r.phase}, ${LABEL[r.status].toLowerCase()} after ${mins(x.end - r.started)}`;
+      return `<div class="tl-lane byrun"><span class="tl-lab">${glyph(kindOf(r))}${keyLink(r.ticket)}<span class="det trunc">${esc(det)}</span></span>
+        <span class="tl-track">${tlSeg(x, pos, t, false)}${r.live ? `<span class="now-line"></span>` : ""}</span></div>`;
+    };
+    let out = "", prevW = null;
+    for (const x of rows) { if (V.group === "worker" && x.r.session !== prevW) { out += `<div class="grp"><b>${esc(x.r.session)}</b></div>`; prevW = x.r.session; } out += lane(x); }
+    return out ? axis("One lane per run, newest on top") + out : "";
+  }
+  function tlByWorker(){
+    const { t, W, w0, rows, pos } = tlRows();
+    const wkey = x => `${x.r.project} ${x.r.session}`;
+    const workers = [...new Set(rows.map(wkey))].sort();
+    if (!workers.length) return "";
+    const lanes = workers.map(w => {
+      const rs = rows.filter(x => wkey(x) === w).sort((a, b) => a.r.started - b.r.started);
+      const cur = rs.find(x => x.r.live)?.r;
+      const busy = rs.reduce((a, x) => a + Math.max(0, Math.min(x.end, t) - Math.max(x.r.started, w0)), 0);
+      const [proj, sess] = w.split(" ");
+      return `<div class="tl-lane"><span class="tl-lab">${cur ? glyph(kindOf(cur)) : `<span class="g"></span>`}<b>${esc(sess)}</b>
+          <span class="muted trunc">${esc(projName(proj))}, ${cur ? `${esc(cur.ticket)}, ${esc(cur.at ?? "starting")}` : "idle"}, busy ${Math.round(100 * busy / W)}%</span></span>
+        <span class="tl-track">${rs.map(x => tlSeg(x, pos, t, true)).join("")}<span class="now-line"></span></span></div>`;
+    }).join("");
+    return axis("One lane per worker") + lanes +
+      (workers.length === 1 ? `<div class="empty" style="font-size:13px">With one worker this is a single lane of runs back to back. It earns its place once several workers run at the same time.</div>` : "");
+  }
+  function tlActivity(){
+    const w0 = Date.now() - V.win * MIN;
+    const byId = new Map(runs().map(r => [r.id, r]));
+    const evs = (S?.activity ?? []).filter(e => e.ts > w0).map(e => ({ ...e, r: byId.get(e.run) })).filter(e => e.r && passBase(e.r) && passOut(e.r));
+    if (!evs.length) return "";
+    const bucket = t => { const m = Math.floor((Date.now() - t) / (15 * MIN)); return m === 0 ? "Last 15 minutes" : `${m * 15}–${(m + 1) * 15} minutes ago`; };
+    const firstOf = new Map(); for (const e of evs) if (!firstOf.has(e.run)) firstOf.set(e.run, e);
+    let out = "", cur = null;
+    for (const e of evs) {
+      const b = bucket(e.ts);
+      if (b !== cur) { out += `${cur ? "</ol>" : ""}<h4>${b}</h4><ol>`; cur = b; }
+      const res = e.event === "result" || /^RESULT:/.test(e.detail);
+      const c = res && !e.r.live ? `var(--${e.r.status})` : e.r.live && firstOf.get(e.run) === e ? `var(--${e.r.status === "quiet" ? "quiet" : "run"})` : "var(--line)";
+      out += `<li class="${res ? "res" : ""}" style="--c:${c}"><span class="at">${abs(e.ts).replace(/\s?[AP]M/i, "")}</span>
+        <span class="who">${keyLink(e.r.ticket)}<span class="tag">${e.r.phase}</span><span class="muted">${esc(e.phase)}</span><span class="muted">${esc(e.r.session)}</span></span>
+        <span class="what">${esc(res ? e.detail.replace(/^RESULT:\s*/, "") : e.detail)}</span></li>`;
+    }
+    return `<div class="act">${out}</ol></div>`;
+  }
+  function timelineView(){
+    const m = (k, t) => `<button data-tl="${k}" aria-pressed="${V.tl === k}">${t}</button>`;
+    const blurb = { run:"When each run happened and how long it took.",
+      worker:"What each worker was doing, side by side. Shows overlap and idle time.",
+      activity:"Every progress line in order, newest first." }[V.tl];
+    const body = V.tl === "run" ? tlByRun() : V.tl === "worker" ? tlByWorker() : tlActivity();
+    const opened = V.open && runs().find(r => r.id === V.open);
+    return counts() + `<div class="tl-mode"><span>Direction</span><span class="views" role="group" aria-label="Timeline direction">${m("run","By run")}${m("worker","By worker")}${m("activity","Activity")}</span><p>${blurb}</p></div>
+      ${body || `<div class="empty">No runs in the last ${winLabel()}. Try a longer window or clear the filters.</div>`}
+      ${V.tl !== "activity" ? (opened ? `<h3 class="sec-h">${keyLink(opened.ticket)} ${opened.phase} ${cardLinks(opened)}<span class="aside"><button class="clear" data-open="${esc(opened.id)}">Close</button></span></h3><div style="padding:0 14px">${detail(opened)}</div>` : body ? `<p class="empty" style="font-size:13px;margin:0">Click a bar to see that run's steps.</p>` : "") : ""}`;
+  }
+
+  // ================= Batch view =================
+  function batchView(){
+    return `<div class="empty" style="max-width:62ch;line-height:1.5"><b style="color:var(--ink)">Batch runs will show here.</b><br>
+      Today the loop takes one ticket at a time, so there is no batch to show. Once batch mode exists, this view lays out a batch's tickets by dependency: which are waiting, running, have a PR open, or are blocked by a ticket that bounced, and which branch each PR is based on.</div>`;
+  }
+
+  // ================= render =================
+  const app = document.getElementById("app");
+  let pending = false;
+  function render(){
+    // Never rebuild under an open dropdown: it would close it. Render once it loses focus.
+    if (document.activeElement?.matches?.("#app select")) { pending = true; return; }
+    pending = false;
+    if (!S) { app.innerHTML = topBar() + `<p class="empty">${connected ? "Loading runs…" : "Can't reach the run watcher server. It retries on its own."}</p>`; return; }
+    const body = V.view === "runs" ? runsView() : V.view === "timeline" ? timelineView() : batchView();
+    app.innerHTML = topBar() + filterBar() + warnings() + legend() + body;
+    changed.clear();
+  }
+  function tickClocks(){
+    const now = Date.now();
+    for (const el of app.querySelectorAll("[data-tick]")) {
+      const t = +el.dataset.t, mode = el.dataset.tick;
+      el.textContent = mode === "clock" ? clock(now - t) : mode === "ago" ? ago(now - t) : mins(now - t);
+    }
+  }
+  app.addEventListener("focusout", e => { if (pending && e.target.matches?.("select")) setTimeout(() => { if (pending) render(); }, 0); });
+
+  async function loadLog(id){
+    const r = runs().find(x => x.id === id);
+    LOGS.set(id, { lines: r ? r.lines : 0, data: LOGS.get(id)?.data ?? null, error: null });
+    try {
+      const res = await fetch(`/log?run=${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(res.status === 404 ? "this run is no longer in the logs" : `HTTP ${res.status}`);
+      LOGS.set(id, { lines: r ? r.lines : 0, data: await res.json(), error: null });
+    } catch (e) {
+      LOGS.set(id, { lines: 0, data: null, error: String(e.message || e) });
+    }
+    if (V.open === id) render();
+  }
+
+  app.addEventListener("click", e => {
+    if (e.target.closest("a")) return;
+    const t = e.target.closest("[data-view],[data-out],[data-open],[data-clear],[data-ftoggle],[data-tl],[data-more],[data-since-next]"); if (!t) return;
+    if (t.dataset.tl) { V.tl = t.dataset.tl; V.open = null; }
+    else if (t.dataset.view) { V.view = t.dataset.view; V.open = null; }
+    else if (t.dataset.out) { V.out = V.out === t.dataset.out ? "all" : t.dataset.out; V.more = 0; }
+    else if (t.dataset.open) { V.open = V.open === t.dataset.open ? null : t.dataset.open; if (V.open) loadLog(V.open); }
+    else if ("clear" in t.dataset) { Object.assign(V, { proj:"all", phase:"all", worker:"all", out:"all", more:0 }); }
+    else if ("ftoggle" in t.dataset) V.fopen = !V.fopen;
+    else if ("more" in t.dataset) V.more++;
+    else if ("sinceNext" in t.dataset) { const i = SINCE.findIndex(x => x[0] === V.since); V.since = SINCE[Math.min(SINCE.length - 1, i + 1)][0]; V.more = 0; }
+    saveHash(); render();
+  });
+  app.addEventListener("change", e => {
+    const s = e.target;
+    if (s.dataset.filter) V[s.dataset.filter] = s.value;
+    else if ("group" in s.dataset) V.group = s.value;
+    else if ("win" in s.dataset) V.win = +s.value;
+    else if ("since" in s.dataset) V.since = +s.value;
+    V.more = 0;
+    s.blur(); saveHash(); render();
+  });
+  window.addEventListener("hashchange", () => { readHash(); render(); });
+
+  // ================= live updates (SSE) =================
+  function onSnapshot(next){
+    const prev = new Map(runs().map(r => [r.id, r]));
+    for (const r of next.runs) { const p = prev.get(r.id); if (S && (!p || p.status !== r.status || p.lines !== r.lines)) changed.add(r.id); }
+    S = next;
+    if (V.open) {
+      const r = runs().find(x => x.id === V.open);
+      if (r && LOGS.get(V.open)?.lines !== r.lines) loadLog(V.open);
+    }
+    render();
+  }
+  function connect(){
+    const es = new EventSource("/events");
+    es.onopen = () => { connected = true; render(); };
+    es.onmessage = m => { connected = true; try { onSnapshot(JSON.parse(m.data)); } catch {} };
+    es.onerror = () => { connected = false; render(); };
+  }
+  connect();
+  setInterval(tickClocks, 1000);
+  // Timeline bars and activity buckets move with the clock: redraw them now and then.
+  setInterval(() => { if (V.view === "timeline") render(); }, 30_000);
+  render();
+})();
+</script>
+</body>
+</html>

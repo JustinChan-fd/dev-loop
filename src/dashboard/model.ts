@@ -162,10 +162,16 @@ export function stepListFromSkill(md: string): string[] | null {
   return m ? m[1].split("|") : null;
 }
 
-/** The declared steps, then any other phase the run logged, in the order seen. */
+const STEP_NAME = /^[a-z][a-z-]*$/;
+
+/**
+ * The declared steps, then any other step-shaped phase the run logged, in the
+ * order seen. A malformed name ("ground phase_start") never joins the bar; its
+ * lines still show in the log under it.
+ */
 export function stepsFor(declared: readonly string[], seen: readonly string[]): string[] {
   const out = [...declared];
-  for (const s of seen) if (!out.includes(s)) out.push(s);
+  for (const s of seen) if (STEP_NAME.test(s) && !out.includes(s)) out.push(s);
   return out;
 }
 
