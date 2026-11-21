@@ -12,6 +12,7 @@ import type { RunSkillFn, RunSkillResult } from "../../core/run-skill.ts";
 import { errorMessage } from "../../core/run-skill.ts";
 import { agentErrorVerdict, parseVerdict } from "../../core/verdict.ts";
 import { resolveRepoPath } from "../../core/paths.ts";
+import { CONTRACT } from "../../core/contract.ts";
 import type { VerdictCheck, ResearchFacts } from "./verdict-checks.ts";
 import { checkResearchVerdict, DEFAULT_COVERAGE_WARN_RUNS, readResearchFacts } from "./verdict-checks.ts";
 
@@ -32,12 +33,36 @@ export interface ResearchPhaseDeps {
   readFacts?: (runDir: string, coverageWarnsSoFar: number, coverageWarnRuns: number) => Promise<ResearchFacts>;
 }
 
-/** The Jira comment for a loop-made blocked bounce (an attachment the loop could not read). */
+function titledAdf(title: string, body: string): Record<string, unknown> {
+  return {
+    type: "doc",
+    version: 1,
+    content: [
+      { type: "paragraph", content: [{ type: "text", text: title, marks: [{ type: "strong" }] }] },
+      { type: "paragraph", content: [{ type: "text", text: body }] },
+    ],
+  };
+}
+
+/**
+ * The Jira comment for a loop-made blocked bounce (an attachment the loop
+ * could not read). Titled with CONTRACT.researchFail so a re-pickup's
+ * prior-comment lookup finds it, not the skill's earlier ✅ comment.
+ */
 export function attachmentBlockedCommentAdf(detail: string): Record<string, unknown> {
-  const text =
-    `Research bounced: blocked. ${detail}. ` +
-    "Fix the attachment (type, size or access) and re-label the ticket; the ticket text does not need rewriting.";
-  return { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text }] }] };
+  return titledAdf(
+    `${CONTRACT.researchFail} blocked, attachment unreadable`,
+    `${detail}. Fix the attachment (type, size or access) and re-label the ticket; the ticket text does not need rewriting. ` +
+      "Any research comment above this one is superseded.",
+  );
+}
+
+/** The Jira comment when the loop refuses a verdict: the skill may already have published its own comment. */
+export function verdictRefusedCommentAdf(check: VerdictCheck, detail: string): Record<string, unknown> {
+  return titledAdf(
+    `${CONTRACT.researchFail} verdict refused by the loop (${check})`,
+    `${detail} Any research comment posted by this run is superseded; research will run again.`,
+  );
 }
 
 export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDeps): Promise<PhaseEntry> {
@@ -54,6 +79,7 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
 
   // The loop checks the verdict against its rules before acting on it (bounce criteria v2).
   let verdictCheck: VerdictCheck | undefined;
+  let refusedComment: Record<string, unknown> | undefined;
   if (verdict.failure_category !== "agent_error") {
     const warns = deps.coverageWarnsSoFar ?? 0;
     const warnRuns = deps.coverageWarnRuns ?? DEFAULT_COVERAGE_WARN_RUNS;
@@ -67,6 +93,7 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
     const check = checkResearchVerdict(verdict, facts);
     if (check.action === "refuse") {
       verdictCheck = check.check;
+      refusedComment = verdictRefusedCommentAdf(check.check, check.detail);
       verdict = agentErrorVerdict(`loop refused the verdict: ${check.detail}`);
     } else if (check.action === "bounce_blocked") {
       verdictCheck = check.check;
@@ -80,6 +107,15 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
   const outcome = verdict.outcome === "ready" ? "landed" : verdict.outcome;
 
   const syncErrors: string[] = [];
+  // The skill posts its comment before writing verdict.json, so a refused
+  // verdict may have left a ✅/❌ comment behind: say it is superseded.
+  if (refusedComment) {
+    try {
+      await deps.jira.addComment(ticket.key, refusedComment);
+    } catch (err) {
+      syncErrors.push(errorMessage(err));
+    }
+  }
   if (outcome === "bounced") {
     // A loop-made bounce has no skill-written comment, so the loop writes one.
     if (verdictCheck === "attachment_unreadable") {

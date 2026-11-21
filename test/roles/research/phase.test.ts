@@ -146,6 +146,22 @@ describe("runResearchPhase", () => {
       expect(deps.jira.transitionStatus).not.toHaveBeenCalled();
     });
 
+    it("a refused verdict posts one '❌ research-loop -' comment saying the skill's comment is superseded", async () => {
+      const deps = makeDeps({ runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large", detail: "XL" })), ...factsDeps({ progressRaw: "" }) });
+      await runResearchPhase(makeTicket(), deps);
+      expect(deps.jira.addComment).toHaveBeenCalledTimes(1);
+      const body = JSON.stringify((deps.jira.addComment as ReturnType<typeof vi.fn>).mock.calls[0][1]);
+      expect(body).toContain("❌ research-loop - verdict refused by the loop (too_large_ungrounded)");
+      expect(body).toContain("superseded");
+    });
+
+    it("a failed refusal comment is a sync error, never a throw", async () => {
+      const jira = makeMockJiraClient({ addComment: vi.fn(async () => { throw new Error("Jira 500"); }) });
+      const e = await runResearchPhase(makeTicket(), makeDeps({ jira, runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large" })), ...factsDeps({ progressRaw: "" }) }));
+      expect(e.outcome).toBe("error");
+      expect(e.jira_sync_error).toContain("Jira 500");
+    });
+
     it("bounce_blocked moves the ticket to bounced and comments the manifest lines", async () => {
       const m = { ticket: "PROJ-142", dir: "/r", attachments: [{ id: "1", filename: "build.zip", size: 1, status: "skipped" as const, reason: "type .zip is not fetched" }] };
       const deps = makeDeps(factsDeps({ manifest: m }));
@@ -154,7 +170,9 @@ describe("runResearchPhase", () => {
       expect(e.detail).toContain("build.zip");
       expect(deps.jira.transitionStatus).toHaveBeenCalledWith("PROJ-142", deps.view.statusNames.bounced);
       expect(deps.jira.addComment).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify((deps.jira.addComment as ReturnType<typeof vi.fn>).mock.calls[0][1])).toContain("build.zip");
+      const body = JSON.stringify((deps.jira.addComment as ReturnType<typeof vi.fn>).mock.calls[0][1]);
+      expect(body).toContain("build.zip");
+      expect(body).toContain("❌ research-loop - blocked, attachment unreadable");
     });
 
     it("coverage_warned lands and records verdict_check", async () => {

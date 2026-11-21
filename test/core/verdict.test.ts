@@ -225,6 +225,11 @@ describe("parseVerdict: refine profile", () => {
     }
   });
 
+  it("criterion A size_evidence without the empty comparison/risk arrays is kept, defaulted to []", () => {
+    const v = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_evidence: { criterion: "A", split: ["a", "b"] } }), "refine");
+    expect(v.size_evidence).toEqual({ criterion: "A", comparison_tickets: [], risk_factors: [], split: ["a", "b"] });
+  });
+
   it("keeps well-formed size_evidence / attachment_coverage and drops malformed ones without flipping the outcome", () => {
     const ev = { criterion: "A", comparison_tickets: [], risk_factors: [], split: ["a", "b"] };
     const cov = [{ attachment: "a.png", kind: "design", mapped_to: ["AC1"], out_of_scope: [] }];

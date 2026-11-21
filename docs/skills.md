@@ -297,8 +297,15 @@ the loop acts. The agent judges; the loop checks the parts are there:
 | `ready` | `attachments.json` has a skipped/failed entry or a listing `error` | loop bounces `blocked` with a Jira comment naming the files (`attachment_unreadable`) |
 | `ready` | a fetched attachment missing from `attachment_coverage` | warned and accepted for the first `roles.research.attachmentCoverageWarnRuns` (default 5) such runs (`coverage_warned`), then refused (`coverage_missing`) |
 
-A refused verdict makes no Jira write and counts as a failed attempt, so
-the ticket runs again. Every other verdict passes untouched.
+A refused verdict makes no status move and counts as a failed attempt, so
+the ticket runs again; the loop posts one `❌ research-loop - verdict refused
+by the loop (<check>)` comment, because the skill posts its own comment
+before writing `verdict.json`. The loop-made blocked bounce's comment is
+titled `❌ research-loop - blocked, attachment unreadable`, so a re-pickup's
+prior-comment lookup finds it. A `too_large` bounce always re-runs Ground in
+its own run, re-pickups included. The coverage warn count is project-wide
+(every research entry in the v2 log), not per ticket. Every other verdict
+passes untouched.
 
 ### Ticket content protocol
 

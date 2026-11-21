@@ -40,7 +40,9 @@ below names a v1 key, the mapping is: `jira.triggerLabel` (research) →
   default 5): how many `ready` verdicts on tickets with attachments may
   lack `attachment_coverage` (logged as `verdict_check: coverage_warned`,
   still accepted) before the loop refuses them. Counted across the
-  project's v2 log. `0` refuses from the first run. See `docs/skills.md`
+  project's v2 log, across tickets (approximate: two sessions on one
+  project can each warn once more, and a reset removes counted entries).
+  `0` refuses from the first run. See `docs/skills.md`
   "Loop checks on the research verdict".
   Every label and status value is interpolated into JQL, so `"`, `\` and
   newlines are rejected. `roles.research.handoffLabel` must equal

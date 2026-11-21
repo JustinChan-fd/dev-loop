@@ -70,7 +70,8 @@ never count as a prior pass (see Step 0.5). Two cases:
   the comment calls into question (e.g. if the human flagged an incorrect
   fault-domain call, redo Step 0's fault-domain determination and Step 6's
   synthesis; you don't need to redo Step 2's codebase grounding if it
-  wasn't disputed).
+  wasn't disputed — except before a `too_large` bounce, which always
+  re-runs Step 2 in this run; see Step 4).
 
 **This match is for reading prior context only — it is never a write/edit
 target.** Use it to find the most-recently-created matching comment (by
@@ -456,7 +457,13 @@ gate needs to see what's load-bearing, not have it silently baked in.
 ### Step 4 — Scope & sequence
 
 Size is judged **after Ground**, on the grounded plan, against
-`<RUN_DIR>/size-context.json`. Bounce `too_large` only when one of these
+`<RUN_DIR>/size-context.json`. **A `too_large` bounce always needs Step 2
+run in this run, including on a re-pickup** (each run has a new `RUN_DIR`,
+and the loop checks this run's `progress.jsonl` for a `ground`
+`phase_end`). Before posting a `too_large` or `ready` comment, check its
+verdict fields are complete (`size_evidence`; `attachment_coverage` for
+every fetched file): the loop refuses an incomplete verdict after your
+comment is already up, and posts a superseding comment. Bounce `too_large` only when one of these
 holds (the loop refuses a `too_large` verdict with no `ground` phase_end in
 `progress.jsonl` or without `size_evidence`):
 

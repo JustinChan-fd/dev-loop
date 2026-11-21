@@ -228,7 +228,15 @@ export function parseVerdict(
   }
   // size_evidence / attachment_coverage: shape-checked here, dropped if
   // malformed. Whether one is REQUIRED is roles/research/verdict-checks.ts's job.
-  if (verdict.size_evidence !== undefined && !isSizeEvidence(verdict.size_evidence)) delete verdict.size_evidence;
+  if (verdict.size_evidence !== undefined) {
+    // Criterion A needs no comparison tickets or risk factors: missing lists default to [].
+    const e = verdict.size_evidence as unknown;
+    if (typeof e === "object" && e !== null) {
+      const o = e as Record<string, unknown>;
+      verdict.size_evidence = { ...o, comparison_tickets: o.comparison_tickets ?? [], risk_factors: o.risk_factors ?? [] } as SizeEvidence;
+    }
+    if (!isSizeEvidence(verdict.size_evidence)) delete verdict.size_evidence;
+  }
   if (verdict.attachment_coverage !== undefined && !(Array.isArray(verdict.attachment_coverage) && verdict.attachment_coverage.every(isCoverageEntry))) {
     delete verdict.attachment_coverage;
   }
