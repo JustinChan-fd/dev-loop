@@ -66,6 +66,87 @@ repo inside it). The committed `pipeline.eval-app.config.template.json` has
 `dev-bounce` is the least deterministic scenario: research can bounce the
 ticket itself.
 
+## Fixture evals
+
+A fixture eval runs research (ticket-refine) on a ticket kept in local files,
+so no real ticket is needed and **nothing is written to Jira or GitHub**.
+Design: `docs/superpowers/specs/2026-11-20-eval-fixtures-design.md`.
+
+**What a fixture is.** Each fixture is a folder, `evals/fixtures/<name>/`:
+
+| File | What |
+|---|---|
+| `ticket.json` | the ticket, with a fake `FX-<n>` key: summary, type, description, `comments[]` (each with `is_pipeline`), the mirror Issue (`github`), `linked`, `prior_tickets`, attachment metadata, and `reviewed` |
+| `attachments/` | the attachment files `ticket.json` names (a missing one becomes a `failed` entry, to test the unreadable-attachment rule) |
+| `repo.json` | the target project and the commit to pin (`sha`, `verified`, `verify_cmd`) |
+| `expect.json` | what to grade: outcomes, failure categories, the loop's check, grounding before sizing, attachment coverage, size, AC count, outbox text (it always forbids "spec wins"), cost, pass rate |
+
+The runner refuses a fixture that has no `ticket.json`, has `reviewed: false`, or
+has an unverified pin. It prints every problem at once.
+
+**Replay tests (free, in `npm test`).** `test/fixtures/replay/<name>/` holds
+saved real run folders (`verdict.json`, `progress.jsonl`, `attachments.json`)
+and an `expected.json`. `test/roles/research/verdict-replay.test.ts` feeds
+each one through the loop's own verdict check (`checkResearchVerdict`) and the
+grader. A rule change that would treat a real run differently fails there.
+The first four are MC-1435's three research runs and MC-1718's.
+
+**The live fixture runner.**
+
+```sh
+npm run eval -- --fixture=mc-1718             # dry (default): print the plan, or every problem, run nothing
+npm run eval -- --fixture=mc-1718 --runs=3    # the same, for 3 runs
+DRY_RUN=0 npm run eval -- --fixture=mc-1718 --runs=3   # LIVE (refused for now, see below)
+```
+
+Each run is one ticket-refine spawn on a detached worktree at the pinned
+commit, made and removed by the loop. Runs go one after another. Each has a
+$5 budget; `--runs` is capped at 5 and `--max-total` at $25 (the default).
+The result is a pass rate against `expect.json`'s `passRate`. Run folders
+are `.pipeline/v2/fixtures/<fixture>/<FX-n>/research-<RUN_ID>`, and the log is
+`runs/v2/fixtures/<fixture>.jsonl`, never a project's log.
+
+**Live is refused for now** (`LIVE_ENABLED` in `src/eval/fixture-run.ts`).
+Two things come first: a Bash hook that denies `gh` and `api.github.com`
+however they are spelled, and a first run a person watches. Like `run.sh`,
+live is also refused inside a Claude Code session.
+
+**`fixture:save`.**
+
+```sh
+npm run fixture:save -- MC-1718 --name=mc-1718 [--fx=1] [--replace]
+```
+
+This reads the ticket, its comments, links and attachments from Jira using
+GET requests only. It scrubs them:
+
+- emails and secret-shaped values are redacted;
+- authors become `user-N`;
+- the real key becomes `FX-<n>`;
+- home paths are made relative.
+
+It then writes `ticket.json` with `reviewed: false` (images can't be scrubbed)
+and `attachments/`. It refuses the save if a text attachment looks like it
+holds a secret, and never runs `git add`. Read what it wrote, set
+`reviewed: true`, and commit by hand.
+
+**How fixture runs differ from the scenarios above.**
+
+| | Scenarios (`clean`, `--all`, ...) | Fixtures (`--fixture=<name>`) |
+|---|---|---|
+| Ticket | a real TARS ticket, created per run | `ticket.json`, no real ticket |
+| Jira and GitHub writes | real (eval tickets and sandbox PRs only) | none: the skill's posts and the loop's comment and transition go to `RUN_DIR/outbox/` |
+| Phases | research and dev, through `npm run loop` | research only, through `src/eval/fixture-run.ts` (no session lock, claim, label swap or mirror Issue) |
+| Repo | the sandbox repo at `master` | any project, pinned at a commit (`repo.json`) |
+| Spawn | the normal tools | built-in tools only; Atlassian, `gh`, `curl`, `git push`, `git credential` and the web denied; no GitHub token, git credential helper or SSH agent; `DEVLOOP_EVAL_KEYS=""` |
+| Free part | `npm test` checks the dry run | `npm test` also replays saved runs |
+
+The first two fixtures are `mc-1435-xl` (the description that bounced XL)
+and `mc-1718` (the run that passed with full coverage). Both are saved
+from MC-1718 (`fixture:save`), read by hand (`reviewed: true`) and pinned
+at a sha confirmed on the host (`verified: true`). A new fixture starts
+without `ticket.json`, and the runner refuses it until both are done.
+
 ## Files
 
 - `lib.sh`: `outward` (the one gate for outward commands), `run_to`
@@ -92,6 +173,8 @@ ticket itself.
 - `sandbox-app/`: the app-layout sub-project's content.
 - `pipeline.eval-app.config.template.json`: the app-layout config
   (`targetRepo.local`), with `{{CHECKOUT}}` for the machine's checkout.
+- `fixtures/<name>/`: fixture evals (see "Fixture evals"). The code is
+  `src/eval/` (TypeScript, tested in `test/eval/`).
 
 ## Boundaries (enforced, not convention)
 

@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Availability Sources Mockup</title>
+<style>
+/* Tokens copied from app/src/styles (tokens + themes). The POC adds none of its own colors. */
+:root{
+  --s-1:.25rem;--s-2:.5rem;--s-3:.75rem;--s-4:1rem;--s-5:1.25rem;--s-6:1.5rem;--s-7:2rem;--s-8:2.5rem;--s-9:3rem;--s-10:4rem;
+  --fs-xs:.8125rem;--fs-sm:.9375rem;--fs-base:1rem;--fs-lg:1.125rem;--fs-xl:1.25rem;--fs-2xl:1.5rem;
+  --fw-regular:400;--fw-medium:500;--fw-semi:600;--fw-bold:700;
+  --r-xs:.125rem;--r-sm:.25rem;--r-md:.375rem;--r-lg:.5rem;--r-xl:.75rem;--r-full:9999px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu',sans-serif;
+  --accent-h:45;--accent-c-light:.18;--accent-c-dark:.16;
+  --dur-fast:120ms;--dur-base:200ms;--ease:cubic-bezier(.2,0,0,1);
+}
+:root,[data-theme="light"]{
+  color-scheme:light;
+  --bg-base:oklch(97% .003 80);--surface-base:oklch(99.5% .002 80);--surface-2:oklch(97% .003 80);--surface-hover-base:oklch(95% .003 80);
+  --border-base:oklch(87% .005 80);--border-strong:oklch(76% .006 80);--ring-base:oklch(70% var(--accent-c-light) var(--accent-h)/.4);
+  --text-color-base:oklch(20% .005 80);--text-color-2:oklch(35% .005 80);--text-color-muted:oklch(45% .006 80);--text-color-faint:oklch(58% .006 80);
+  --accent-base:oklch(58% var(--accent-c-light) var(--accent-h));--accent-hover:oklch(52% var(--accent-c-light) var(--accent-h));--accent-fg:oklch(99% .002 80);
+  --accent-soft:oklch(94% .05 var(--accent-h));--accent-soft-fg:oklch(36% var(--accent-c-light) var(--accent-h));
+  --success-base:oklch(48% .14 150);--success-soft:oklch(94% .05 150);--danger-base:oklch(52% .18 25);--danger-soft:oklch(94% .05 25);
+  --warning-base:oklch(60% .15 75);--warning-soft:oklch(94% .05 75);
+  --shadow-sm:0 1px 2px oklch(0% 0 0/.04),0 1px 3px oklch(0% 0 0/.06);--shadow-lg:0 12px 32px oklch(0% 0 0/.1),0 2px 6px oklch(0% 0 0/.06);
+  --badge-gracenote-bg:oklch(94% .03 15);--badge-gracenote-fg:oklch(40% .12 15);
+  --badge-justwatch-bg:oklch(94% .03 85);--badge-justwatch-fg:oklch(35% .08 85);
+  --badge-tmdb-bg:oklch(94% .03 195);--badge-tmdb-fg:oklch(35% .08 195);
+  --logo-plate:oklch(99% .002 80);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg-base:oklch(14% .005 250);--surface-base:oklch(17% .006 250);--surface-2:oklch(20% .007 250);--surface-hover-base:oklch(23% .008 250);
+    --border-base:oklch(26% .008 250);--border-strong:oklch(34% .01 250);--ring-base:oklch(70% var(--accent-c-dark) var(--accent-h)/.45);
+    --text-color-base:oklch(97% .003 250);--text-color-2:oklch(82% .005 250);--text-color-muted:oklch(68% .008 250);--text-color-faint:oklch(55% .008 250);
+    --accent-base:oklch(62% var(--accent-c-dark) var(--accent-h));--accent-hover:oklch(68% var(--accent-c-dark) var(--accent-h));
+    --accent-soft:oklch(28% .07 var(--accent-h));--accent-soft-fg:oklch(85% var(--accent-c-dark) var(--accent-h));
+    --success-base:oklch(75% .14 150);--success-soft:oklch(28% .06 150);--danger-base:oklch(70% .16 25);--danger-soft:oklch(28% .07 25);
+    --warning-base:oklch(78% .14 75);--warning-soft:oklch(28% .06 75);
+    --shadow-sm:0 1px 2px oklch(0% 0 0/.3);--shadow-lg:0 8px 24px oklch(0% 0 0/.45),0 2px 6px oklch(0% 0 0/.3);
+    --badge-gracenote-bg:oklch(30% .06 15);--badge-gracenote-fg:oklch(85% .08 15);
+    --badge-justwatch-bg:oklch(30% .05 85);--badge-justwatch-fg:oklch(88% .07 85);
+    --badge-tmdb-bg:oklch(30% .05 195);--badge-tmdb-fg:oklch(88% .07 195);
+    --logo-plate:oklch(94% .003 80);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg-base:oklch(14% .005 250);--surface-base:oklch(17% .006 250);--surface-2:oklch(20% .007 250);--surface-hover-base:oklch(23% .008 250);
+  --border-base:oklch(26% .008 250);--border-strong:oklch(34% .01 250);--ring-base:oklch(70% var(--accent-c-dark) var(--accent-h)/.45);
+  --text-color-base:oklch(97% .003 250);--text-color-2:oklch(82% .005 250);--text-color-muted:oklch(68% .008 250);--text-color-faint:oklch(55% .008 250);
+  --accent-base:oklch(62% var(--accent-c-dark) var(--accent-h));--accent-hover:oklch(68% var(--accent-c-dark) var(--accent-h));
+  --accent-soft:oklch(28% .07 var(--accent-h));--accent-soft-fg:oklch(85% var(--accent-c-dark) var(--accent-h));
+  --success-base:oklch(75% .14 150);--success-soft:oklch(28% .06 150);--danger-base:oklch(70% .16 25);--danger-soft:oklch(28% .07 25);
+  --warning-base:oklch(78% .14 75);--warning-soft:oklch(28% .06 75);
+  --shadow-sm:0 1px 2px oklch(0% 0 0/.3);--shadow-lg:0 8px 24px oklch(0% 0 0/.45),0 2px 6px oklch(0% 0 0/.3);
+  --badge-gracenote-bg:oklch(30% .06 15);--badge-gracenote-fg:oklch(85% .08 15);
+  --badge-justwatch-bg:oklch(30% .05 85);--badge-justwatch-fg:oklch(88% .07 85);
+  --badge-tmdb-bg:oklch(30% .05 195);--badge-tmdb-fg:oklch(88% .07 195);
+    --logo-plate:oklch(94% .003 80);
+}
+*{box-sizing:border-box}
+html{font-size:87.5%}
+body{margin:0;background:var(--bg-base);color:var(--text-color-base);font-family:var(--font-sans);font-size:var(--fs-base);line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ring-base);outline-offset:2px}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* POC chrome (not part of the design) */
+.poc{max-width:80rem;margin:0 auto;padding:var(--s-6) var(--s-4) var(--s-10)}
+.poc-head h1{margin:0 0 var(--s-2);font-size:var(--fs-2xl);font-weight:var(--fw-semi);letter-spacing:-.02em}
+.poc-head p{margin:0 0 var(--s-2);max-width:72ch;color:var(--text-color-2)}
+.poc-controls{display:flex;flex-wrap:wrap;gap:var(--s-3) var(--s-5);align-items:end;margin:var(--s-5) 0 var(--s-4);padding:var(--s-3) var(--s-4);border:1px solid var(--border-base);border-radius:var(--r-lg);background:var(--surface-base)}
+.poc-control{display:grid;gap:var(--s-1)}
+.poc-control-label{font-size:var(--fs-xs);color:var(--text-color-muted)}
+.seg{display:inline-flex;border:1px solid var(--border-base);border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.seg button{border:0;background:transparent;padding:var(--s-1) var(--s-3);font-size:var(--fs-sm);cursor:pointer;color:var(--text-color-2)}
+.seg button+button{border-inline-start:1px solid var(--border-base)}
+.seg button[aria-pressed="true"]{background:var(--surface-base);color:var(--text-color-base);font-weight:var(--fw-semi);box-shadow:inset 0 -2px 0 var(--accent-base)}
+.seg-variants button{padding:var(--s-2) var(--s-4)}
+
+/* Stage: the media profile page behind the dialog. Absolute overlay so phone width can be previewed. */
+.stage-wrap{display:flex;justify-content:center}
+.stage{position:relative;width:100%;min-height:58rem;border:1px solid var(--border-base);border-radius:var(--r-lg);background:var(--bg-base);overflow:hidden;padding:var(--s-6)}
+.stage[data-width="phone"]{width:390px;padding:var(--s-4)}
+.profile-section{max-width:52rem;border:1px solid var(--border-base);border-radius:var(--r-lg);background:var(--surface-base);box-shadow:var(--shadow-sm)}
+.profile-section-head{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-3) var(--s-4);border-bottom:1px solid var(--border-base)}
+.profile-section-head h2{margin:0;margin-inline-end:auto;font-size:var(--fs-lg);font-weight:var(--fw-semi)}
+.profile-section-body{padding:var(--s-6) var(--s-4);color:var(--text-color-muted);font-size:var(--fs-sm)}
+
+/* shadcn button + badge, as in components/shadcn */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-1);white-space:nowrap;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:var(--fw-medium);border:0;cursor:pointer;height:2.5rem;padding:0 var(--s-4);transition:background-color var(--dur-fast) var(--ease)}
+.btn svg{width:16px;height:16px;flex-shrink:0}
+.btn-sm{height:2.25rem;padding:0 var(--s-3)}
+.btn-default{background:var(--accent-base);color:var(--accent-fg)}
+.btn-default:hover{background:var(--accent-hover)}
+.btn-outline{border:1px solid var(--border-base);background:transparent}
+.btn-outline:hover,.btn-ghost:hover{background:var(--surface-hover-base)}
+.btn-ghost{background:transparent}
+.btn:disabled{opacity:.5;pointer-events:none}
+.badge{display:inline-flex;align-items:center;border-radius:var(--r-full);border:1px solid transparent;padding:var(--s-1) var(--s-3);font-size:var(--fs-xs);font-weight:var(--fw-semi);white-space:nowrap;line-height:1.4}
+.badge-outline{border-color:var(--border-base)}
+.badge-secondary{background:var(--surface-2);border-color:var(--border-base)}
+.badge-success{background:var(--success-soft);color:var(--success-base)}
+.badge-gracenote{background:var(--badge-gracenote-bg);color:var(--badge-gracenote-fg)}
+.badge-justwatch{background:var(--badge-justwatch-bg);color:var(--badge-justwatch-fg)}
+.badge-tmdb{background:var(--badge-tmdb-bg);color:var(--badge-tmdb-fg)}
+
+/* Dialog shell (shadcn Dialog + SourcePickerDialog.css) */
+.dialog-overlay{position:absolute;inset:0;background:oklch(0% 0 0/.6);animation:fade-in var(--dur-base) var(--ease)}
+.dialog{position:absolute;left:50%;top:var(--s-6);transform:translateX(-50%);display:grid;gap:var(--s-4);width:calc(100% - var(--s-6));max-width:46rem;max-height:calc(100% - var(--s-7));overflow-y:auto;border:1px solid var(--border-base);background:var(--surface-base);padding:var(--s-6);box-shadow:var(--shadow-lg);border-radius:var(--r-lg);animation:dialog-in var(--dur-base) var(--ease)}
+.dialog[data-variant="B"]{max-width:68rem}
+.dialog[data-variant="C"]{max-width:56rem}
+.stage[data-width="phone"] .dialog{top:var(--s-3);width:calc(100% - var(--s-4));padding:var(--s-4)}
+@keyframes fade-in{from{opacity:0}}
+@keyframes dialog-in{from{opacity:0;transform:translateX(-50%) scale(.97)}}
+.dialog-close{position:absolute;right:var(--s-4);top:var(--s-4);border:0;background:none;padding:var(--s-1);border-radius:var(--r-xs);opacity:.7;cursor:pointer}
+.dialog-close:hover{opacity:1}
+.dialog-close svg{width:16px;height:16px;display:block}
+.dialog-header{display:grid;gap:6px;padding-inline-end:var(--s-6)}
+.dialog-title{margin:0;font-size:var(--fs-lg);font-weight:var(--fw-semi);line-height:1.25;letter-spacing:-.025em}
+.dialog-description{margin:0;font-size:var(--fs-sm);color:var(--text-color-muted)}
+.dialog-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--s-3)}
+.picker-updated{margin:0;margin-inline-end:auto;font-size:var(--fs-sm);color:var(--text-color-2)}
+.picker-body{display:grid;gap:var(--s-3);min-width:0}
+.picker-note{margin:0;font-size:var(--fs-sm);color:var(--text-color-2)}
+.picker-legend{margin:0;font-size:var(--fs-sm);font-weight:var(--fw-semi)}
+.picker-status{padding:var(--s-2) var(--s-3);border-inline-start:4px solid var(--accent-base);border-radius:var(--r-sm);background:var(--surface-2);font-size:var(--fs-sm)}
+.picker-status p{margin:0}
+.picker-status:empty{display:none}
+.picker-loading{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-4) 0;font-size:var(--fs-sm);color:var(--text-color-2)}
+.picker-loading svg{width:16px;height:16px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.picker-error{display:grid;justify-items:start;gap:var(--s-2);color:var(--danger-base)}
+.picker-error p{margin:0}
+
+/* Country step: new for availability */
+.country-field{display:grid;gap:var(--s-1)}
+.country-field label{font-size:var(--fs-sm);font-weight:var(--fw-semi)}
+.country-select{appearance:none;height:2.5rem;width:100%;max-width:26rem;padding:0 var(--s-8) 0 var(--s-3);border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface-base) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right var(--s-3) center;font-size:var(--fs-sm);cursor:pointer}
+.country-select:focus-visible{outline:none;border-color:var(--ring-base);box-shadow:0 0 0 2px var(--ring-base)}
+.country-hint{margin:0;font-size:var(--fs-xs);color:var(--text-color-muted)}
+
+/* Source option card (SourcePickerDialog) */
+.options{display:grid;gap:var(--s-3);border:0;margin:0;padding:0;min-width:0}
+.option{display:grid;gap:var(--s-3);min-width:0;padding:var(--s-3);border:1px solid var(--border-base);border-radius:var(--r-md);background:var(--surface-base)}
+.option:has(input:checked){border-color:var(--accent-base)}
+.option-head{display:flex;align-items:center;gap:var(--s-2)}
+.option-label{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);cursor:pointer}
+.radio{appearance:none;margin:0;width:var(--s-4);height:var(--s-4);flex-shrink:0;border:2px solid var(--border-strong);border-radius:var(--r-full);background:var(--surface-base);cursor:pointer;display:grid;place-items:center}
+.radio:checked{border-color:var(--accent-base)}
+.radio:checked::after{content:"";width:.5rem;height:.5rem;border-radius:var(--r-full);background:var(--accent-base)}
+.radio:disabled{cursor:not-allowed;opacity:.6}
+.option-body{display:grid;gap:var(--s-3);padding-inline-start:var(--s-6);min-width:0}
+.stage[data-width="phone"] .option-body{padding-inline-start:0}
+.option-summary{margin:0;font-size:var(--fs-sm);color:var(--text-color-2)}
+.show-all{border-top:1px solid var(--border-base);padding-top:var(--s-2)}
+.show-all .btn svg{transition:transform var(--dur-fast) var(--ease)}
+/* Trigger sits flush with the expanded content below it: no inline padding, chevron at the left edge. */
+.show-all > .btn{padding-inline:0;height:auto;min-height:2rem}
+.show-all > .btn:hover{background:transparent;text-decoration:underline}
+.show-all .btn[aria-expanded="true"] svg{transform:rotate(90deg)}
+
+/* Service tiles (proposed ui/ServiceTile): one per distributor, in a responsive grid */
+.service-tiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:var(--s-3)}
+.service-tile{display:grid;gap:var(--s-3);align-content:start;padding:var(--s-3) var(--s-4) var(--s-4);border:1px solid var(--border-base);border-radius:var(--r-lg);background:var(--surface-2);min-width:0}
+.service-tile-head{display:flex;align-items:center;gap:var(--s-3);min-width:0}
+.service-tile-name{margin:0;font-size:var(--fs-base);font-weight:var(--fw-semi);line-height:1.3;overflow-wrap:anywhere}
+.service-tile-meta{margin:0;font-size:var(--fs-xs);color:var(--text-color-muted)}
+.service-offers{margin:0;padding:var(--s-3) 0 0;list-style:none;display:grid;gap:var(--s-3);border-top:1px solid var(--border-base)}
+.service-offer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:var(--s-1) var(--s-3);font-size:var(--fs-sm)}
+.service-offer-qualities{grid-column:1 / -1}
+.service-offer-kind{font-weight:var(--fw-semi)}
+.service-offer-qualities{display:flex;flex-wrap:wrap;gap:var(--s-1)}
+.quality{display:inline-flex;align-items:center;padding:0 var(--s-2);border:1px solid var(--border-base);border-radius:var(--r-sm);background:var(--surface-base);font-size:var(--fs-xs);font-weight:var(--fw-medium);color:var(--text-color-2);line-height:1.6}
+.service-offer-price{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-color-2);white-space:nowrap}
+.service-offers-empty{margin:0;padding-top:var(--s-3);border-top:1px solid var(--border-base);font-size:var(--fs-sm);color:var(--text-color-muted)}
+
+/* Provider logo (proposed ui/ProviderLogo): one frame size; the image's shape picks the fit.
+   icon: square art fills the frame. wordmark: wide art is contained on a light plate (stays light
+   in dark mode so black marks stay visible). monogram: no logo or it failed to load. */
+.provider-logo{--logo-size:3rem;position:relative;flex-shrink:0;width:var(--logo-size);height:var(--logo-size);border-radius:var(--r-md);overflow:hidden;display:grid;place-items:center;border:1px solid var(--border-base);background:var(--surface-base)}
+.provider-logo img{display:block;width:100%;height:100%}
+.provider-logo[data-mode="icon"] img{object-fit:cover}
+.provider-logo[data-mode="wordmark"]{background:var(--logo-plate)}
+.provider-logo[data-mode="wordmark"] img{object-fit:contain;padding:2px}
+.provider-logo[data-mode="pending"] img{opacity:0}
+.provider-logo[data-mode="monogram"]{background:var(--surface-2)}
+.provider-logo-monogram{font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--text-color-muted)}
+.provider-logo-sm{--logo-size:1.75rem}
+
+/* "As before" comparison: square crop for every logo */
+[data-logos="crop"] .provider-logo img{object-fit:cover!important}
+[data-logos="crop"] .provider-logo[data-mode="wordmark"]{padding:0;background:var(--surface-base)}
+
+.offer-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:var(--fs-xs);margin-top:var(--s-1)}
+.offer-table col.c-type{width:30%}.offer-table col.c-quality{width:30%}
+.offer-table th,.offer-table td{text-align:left;padding:var(--s-1) var(--s-2) var(--s-1) 0;border-bottom:1px solid var(--border-base)}
+.offer-table th{font-weight:var(--fw-semi);color:var(--text-color-muted)}
+.offer-table td.num{font-variant-numeric:tabular-nums}
+.repeat{color:var(--text-color-faint)}
+.offer-detail{display:grid;gap:var(--s-3)}
+.offer-detail h4{margin:0;font-size:var(--fs-sm);font-weight:var(--fw-semi)}
+
+/* B: country list beside the sources */
+.split{display:grid;grid-template-columns:16rem minmax(0,1fr);gap:var(--s-5);min-width:0}
+.country-rail{display:grid;align-content:start;gap:var(--s-2);min-width:0}
+.country-filter{height:2.25rem;width:100%;padding:0 var(--s-3);border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface-base);font-size:var(--fs-sm)}
+.country-filter:focus-visible{outline:none;border-color:var(--ring-base);box-shadow:0 0 0 2px var(--ring-base)}
+.country-list{list-style:none;margin:0;padding:0;max-height:34rem;overflow-y:auto;border:1px solid var(--border-base);border-radius:var(--r-md)}
+.country-group-name{position:sticky;top:0;margin:0;padding:var(--s-1) var(--s-3);font-size:var(--fs-xs);font-weight:var(--fw-semi);color:var(--text-color-muted);background:var(--surface-2);border-bottom:1px solid var(--border-base)}
+.country-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-2);width:100%;align-items:center;padding:var(--s-2) var(--s-3);border:0;border-bottom:1px solid var(--border-base);background:transparent;text-align:left;cursor:pointer;font-size:var(--fs-sm)}
+.country-item:hover{background:var(--surface-hover-base)}
+.country-item[aria-current="true"]{background:var(--accent-soft);color:var(--accent-soft-fg);box-shadow:inset 3px 0 0 var(--accent-base)}
+.country-item-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.country-item-meta{font-size:var(--fs-xs);color:var(--text-color-muted)}
+.country-item[aria-current="true"] .country-item-meta{color:inherit}
+.country-detail{display:grid;gap:var(--s-4);align-content:start;min-width:0}
+.country-detail-title{margin:0;font-size:var(--fs-base);font-weight:var(--fw-semi)}
+.stage[data-width="phone"] .split{grid-template-columns:1fr}
+.stage[data-width="phone"] .country-list{max-height:12rem}
+
+/* C: side-by-side table */
+.compare-wrap{overflow-x:auto;border:1px solid var(--border-base);border-radius:var(--r-md)}
+.compare{width:100%;border-collapse:collapse;font-size:var(--fs-sm);min-width:30rem}
+.compare th,.compare td{padding:var(--s-2) var(--s-3);border-bottom:1px solid var(--border-base);vertical-align:top;text-align:left}
+.compare tr:last-child td{border-bottom:0}
+.compare thead th{background:var(--surface-2);font-weight:var(--fw-semi)}
+.compare thead th.is-checked{box-shadow:inset 0 -2px 0 var(--accent-base)}
+.compare-col-head{display:grid;gap:var(--s-1)}
+.compare-col-pick{display:flex;align-items:center;gap:var(--s-2);cursor:pointer}
+.compare-who{display:flex;align-items:center;gap:var(--s-2);font-weight:var(--fw-semi);min-width:9rem}
+
+.compare-missing{color:var(--text-color-faint);font-size:var(--fs-xs)}
+
+/* Notes */
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--s-4);margin-top:var(--s-6)}
+.note{padding:var(--s-4);border:1px solid var(--border-base);border-radius:var(--r-lg);background:var(--surface-base)}
+.note[data-active="true"]{border-color:var(--accent-base)}
+.note h2{margin:0 0 var(--s-2);font-size:var(--fs-lg)}
+.note h3{margin:var(--s-3) 0 var(--s-1);font-size:var(--fs-sm)}
+.note p,.note li{font-size:var(--fs-sm);color:var(--text-color-2)}
+.note p{margin:0}
+.note ul{margin:0;padding-inline-start:var(--s-5)}
+.decisions{margin-top:var(--s-6);padding:var(--s-4);border:1px solid var(--border-base);border-inline-start:4px solid var(--warning-base);border-radius:var(--r-lg);background:var(--surface-base)}
+.decisions h2{margin:0 0 var(--s-2);font-size:var(--fs-lg)}
+.decisions ol{margin:0;padding-inline-start:var(--s-5);display:grid;gap:var(--s-2);font-size:var(--fs-sm);color:var(--text-color-2);max-width:90ch}
+.decisions strong{color:var(--text-color-base)}
+@media (max-width:640px){.poc{padding:var(--s-4) var(--s-4) var(--s-8)}.stage{padding:var(--s-4)}.split{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="poc">
+  <header class="poc-head">
+    <h1>MC-1435 availability source picker mockup</h1>
+    <p>Same <strong>Manage sources</strong> button and SourcePickerDialog shell as genres, ratings, videos and images. The body is variation B: a filterable country list on the left, and that country's sources on the right, each listing its services as tiles. The data is the real INT response for Avatar.</p>
+    <p>This ticket covers the GET only, so the dialog is read-only and has no Use button. Saving is a follow-up ticket. Try the United States (two sources), Japan (FOD has no company key) and the Netherlands (Pathé and meJane have no logo).</p>
+    <p>This mockup shows intent. Where it differs from the ticket text or repo conventions, those win.</p>
+  </header>
+
+  <div class="poc-controls" role="group" aria-label="Preview controls">
+    <div class="poc-control"><span class="poc-control-label" id="lbl-logos">Logos</span><div class="seg" data-ctl="logos" aria-labelledby="lbl-logos"></div></div>
+    <div class="poc-control"><span class="poc-control-label" id="lbl-view">State</span><div class="seg" data-ctl="view" aria-labelledby="lbl-view"></div></div>
+    <div class="poc-control"><span class="poc-control-label" id="lbl-manage">Permission</span><div class="seg" data-ctl="manage" aria-labelledby="lbl-manage"></div></div>
+    <div class="poc-control"><span class="poc-control-label" id="lbl-width">Width</span><div class="seg" data-ctl="width" aria-labelledby="lbl-width"></div></div>
+    <div class="poc-control"><span class="poc-control-label" id="lbl-theme">Theme</span><div class="seg" data-ctl="theme" aria-labelledby="lbl-theme"></div></div>
+  </div>
+
+  <div class="stage-wrap"><div class="stage" id="stage"></div></div>
+
+  
+
+  <section class="decisions" aria-labelledby="dec-h">
+    <h2 id="dec-h">Settled decisions</h2>
+    <ol>
+      <li><strong>Read-only.</strong> This ticket renders the GET only. There's no <code>domain.write</code> and no Use button, and no POST, PUT or DELETE is sent. Saving goes to a follow-up ticket, most likely per country (<code>country_id</code>), to be confirmed against the API docs.</li>
+      <li><strong>"In use" comes from the server.</strong> For the chosen country, the source with the lowest <code>priority</code> is in use (null ranks last, then lowest id). <code>DEFAULT_ORDER [1, 2, 5]</code> isn't used, because it leaves out JustWatch (3), which wins in 80 countries for Avatar.</li>
+      <li><strong>Offer labels keep the source's wording.</strong> Buy, Rent, Subscription, Flat rate. Qualities: SD, HD, 4K, Canvas. Price ranges are formatted in each offer's own currency, and price 0 shows as "Included".</li>
+      <li><strong>Repeated offers.</strong> Tiles merge exact duplicates. "Show every offer" lists each one once, with "sent N times".</li>
+      <li><strong>ProviderLogo.</strong> Every logo uses one frame size. Square art (JustWatch 100×100) fills the frame. Any other shape (GraceNote 4:3 wordmarks) is shown whole on <code>--logo-plate</code>, a new approved theme token that stays light in dark mode. No logo, or a failed load, shows initials.</li>
+      <li><strong>Default country.</strong> US when present, otherwise the first country with more than one source, otherwise the first alphabetically. The list groups "More than one source" first.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+const DATA = {"rules":null,"sources":[{"id":2,"name":"GraceNote","c":[{"iso":"US","name":"United States of America","p":4,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/s70865_h3_ba.png","o":[["Purchase","Standard Definition",1.99,"USD"],["Purchase","Standard Definition",19.99,"USD"],["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",1.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","Ultra High Definition",19.99,"USD"],["Rental","Standard Definition",3.99,"USD"],["Rental","High Definition",3.99,"USD"],["Rental","Ultra High Definition",3.99,"USD"]]},{"k":"AppleTV","n":"Apple TV","l":"https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/s137185_ll_h15_aa.png","o":[["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Rental","Standard Definition",3.99,"USD"],["Rental","High Definition",3.99,"USD"]]},{"k":"DisneyPlus","n":"Disney+","l":"https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/s113061_ll_h15_aa.png","o":[["Subscription","Ultra High Definition",null,null]]},{"k":"FAH","n":"Fandango at Home","l":"https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/s70906_ll_h3_aa.png","o":[["Purchase","Standard Definition",19.99,"USD"],["Purchase","Standard Definition",24.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","High Definition",24.99,"USD"],["Purchase","Ultra High Definition",19.99,"USD"],["Purchase","Ultra High Definition",24.99,"USD"],["Rental","Standard Definition",3.99,"USD"],["Rental","High Definition",3.99,"USD"],["Rental","Ultra High Definition",3.99,"USD"]]},{"k":"Hulu","n":"Hulu","l":"https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/s117031_ll_h9_aa.png","o":[["Subscription","High Definition",null,null]]}]}]},{"id":3,"name":"JustWatch","c":[{"iso":"AD","name":"Andorra","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"AL","name":"Albania","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"ALL"],["Flat-rate","High Definition",0,"ALL"],["Flat-rate","Canvas",0,"ALL"]]}]},{"iso":"AR","name":"Argentina","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","Canvas",19.99,"USD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"ARS"],["Flat-rate","High Definition",0,"ARS"],["Flat-rate","Canvas",0,"ARS"]]}]},{"iso":"AT","name":"Austria","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"],["Purchase","Canvas",16.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",9.99,"EUR"],["Purchase","High Definition",9.99,"EUR"],["Purchase","Canvas",9.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Maxdome","n":"Maxdome","l":"https://images.justwatch.com/icon/317063437/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",9.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"AU","name":"Australia","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"AUD"],["Purchase","Standard Definition",19.99,"AUD"],["Purchase","High Definition",14.99,"AUD"],["Purchase","High Definition",19.99,"AUD"],["Purchase","Canvas",19.99,"AUD"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"AUD"],["Purchase","High Definition",19.99,"AUD"],["Purchase","High Definition",19.99,"AUD"],["Purchase","Canvas",19.99,"AUD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"AUD"],["Flat-rate","High Definition",0,"AUD"],["Flat-rate","Canvas",0,"AUD"]]}]},{"iso":"BA","name":"Bosnia and Herzegovina","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"BAM"],["Flat-rate","High Definition",0,"BAM"],["Flat-rate","Canvas",0,"BAM"]]}]},{"iso":"BE","name":"Belgium","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"BG","name":"Bulgaria","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",10.99,"EUR"],["Purchase","High Definition",11.99,"EUR"],["Purchase","Canvas",11.99,"EUR"],["Rental","Standard Definition",2.99,"EUR"],["Rental","High Definition",2.99,"EUR"],["Rental","Canvas",2.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"BO","name":"Bolivia (Plurinational State of)","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"BOB"],["Purchase","High Definition",19.99,"BOB"],["Purchase","Canvas",19.99,"BOB"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"BOB"],["Flat-rate","High Definition",0,"BOB"],["Flat-rate","Canvas",0,"BOB"]]}]},{"iso":"BR","name":"Brazil","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",59.9,"BRL"],["Purchase","High Definition",59.9,"BRL"],["Purchase","Canvas",59.9,"BRL"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"BRL"],["Flat-rate","High Definition",0,"BRL"],["Flat-rate","Canvas",0,"BRL"]]}]},{"iso":"BZ","name":"Belize","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"BZD"],["Flat-rate","High Definition",0,"BZD"],["Flat-rate","Canvas",0,"BZD"]]}]},{"iso":"CA","name":"Canada","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",9.99,"CAD"],["Purchase","Standard Definition",9.99,"CAD"],["Purchase","Standard Definition",9.99,"CAD"],["Purchase","Standard Definition",24.99,"CAD"],["Purchase","Standard Definition",24.99,"CAD"],["Purchase","High Definition",9.99,"CAD"],["Purchase","High Definition",9.99,"CAD"],["Purchase","High Definition",9.99,"CAD"],["Purchase","High Definition",24.99,"CAD"],["Purchase","High Definition",24.99,"CAD"],["Purchase","Canvas",9.99,"CAD"],["Purchase","Canvas",9.99,"CAD"],["Purchase","Canvas",9.99,"CAD"],["Purchase","Canvas",24.99,"CAD"],["Purchase","Canvas",24.99,"CAD"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",24.99,"CAD"],["Purchase","High Definition",24.99,"CAD"],["Purchase","High Definition",24.99,"CAD"],["Purchase","Canvas",24.99,"CAD"],["Rental","Standard Definition",4.99,"CAD"],["Rental","Standard Definition",4.99,"CAD"],["Rental","High Definition",4.99,"CAD"],["Rental","High Definition",4.99,"CAD"],["Rental","Canvas",4.99,"CAD"]]},{"k":"CosmoGo","n":"CosmoGo","l":"https://images.justwatch.com/icon/338091765/s100","o":[["Purchase","High Definition",24.99,"CAD"],["Rental","High Definition",5.99,"CAD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CAD"],["Flat-rate","High Definition",0,"CAD"],["Flat-rate","Canvas",0,"CAD"]]}]},{"iso":"CH","name":"Switzerland","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",14,"CHF"],["Purchase","High Definition",14,"CHF"],["Purchase","Canvas",14,"CHF"],["Rental","Standard Definition",4.5,"CHF"],["Rental","High Definition",4.5,"CHF"],["Rental","Canvas",4.5,"CHF"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",14,"CHF"],["Purchase","High Definition",10,"CHF"],["Purchase","High Definition",14,"CHF"],["Purchase","Canvas",14,"CHF"],["Rental","Standard Definition",4.5,"CHF"],["Rental","High Definition",4.5,"CHF"],["Rental","Canvas",4.5,"CHF"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CHF"],["Flat-rate","High Definition",0,"CHF"],["Flat-rate","Canvas",0,"CHF"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",14,"CHF"],["Rental","Canvas",4.5,"CHF"]]},{"k":"Sky","n":"Sky","l":"https://images.justwatch.com/icon/339565920/s100","o":[["Purchase","High Definition",14.9,"CHF"],["Rental","High Definition",4.5,"CHF"]]},{"k":"UPCTV","n":"UPC TV","l":"https://images.justwatch.com/icon/356466601/s100","o":[["Rental","Standard Definition",4.5,"CHF"],["Rental","High Definition",4.5,"CHF"]]},{"k":"BlueTV","n":"blue TV","l":"https://images.justwatch.com/icon/301750524/s100","o":[["Purchase","Standard Definition",14.9,"CHF"],["Purchase","High Definition",14.9,"CHF"],["Rental","Standard Definition",4.9,"CHF"],["Rental","High Definition",4.9,"CHF"]]}]},{"iso":"CL","name":"Chile","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",12990,"CLP"],["Purchase","High Definition",12990,"CLP"],["Purchase","Canvas",12990,"CLP"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CLP"],["Flat-rate","High Definition",0,"CLP"],["Flat-rate","Canvas",0,"CLP"]]}]},{"iso":"CO","name":"Colombia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",54900,"COP"],["Purchase","High Definition",54900,"COP"],["Purchase","Canvas",54900,"COP"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"COP"],["Flat-rate","High Definition",0,"COP"],["Flat-rate","Canvas",0,"COP"]]}]},{"iso":"CR","name":"Costa Rica","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"CRC"],["Purchase","High Definition",19.99,"CRC"],["Purchase","Canvas",19.99,"CRC"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CRC"],["Flat-rate","High Definition",0,"CRC"],["Flat-rate","Canvas",0,"CRC"]]}]},{"iso":"CV","name":"Cabo Verde","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"CVE"],["Purchase","High Definition",16.99,"CVE"],["Rental","Standard Definition",3.99,"CVE"],["Rental","High Definition",3.99,"CVE"]]}]},{"iso":"CZ","name":"Czechia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",229,"CZK"],["Purchase","High Definition",229,"CZK"],["Purchase","Canvas",229,"CZK"],["Rental","Standard Definition",59,"CZK"],["Rental","High Definition",59,"CZK"],["Rental","Canvas",59,"CZK"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CZK"],["Flat-rate","High Definition",0,"CZK"],["Flat-rate","Canvas",0,"CZK"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",329,"CZK"],["Rental","Canvas",69,"CZK"]]}]},{"iso":"DE","name":"Germany","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",9.99,"EUR"],["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",9.99,"EUR"],["Purchase","High Definition",16.99,"EUR"],["Purchase","Canvas",16.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"],["Purchase","Canvas",16.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Maxdome","n":"Maxdome","l":"https://images.justwatch.com/icon/317063437/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",16.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"DK","name":"Denmark","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",139,"DKK"],["Purchase","High Definition",139,"DKK"],["Purchase","Canvas",139,"DKK"],["Rental","Standard Definition",39,"DKK"],["Rental","High Definition",39,"DKK"],["Rental","Canvas",39,"DKK"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",149,"DKK"],["Purchase","High Definition",149,"DKK"],["Rental","Standard Definition",39,"DKK"],["Rental","High Definition",39,"DKK"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"DKK"],["Flat-rate","High Definition",0,"DKK"],["Flat-rate","Canvas",0,"DKK"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",149,"DKK"],["Rental","Canvas",39,"DKK"]]},{"k":"SFAnytime","n":"SF Anytime","l":"https://images.justwatch.com/icon/200839563/s100","o":[["Purchase","Standard Definition",139,"DKK"],["Purchase","High Definition",139,"DKK"]]}]},{"iso":"DO","name":"Dominican Republic","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"DOP"],["Flat-rate","High Definition",0,"DOP"],["Flat-rate","Canvas",0,"DOP"]]}]},{"iso":"EC","name":"Ecuador","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","Canvas",19.99,"USD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"USD"],["Flat-rate","High Definition",0,"USD"],["Flat-rate","Canvas",0,"USD"]]}]},{"iso":"EE","name":"Estonia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",7.99,"EUR"],["Purchase","High Definition",9.99,"EUR"],["Purchase","Canvas",14.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"EG","name":"Egypt","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",139.99,"EGP"],["Purchase","High Definition",139.99,"EGP"],["Rental","Standard Definition",29.99,"EGP"],["Rental","High Definition",29.99,"EGP"]]}]},{"iso":"ES","name":"Spain","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"FI","name":"Finland","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"],["Purchase","Canvas",16.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",16.99,"EUR"],["Purchase","High Definition",16.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",16.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"SFAnytime","n":"SF Anytime","l":"https://images.justwatch.com/icon/200839563/s100","o":[["Purchase","Standard Definition",14,"EUR"],["Purchase","High Definition",14,"EUR"]]},{"k":"Viaplay","n":"Viaplay","l":"https://images.justwatch.com/icon/914018/s100","o":[["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]}]},{"iso":"FR","name":"France","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Pathe","n":"Path\u00e9","l":"https://images.justwatch.com/icon/346724629/s100","o":[["Purchase","High Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"GB","name":"United Kingdom of Great Britain and Northern Ireland","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"GBP"],["Purchase","Standard Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","Canvas",13.99,"GBP"],["Rental","Standard Definition",3.49,"GBP"],["Rental","High Definition",3.49,"GBP"],["Rental","Canvas",3.49,"GBP"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","Canvas",13.99,"GBP"],["Rental","Standard Definition",3.49,"GBP"],["Rental","Standard Definition",3.49,"GBP"],["Rental","High Definition",3.49,"GBP"],["Rental","Canvas",3.49,"GBP"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"GBP"],["Flat-rate","High Definition",0,"GBP"],["Flat-rate","Canvas",0,"GBP"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"GBP"],["Rental","Canvas",3.49,"GBP"]]}]},{"iso":"GG","name":"Guernsey","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"GBP"],["Purchase","Standard Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","High Definition",13.99,"GBP"],["Purchase","Canvas",13.99,"GBP"],["Rental","Standard Definition",3.49,"GBP"],["Rental","High Definition",3.49,"GBP"],["Rental","Canvas",3.49,"GBP"]]}]},{"iso":"GH","name":"Ghana","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"GHS"],["Purchase","High Definition",16.99,"GHS"],["Rental","Standard Definition",3.99,"GHS"],["Rental","High Definition",3.99,"GHS"]]}]},{"iso":"GR","name":"Greece","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"GT","name":"Guatemala","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"GTQ"],["Purchase","High Definition",19.99,"GTQ"],["Purchase","Canvas",19.99,"GTQ"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"GTQ"],["Flat-rate","High Definition",0,"GTQ"],["Flat-rate","Canvas",0,"GTQ"]]}]},{"iso":"HK","name":"Hong Kong","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"HKD"],["Flat-rate","High Definition",0,"HKD"],["Flat-rate","Canvas",0,"HKD"]]}]},{"iso":"HN","name":"Honduras","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"HNL"],["Purchase","High Definition",19.99,"HNL"],["Purchase","Canvas",19.99,"HNL"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"HNL"],["Flat-rate","High Definition",0,"HNL"],["Flat-rate","Canvas",0,"HNL"]]}]},{"iso":"HR","name":"Croatia","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"HU","name":"Hungary","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",3790,"HUF"],["Purchase","High Definition",3990,"HUF"],["Purchase","Canvas",3990,"HUF"],["Rental","Standard Definition",799,"HUF"],["Rental","High Definition",799,"HUF"],["Rental","Canvas",799,"HUF"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"HUF"],["Flat-rate","High Definition",0,"HUF"],["Flat-rate","Canvas",0,"HUF"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",3990,"HUF"],["Rental","Canvas",899,"HUF"]]}]},{"iso":"IE","name":"Ireland","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",12.99,"EUR"],["Purchase","High Definition",12.99,"EUR"],["Purchase","High Definition",12.99,"EUR"],["Purchase","Canvas",12.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"IL","name":"Israel","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",59.9,"ILS"],["Purchase","High Definition",59.9,"ILS"],["Rental","Standard Definition",16.9,"ILS"],["Rental","High Definition",16.9,"ILS"]]}]},{"iso":"IN","name":"India","p":3,"lv":"media","a":true,"d":[{"k":"JioHotstr","n":"JioHotstar","l":"https://images.justwatch.com/icon/326071631/s100","o":[["Flat-rate","Standard Definition",0,"INR"],["Flat-rate","High Definition",0,"INR"]]}]},{"iso":"IS","name":"Iceland","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"ISK"],["Flat-rate","High Definition",0,"ISK"],["Flat-rate","Canvas",0,"ISK"]]}]},{"iso":"IT","name":"Italy","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"JM","name":"Jamaica","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"JMD"],["Flat-rate","High Definition",0,"JMD"],["Flat-rate","Canvas",0,"JMD"]]}]},{"iso":"JP","name":"Japan","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",1500,"JPY"],["Purchase","Standard Definition",1500,"JPY"],["Purchase","High Definition",2000,"JPY"],["Purchase","High Definition",2600,"JPY"],["Purchase","Canvas",2000,"JPY"],["Rental","Standard Definition",300,"JPY"],["Rental","Standard Definition",440,"JPY"],["Rental","High Definition",300,"JPY"],["Rental","High Definition",440,"JPY"],["Rental","Canvas",300,"JPY"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",2100,"JPY"],["Purchase","High Definition",2600,"JPY"],["Purchase","High Definition",2600,"JPY"],["Purchase","Canvas",2600,"JPY"],["Rental","Standard Definition",440,"JPY"],["Rental","Standard Definition",440,"JPY"],["Rental","High Definition",440,"JPY"],["Rental","High Definition",440,"JPY"],["Rental","Canvas",440,"JPY"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"JPY"],["Flat-rate","High Definition",0,"JPY"],["Flat-rate","Canvas",0,"JPY"]]},{"k":null,"n":"FOD","l":"https://images.justwatch.com/icon/342951136/s100","o":[["Rental","Standard Definition",330,"JPY"],["Rental","High Definition",330,"JPY"]]}]},{"iso":"KR","name":"Korea, Republic of","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"KRW"],["Flat-rate","High Definition",0,"KRW"],["Flat-rate","Canvas",0,"KRW"]]}]},{"iso":"LC","name":"Saint Lucia","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"XCD"],["Flat-rate","High Definition",0,"XCD"],["Flat-rate","Canvas",0,"XCD"]]}]},{"iso":"LI","name":"Liechtenstein","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"CHF"],["Flat-rate","High Definition",0,"CHF"],["Flat-rate","Canvas",0,"CHF"]]}]},{"iso":"LT","name":"Lithuania","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",7.99,"EUR"],["Purchase","High Definition",9.99,"EUR"],["Purchase","Canvas",14.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Go3","n":"Go3","l":null,"o":[["Rental","Standard Definition",2.5,"EUR"],["Rental","Standard Definition",2.5,"EUR"],["Rental","Standard Definition",2.5,"EUR"],["Rental","Standard Definition",3.5,"EUR"]]}]},{"iso":"LU","name":"Luxembourg","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"LV","name":"Latvia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",14.99,"EUR"],["Purchase","High Definition",14.99,"EUR"],["Purchase","Canvas",14.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Go3","n":"Go3","l":null,"o":[["Rental","Standard Definition",2.5,"EUR"]]}]},{"iso":"ME","name":"Montenegro","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"MK","name":"North Macedonia","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"MKD"],["Flat-rate","High Definition",0,"MKD"],["Flat-rate","Canvas",0,"MKD"]]}]},{"iso":"MT","name":"Malta","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"MU","name":"Mauritius","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"MUR"],["Purchase","High Definition",13.99,"MUR"],["Rental","Standard Definition",3.99,"MUR"],["Rental","High Definition",3.99,"MUR"]]}]},{"iso":"MX","name":"Mexico","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",269,"MXN"],["Purchase","High Definition",269,"MXN"],["Purchase","Canvas",269,"MXN"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",249,"MXN"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"MXN"],["Flat-rate","High Definition",0,"MXN"],["Flat-rate","Canvas",0,"MXN"]]}]},{"iso":"MZ","name":"Mozambique","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"MZN"],["Purchase","High Definition",16.99,"MZN"],["Rental","Standard Definition",3.99,"MZN"],["Rental","High Definition",3.99,"MZN"]]}]},{"iso":"NI","name":"Nicaragua","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"NIO"],["Flat-rate","High Definition",0,"NIO"],["Flat-rate","Canvas",0,"NIO"]]}]},{"iso":"NL","name":"Netherlands","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Pathe","n":"Path\u00e9","l":null,"o":[["Purchase","Standard Definition",14.99,"EUR"],["Purchase","Standard Definition",14.99,"EUR"],["Purchase","High Definition",14.99,"EUR"],["Purchase","High Definition",14.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"meJane","n":"meJane","l":null,"o":[["Purchase","Standard Definition",17.99,"EUR"],["Purchase","High Definition",17.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"]]}]},{"iso":"NO","name":"Norway","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",149,"NOK"],["Purchase","High Definition",149,"NOK"],["Purchase","Canvas",149,"NOK"],["Rental","Standard Definition",39,"NOK"],["Rental","High Definition",39,"NOK"],["Rental","Canvas",39,"NOK"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",169,"NOK"],["Purchase","High Definition",169,"NOK"],["Rental","Standard Definition",39,"NOK"],["Rental","High Definition",39,"NOK"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"NOK"],["Flat-rate","High Definition",0,"NOK"],["Flat-rate","Canvas",0,"NOK"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",169,"NOK"],["Rental","Canvas",39,"NOK"]]},{"k":"SFAnytime","n":"SF Anytime","l":"https://images.justwatch.com/icon/200839563/s100","o":[["Purchase","Standard Definition",139,"NOK"],["Purchase","High Definition",139,"NOK"]]},{"k":"TVTwo","n":"TV 2","l":null,"o":[["Purchase","Standard Definition",169,"NOK"],["Purchase","High Definition",169,"NOK"],["Rental","Standard Definition",39,"NOK"],["Rental","High Definition",39,"NOK"]]}]},{"iso":"NZ","name":"New Zealand","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",19.99,"NZD"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"NZD"],["Purchase","High Definition",19.99,"NZD"],["Purchase","High Definition",19.99,"NZD"],["Purchase","Canvas",19.99,"NZD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"NZD"],["Flat-rate","High Definition",0,"NZD"],["Flat-rate","Canvas",0,"NZD"]]}]},{"iso":"PA","name":"Panama","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"PAB"],["Flat-rate","High Definition",0,"PAB"],["Flat-rate","Canvas",0,"PAB"]]}]},{"iso":"PE","name":"Peru","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",57.9,"PEN"],["Purchase","High Definition",57.9,"PEN"],["Purchase","Canvas",57.9,"PEN"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"PEN"],["Flat-rate","High Definition",0,"PEN"],["Flat-rate","Canvas",0,"PEN"]]}]},{"iso":"PL","name":"Poland","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",39.99,"PLN"],["Purchase","High Definition",39.99,"PLN"],["Purchase","Canvas",39.99,"PLN"],["Rental","Standard Definition",9.99,"PLN"],["Rental","High Definition",9.99,"PLN"],["Rental","Canvas",9.99,"PLN"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",39.99,"PLN"],["Purchase","High Definition",39.99,"PLN"],["Purchase","Canvas",39.99,"PLN"],["Rental","Standard Definition",9.99,"PLN"],["Rental","High Definition",9.99,"PLN"],["Rental","Canvas",9.99,"PLN"]]},{"k":"CanalPlus","n":"Canal+","l":"https://images.justwatch.com/icon/313533700/s100","o":[["Rental","Standard Definition",9.99,"PLN"],["Rental","High Definition",9.99,"PLN"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"PLN"],["Flat-rate","High Definition",0,"PLN"],["Flat-rate","Canvas",0,"PLN"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",56.99,"PLN"],["Rental","Canvas",9.99,"PLN"]]}]},{"iso":"PT","name":"Portugal","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",13.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",13.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]}]},{"iso":"PY","name":"Paraguay","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"PYG"],["Purchase","High Definition",19.99,"PYG"],["Purchase","Canvas",19.99,"PYG"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"PYG"],["Flat-rate","High Definition",0,"PYG"],["Flat-rate","Canvas",0,"PYG"]]}]},{"iso":"RO","name":"Romania","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"RON"],["Flat-rate","High Definition",0,"RON"],["Flat-rate","Canvas",0,"RON"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Standard Definition",55.99,"RON"],["Purchase","High Definition",55.99,"RON"]]}]},{"iso":"RS","name":"Serbia","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"RSD"],["Flat-rate","High Definition",0,"RSD"],["Flat-rate","Canvas",0,"RSD"]]}]},{"iso":"SE","name":"Sweden","p":3,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",149,"SEK"],["Purchase","High Definition",149,"SEK"],["Purchase","Canvas",149,"SEK"],["Rental","Standard Definition",39,"SEK"],["Rental","High Definition",39,"SEK"],["Rental","Canvas",39,"SEK"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",169,"SEK"],["Purchase","High Definition",169,"SEK"],["Rental","Standard Definition",39,"SEK"],["Rental","High Definition",39,"SEK"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"SEK"],["Flat-rate","High Definition",0,"SEK"],["Flat-rate","Canvas",0,"SEK"]]},{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",169,"SEK"],["Rental","Canvas",39,"SEK"]]},{"k":"SFAnytime","n":"SF Anytime","l":"https://images.justwatch.com/icon/200839563/s100","o":[["Purchase","Standard Definition",139,"SEK"],["Purchase","High Definition",139,"SEK"]]},{"k":"Tele2Play","n":"Tele2 Play","l":"https://images.justwatch.com/icon/356466423/s100","o":[["Flat-rate","Standard Definition",0,"SEK"],["Flat-rate","Standard Definition",0,"SEK"],["Flat-rate","High Definition",0,"SEK"],["Flat-rate","High Definition",0,"SEK"]]}]},{"iso":"SG","name":"Singapore","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"SGD"],["Flat-rate","High Definition",0,"SGD"],["Flat-rate","Canvas",0,"SGD"]]}]},{"iso":"SI","name":"Slovenia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"SK","name":"Slovakia","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"EUR"],["Purchase","High Definition",13.99,"EUR"],["Purchase","Canvas",13.99,"EUR"],["Rental","Standard Definition",3.99,"EUR"],["Rental","High Definition",3.99,"EUR"],["Rental","Canvas",3.99,"EUR"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"SM","name":"San Marino","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"EUR"],["Flat-rate","High Definition",0,"EUR"],["Flat-rate","Canvas",0,"EUR"]]}]},{"iso":"SV","name":"El Salvador","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"SVC"],["Flat-rate","High Definition",0,"SVC"],["Flat-rate","Canvas",0,"SVC"]]}]},{"iso":"TR","name":"Turkey","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",149.99,"TRY"],["Purchase","High Definition",149.99,"TRY"],["Purchase","Canvas",149.99,"TRY"],["Rental","Standard Definition",24.99,"TRY"],["Rental","High Definition",24.99,"TRY"],["Rental","Canvas",24.99,"TRY"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"TRY"],["Flat-rate","High Definition",0,"TRY"],["Flat-rate","Canvas",0,"TRY"]]}]},{"iso":"TT","name":"Trinidad and Tobago","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"TTD"],["Flat-rate","High Definition",0,"TTD"],["Flat-rate","Canvas",0,"TTD"]]}]},{"iso":"TW","name":"Taiwan, Province of China","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"TWD"],["Flat-rate","High Definition",0,"TWD"],["Flat-rate","Canvas",0,"TWD"]]}]},{"iso":"UA","name":"Ukraine","p":3,"lv":"media","a":true,"d":[{"k":"Rakuten","n":"Rakuten","l":"https://images.justwatch.com/icon/128599720/s100","o":[["Purchase","Canvas",179,"UAH"],["Rental","Canvas",50,"UAH"]]}]},{"iso":"UG","name":"Uganda","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",11.99,"UGX"],["Purchase","High Definition",16.99,"UGX"],["Rental","Standard Definition",3.99,"UGX"],["Rental","High Definition",3.99,"UGX"]]}]},{"iso":"US","name":"United States of America","p":5,"lv":"media","a":true,"d":[{"k":"Amazon","n":"Amazon","l":"https://images.justwatch.com/icon/340823436/s100","o":[["Purchase","Standard Definition",9.99,"USD"],["Purchase","Standard Definition",9.99,"USD"],["Purchase","Standard Definition",9.99,"USD"],["Purchase","Standard Definition",9.99,"USD"],["Purchase","Standard Definition",19.99,"USD"],["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",9.99,"USD"],["Purchase","High Definition",9.99,"USD"],["Purchase","High Definition",9.99,"USD"],["Purchase","High Definition",9.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","Canvas",9.99,"USD"],["Purchase","Canvas",9.99,"USD"],["Purchase","Canvas",9.99,"USD"],["Purchase","Canvas",9.99,"USD"],["Purchase","Canvas",19.99,"USD"],["Rental","Standard Definition",3.99,"USD"],["Rental","High Definition",3.99,"USD"],["Rental","Canvas",3.99,"USD"]]},{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","High Definition",19.99,"USD"],["Purchase","Canvas",19.99,"USD"],["Rental","Standard Definition",3.99,"USD"],["Rental","High Definition",3.99,"USD"],["Rental","Canvas",3.99,"USD"]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"USD"],["Flat-rate","High Definition",0,"USD"],["Flat-rate","Canvas",0,"USD"]]},{"k":"FAH","n":"Fandango at Home","l":"https://images.justwatch.com/icon/346744144/s100","o":[["Purchase","Standard Definition",24.99,"USD"],["Purchase","High Definition",24.99,"USD"],["Purchase","Canvas",24.99,"USD"]]},{"k":"FuboTV","n":"fuboTV","l":"https://images.justwatch.com/icon/316727345/s100","o":[["Flat-rate","Standard Definition",0,"USD"],["Flat-rate","Standard Definition",0,"USD"],["Flat-rate","High Definition",0,"USD"],["Flat-rate","High Definition",0,"USD"]]}]},{"iso":"UY","name":"Uruguay","p":3,"lv":"media","a":true,"d":[{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,"UYU"],["Flat-rate","High Definition",0,"UYU"],["Flat-rate","Canvas",0,"UYU"]]}]},{"iso":"VE","name":"Venezuela (Bolivarian Republic of)","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",19.99,null],["Purchase","High Definition",19.99,null],["Purchase","Canvas",19.99,null]]},{"k":"Disney","n":"Disney","l":"https://images.justwatch.com/icon/313118777/s100","o":[["Flat-rate","Standard Definition",0,null],["Flat-rate","High Definition",0,null],["Flat-rate","Canvas",0,null]]}]},{"iso":"ZA","name":"South Africa","p":3,"lv":"media","a":true,"d":[{"k":"AppleTV","n":"Apple TV","l":"https://images.justwatch.com/icon/338253243/s100","o":[["Purchase","Standard Definition",149.99,"ZAR"],["Purchase","High Definition",169.99,"ZAR"],["Purchase","Canvas",169.99,"ZAR"],["Rental","Standard Definition",34.99,"ZAR"],["Rental","High Definition",34.99,"ZAR"],["Rental","Canvas",34.99,"ZAR"]]}]}]}]};
+const TITLE = 'Avatar';
+const TONES = { 2: 'gracenote', 3: 'justwatch', 5: 'tmdb' };
+const KIND = { Purchase: 'Buy', Rental: 'Rent', Subscription: 'Subscription', 'Flat-rate': 'Flat rate' };
+const KIND_ORDER = ['Purchase', 'Rental', 'Subscription', 'Flat-rate'];
+const QUAL = { 'Standard Definition': 'SD', 'High Definition': 'HD', 'Ultra High Definition': '4K', Canvas: 'Canvas' };
+const QUAL_ORDER = ['SD', 'HD', '4K', 'Canvas'];
+const PREVIEW = 4;
+
+const VARIANTS = [
+  { key: 'A', label: 'A. Country select',
+    what: 'A country select sits above the existing source cards. Each card lists that source\'s services for the chosen country, with logos and one line per way to watch. Nothing else in the dialog changes.',
+    best: ['Closest to genres, ratings and videos, so it reuses SourcePickerDialog almost as is. It is one new showAll kind ("distributors") plus a country control.', 'Works at phone width without a separate layout.', 'Least to build and test.'],
+    watch: ['81 countries in one select is long. Splitting it into "More than one source" and "One source only" groups helps.', 'You can\'t see which countries have a choice without opening the select.'] },
+  { key: 'B', label: 'B. Country list + sources (chosen)',
+    what: 'A filterable country list beside the source cards. Each country shows how many sources it has, or which single source covers it. Countries with a choice are listed first.',
+    best: ['Scanning: you see at a glance that the US is the only country with a choice.', 'Similar to the ratings "Show all" country filter (SourceCountryGroups).'],
+    watch: ['Needs a wider dialog (about 62rem). On phones it stacks into a short list above the cards.', 'More new UI: a list component, keyboard handling and a filter.'] },
+  { key: 'C', label: 'C. Side-by-side',
+    what: 'Country select as in A, then one table: a row per service and a column per source. The radio is in each column header, so the choice reads as "use this column".',
+    best: ['The clearest comparison when a country has two or three sources: you can see that Disney+ comes from GraceNote and fuboTV from JustWatch.', 'Gaps (a service only one source lists) are obvious.'],
+    watch: ['A single-source country is a one-column table, which looks wasteful for 80 of 81 countries here.', 'Scrolls sideways on phones. It also departs from the card pattern every other domain uses.'] },
+];
+
+const state = { variant: 'B', logos: 'frame', readonly: true, view: 'ready', manage: true, scope: 'none', width: 'desktop', theme: 'system', open: true, country: null, selected: null, expanded: {}, filter: '' };
+
+/* ---------- model ---------- */
+const countries = new Map();
+DATA.sources.forEach((s) => s.c.forEach((row) => {
+  if (!countries.has(row.iso)) countries.set(row.iso, { iso: row.iso, name: row.name, rows: [] });
+  countries.get(row.iso).rows.push({ id: s.id, name: s.name, row });
+}));
+const countryList = [...countries.values()].sort((a, b) => a.name.localeCompare(b.name));
+const multi = countryList.filter((c) => new Set(c.rows.map((r) => r.id)).size > 1);
+const defaultCountry = countries.has('US') ? 'US' : (multi[0] || countryList[0])?.iso;
+state.country = defaultCountry;
+
+const rank = (p) => (p == null ? Infinity : p);
+function countryModel(iso) {
+  const c = countries.get(iso);
+  if (!c) return null;
+  const rows = [...c.rows];
+  const inUse = [...rows].sort((a, b) => rank(a.row.p) - rank(b.row.p) || a.id - b.id)[0];
+  rows.sort((a, b) => (a === inUse ? -1 : b === inUse ? 1 : a.id - b.id));
+  return { ...c, rows, inUse };
+}
+function money(v, cur) {
+  if (v == null) return '';
+  if (v === 0) return 'Included';
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur || 'USD', maximumFractionDigits: 2 }).format(v); }
+  catch { return `${v} ${cur || ''}`.trim(); }
+}
+function summarize(offers) {
+  const by = new Map();
+  offers.forEach(([m, p, price, cur]) => {
+    const k = m || 'Other';
+    if (!by.has(k)) by.set(k, { q: new Set(), prices: [], cur });
+    const g = by.get(k);
+    if (p) g.q.add(QUAL[p] || p);
+    if (price != null) g.prices.push(price);
+  });
+  return [...by].sort(([a], [b]) => (KIND_ORDER.indexOf(a) + 99) % 99 - (KIND_ORDER.indexOf(b) + 99) % 99).map(([k, g]) => {
+    const q = [...g.q].sort((a, b) => QUAL_ORDER.indexOf(a) - QUAL_ORDER.indexOf(b)).join(', ');
+    let price = '';
+    if (g.prices.length) {
+      const lo = Math.min(...g.prices), hi = Math.max(...g.prices);
+      price = lo === hi ? money(lo, g.cur) : `${money(lo, g.cur)} to ${money(hi, g.cur)}`;
+    }
+    return { kind: KIND[k] || k, q, price };
+  });
+}
+function dedupe(offers) {
+  const m = new Map();
+  offers.forEach((o) => { const k = JSON.stringify(o); m.set(k, { o, n: (m.get(k)?.n || 0) + 1 }); });
+  return [...m.values()];
+}
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/* ---------- small renderers ---------- */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ICON = {
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+  load: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>',
+};
+const initials = (name) => esc((name || '?').replace(/[^\p{L}\p{N} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?');
+const monogram = (d) => `<span class="provider-logo-monogram">${initials(d.n || d.k)}</span>`;
+const logo = (d, size = '') => d.l
+  ? `<span class="provider-logo ${size}" data-mode="pending" aria-hidden="true" data-fallback="${initials(d.n || d.k)}"><img src="${esc(d.l)}" alt="" loading="lazy" decoding="async"></span>`
+  : `<span class="provider-logo ${size}" data-mode="monogram" aria-hidden="true">${monogram(d)}</span>`;
+const dName = (d) => esc(d.n || d.k || 'Unknown service');
+const sourceBadge = (s) => `<span class="badge badge-${TONES[s.id] || 'outline'}">${esc(s.name)}</span>`;
+const qualityTags = (q) => q ? q.split(', ').map((x) => `<span class="quality">${esc(x)}</span>`).join('') : '';
+const offerLines = (offers) => offers.length
+  ? `<ul class="service-offers">${summarize(offers).map((l) => `<li class="service-offer"><span class="service-offer-kind">${esc(l.kind)}</span><span class="service-offer-price">${esc(l.price)}</span>${l.q ? `<span class="service-offer-qualities">${qualityTags(l.q)}</span>` : ''}</li>`).join('')}</ul>`
+  : '<p class="service-offers-empty">No offers listed</p>';
+const serviceTile = (d) => {
+  const n = dedupe(d.o).length;
+  return `<li class="service-tile"><div class="service-tile-head">${logo(d)}<div><p class="service-tile-name">${dName(d)}</p><p class="service-tile-meta">${plural(n, 'offer', 'offers')}</p></div></div>${offerLines(d.o)}</li>`;
+};
+function offerTable(d) {
+  const rows = dedupe(d.o);
+  return `<div><h4>${dName(d)}</h4><table class="offer-table"><colgroup><col class="c-type"><col class="c-quality"><col></colgroup><thead><tr><th scope="col">Type</th><th scope="col">Quality</th><th scope="col">Price</th></tr></thead><tbody>${
+    rows.map(({ o: [m, p, price, cur], n }) => `<tr><td>${esc(KIND[m] || m || 'Unknown')}</td><td>${esc(QUAL[p] || p || '')}</td><td class="num">${esc(money(price, cur))}${n > 1 ? ` <span class="repeat">sent ${n} times</span>` : ''}</td></tr>`).join('')
+  }</tbody></table></div>`;
+}
+
+/* ---------- dialog body pieces ---------- */
+function inUseBadge(cm, r) {
+  if (cm.inUse !== r) return '';
+  const why = DATA.rules ? 'chosen for this title' : 'from the default rules';
+  return `<span class="badge badge-success">In use, ${why}</span>`;
+}
+function sourceCard(cm, r) {
+  const ds = r.row.d;
+  const offers = ds.reduce((n, d) => n + dedupe(d.o).length, 0);
+  const key = `${cm.iso}:${r.id}`;
+  const open = !!state.expanded[key];
+  const id = `opt-${r.id}`;
+  const checked = selectedId(cm) === r.id;
+  const extra = r.row.lv === 'series' ? ', from the series' : '';
+  return `<div class="option">
+    <div class="option-head">
+      <input class="radio" type="radio" name="src" id="${id}" value="${r.id}" ${checked ? 'checked' : ''} disabled aria-describedby="${id}-sum">
+      <label class="option-label" for="${id}">${sourceBadge(r)}${inUseBadge(cm, r)}</label>
+    </div>
+    <div class="option-body">
+      <p class="option-summary" id="${id}-sum">${plural(ds.length, 'service', 'services')}, ${plural(offers, 'offer', 'offers')} in ${esc(cm.name)}${extra}</p>
+      <ul class="service-tiles" aria-label="Services from ${esc(r.name)} in ${esc(cm.name)}">${ds.map(serviceTile).join('')}</ul>
+    </div>
+    <div class="show-all">
+      <button type="button" class="btn btn-ghost btn-sm" data-expand="${key}" aria-expanded="${open}" aria-controls="${id}-all">${ICON.chev}${open ? 'Hide' : 'Show'} every offer from ${esc(r.name)}</button>
+      ${open ? `<div class="offer-detail" id="${id}-all">${ds.map(offerTable).join('')}</div>` : ''}
+    </div>
+  </div>`;
+}
+function selectedId(cm) { return state.selected ?? cm.inUse.id; }
+function countrySelect() {
+  const opt = (c) => {
+    const n = new Set(c.rows.map((r) => r.id)).size;
+    const meta = n > 1 ? `${n} sources` : `${c.rows[0].name} only`;
+    return `<option value="${c.iso}" ${c.iso === state.country ? 'selected' : ''}>${esc(c.name)} (${meta})</option>`;
+  };
+  const single = countryList.filter((c) => !multi.includes(c));
+  return `<div class="country-field">
+    <label for="country">Country</label>
+    <select class="country-select" id="country">
+      ${multi.length ? `<optgroup label="More than one source">${multi.map(opt).join('')}</optgroup>` : ''}
+      <optgroup label="One source only">${single.map(opt).join('')}</optgroup>
+    </select>
+    <p class="country-hint">${plural(countryList.length, 'country', 'countries')}. ${multi.length ? `${multi.length === 1 ? `Only ${esc(multi[0].name)} has` : `${multi.length} have`} more than one source.` : 'Every country has one source.'}</p>
+  </div>`;
+}
+function countryRail() {
+  const q = state.filter.trim().toLowerCase();
+  const match = (c) => !q || c.name.toLowerCase().includes(q) || c.iso.toLowerCase() === q;
+  const item = (c) => {
+    const n = new Set(c.rows.map((r) => r.id)).size;
+    return `<li><button type="button" class="country-item" data-country="${c.iso}" aria-current="${c.iso === state.country}"><span class="country-item-name">${esc(c.name)}</span><span class="country-item-meta">${n > 1 ? `${n} sources` : esc(c.rows[0].name)}</span></button></li>`;
+  };
+  const m = multi.filter(match), s = countryList.filter((c) => !multi.includes(c) && match(c));
+  return `<div class="country-rail">
+    <label class="visually-hidden" for="country-filter">Filter countries</label>
+    <input class="country-filter" id="country-filter" type="search" placeholder="Filter ${countryList.length} countries" value="${esc(state.filter)}">
+    <ul class="country-list" aria-label="Countries">
+      ${m.length ? `<li><p class="country-group-name">More than one source</p></li>${m.map(item).join('')}` : ''}
+      ${s.length ? `<li><p class="country-group-name">One source only</p></li>${s.map(item).join('')}` : ''}
+      ${!m.length && !s.length ? `<li><p class="picker-note" style="padding:var(--s-3)">No countries match "${esc(state.filter.trim())}".</p></li>` : ''}
+    </ul>
+  </div>`;
+}
+function compareTable(cm) {
+  const byKey = new Map();
+  cm.rows.forEach((r) => r.row.d.forEach((d) => {
+    const k = (d.k || d.n || '').toLowerCase();
+    if (!byKey.has(k)) byKey.set(k, { d, per: new Map() });
+    byKey.get(k).per.set(r.id, d);
+  }));
+  const services = [...byKey.values()].sort((a, b) => (a.d.n || a.d.k || '').localeCompare(b.d.n || b.d.k || ''));
+  const sel = selectedId(cm);
+  return `<div class="compare-wrap"><table class="compare">
+    <caption class="visually-hidden">Services in ${esc(cm.name)} by source</caption>
+    <thead><tr><th scope="col">Service</th>${cm.rows.map((r) => `<th scope="col" class="${sel === r.id ? 'is-checked' : ''}"><div class="compare-col-head">
+      <label class="compare-col-pick"><input class="radio" type="radio" name="src" value="${r.id}" ${sel === r.id ? 'checked' : ''} ${state.manage ? '' : 'disabled'}>${sourceBadge(r)}</label>
+      ${inUseBadge(cm, r)}<span class="country-hint">${plural(r.row.d.length, 'service', 'services')}</span></div></th>`).join('')}</tr></thead>
+    <tbody>${services.map((s) => `<tr><th scope="row"><span class="compare-who">${logo(s.d, 'provider-logo-sm')}${dName(s.d)}</span></th>${cm.rows.map((r) => {
+      const d = s.per.get(r.id);
+      return `<td>${d ? offerLines(d.o) : '<span class="compare-missing">Not listed</span>'}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function statusLines(cm) {
+  const sel = cm.rows.find((r) => r.id === selectedId(cm)) || cm.inUse;
+  const cur = cm.inUse;
+  const lines = [];
+  if (sel.id === cur.id) {
+    lines.push(`${TITLE} shows ${cur.name} availability in ${cm.name}. ${DATA.rules ? 'This was chosen for this title.' : 'This comes from the default rules.'}`);
+  } else {
+    lines.push(`In ${cm.name}, ${TITLE} will show ${sel.name} availability instead of ${cur.name}.`);
+  }
+  if (state.manage && state.scope !== 'none') {
+    if (state.scope === 'all') {
+      const missing = countryList.filter((c) => !c.rows.some((r) => r.id === sel.id)).length;
+      lines.push(`Saving sets ${sel.name} first for every country.${missing ? ` In the ${plural(missing, 'country', 'countries')} where ${sel.name} has no data, the next source is used.` : ''}`);
+    } else {
+      lines.push(`Saving changes ${cm.name} only. Other countries keep their current source.`);
+    }
+  }
+  return lines;
+}
+
+function body() {
+  if (state.view === 'loading') return `<div role="status" class="picker-loading">${ICON.load}<span>Loading availability sources…</span></div>`;
+  if (state.view === 'error') return `<div role="alert" class="picker-error"><p>Availability sources didn't load. Check your connection, then try again.</p><button type="button" class="btn btn-outline btn-sm" data-retry>Try again</button></div>`;
+  if (state.view === 'empty') return `<p class="picker-note">No availability from any source for this title</p>`;
+  const cm = countryModel(state.country);
+  const single = cm.rows.length === 1;
+  const cards = `<fieldset class="options"><legend class="visually-hidden">Use availability in ${esc(cm.name)} from</legend><p class="picker-legend" aria-hidden="true">Use availability in ${esc(cm.name)} from</p>${cm.rows.map((r) => sourceCard(cm, r)).join('')}</fieldset>`;
+  const after = `${single ? `<p class="picker-note">Only ${esc(cm.rows[0].name)} has availability in ${esc(cm.name)}, so there is nothing to switch to here.</p>` : ''}
+    ${state.manage ? '' : '<p class="picker-note">You can see which source is used. Changing it needs the visibility.manage permission.</p>'}
+    <div role="status" class="picker-status">${single && !state.manage ? '' : statusLines(cm).map((l) => `<p>${esc(l)}</p>`).join('')}</div>`;
+  if (state.variant === 'B') {
+    return `<div class="split">${countryRail()}<div class="country-detail"><h3 class="country-detail-title">${esc(cm.name)}</h3>${cards}${after}</div></div>`;
+  }
+  if (state.variant === 'C') {
+    return `${countrySelect()}<fieldset class="options"><legend class="visually-hidden">Use availability in ${esc(cm.name)} from</legend>${compareTable(cm)}</fieldset>${after}`;
+  }
+  return `${countrySelect()}${cards}${after}`;
+}
+
+function dialog() {
+  const ready = state.view === 'ready';
+  const cm = ready ? countryModel(state.country) : null;
+  const sel = cm && (cm.rows.find((r) => r.id === selectedId(cm)) || cm.inUse);
+  const changed = cm && (sel.id !== cm.inUse.id || !DATA.rules);
+  const label = sel ? (state.scope === 'all' ? `Use ${sel.name}` : `Use ${sel.name} in ${cm.name}`) : '';
+  const desc = state.scope !== 'country'
+    ? 'Pick a country to see what each source lists there and which one is used.'
+    : 'Pick a country, then the source that supplies where to watch this title in that country.';
+  return `<div class="dialog-overlay" data-close></div>
+  <div class="dialog" data-variant="${state.variant}" role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc">
+    <div class="dialog-header"><h2 class="dialog-title" id="dlg-title">Choose where ${TITLE}'s availability comes from</h2><p class="dialog-description" id="dlg-desc">${desc}</p></div>
+    <div class="picker-body">${body()}</div>
+    ${ready ? `<div class="dialog-footer"><p class="picker-updated">${DATA.rules ? 'Updated' : 'No rule saved for this title'}</p></div>` : ''}
+    <button type="button" class="dialog-close" data-close aria-label="Close">${ICON.x}</button>
+  </div>`;
+}
+
+function page() {
+  return `<section class="profile-section" aria-labelledby="sec-h">
+    <div class="profile-section-head"><h2 id="sec-h">Availability</h2>
+      <button type="button" class="btn btn-outline btn-sm" id="trigger" aria-label="Manage sources for Availability">${ICON.eye}Manage sources</button></div>
+    <div class="profile-section-body">No availability data available</div>
+  </section>`;
+}
+
+/* ---------- controls ---------- */
+const CONTROLS = {
+  logos: [['frame', 'Uniform frame'], ['crop', 'As before']],
+  view: [['ready', 'Loaded'], ['loading', 'Loading'], ['error', 'Error'], ['empty', 'No data']],
+  manage: [[true, 'visibility.manage'], [false, 'visibility.view only']],
+  width: [['desktop', 'Desktop'], ['phone', 'Phone 390']],
+  theme: [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']],
+};
+function renderControls() {
+  document.querySelectorAll('[data-ctl]').forEach((el) => {
+    const k = el.dataset.ctl;
+    el.innerHTML = CONTROLS[k].map(([v, l]) => `<button type="button" data-set="${k}" data-val="${v}" aria-pressed="${String(state[k]) === String(v)}">${esc(l)}</button>`).join('');
+  });
+}
+function renderNotes() {
+  document.getElementById('notes').innerHTML = VARIANTS.map((v) => `<article class="note" data-active="${v.key === state.variant}"><h2>${esc(v.label)}</h2><p>${esc(v.what)}</p><h3>Good for</h3><ul>${v.best.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>Watch out for</h3><ul>${v.watch.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></article>`).join('');
+}
+
+const stage = document.getElementById('stage');
+function render() {
+  const active = document.activeElement;
+  const focusKey = active && stage.contains(active) ? (active.id || (active.dataset.country && `c:${active.dataset.country}`) || (active.dataset.expand && `e:${active.dataset.expand}`) || (active.name === 'src' && `r:${active.value}`)) : null;
+  const caret = active?.id === 'country-filter' ? active.selectionStart : null;
+  const listScroll = stage.querySelector('.country-list')?.scrollTop;
+  const dlgScroll = stage.querySelector('.dialog')?.scrollTop;
+  stage.dataset.width = state.width;
+  stage.innerHTML = page() + (state.open ? dialog() : '');
+  if (state.theme === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme = state.theme;
+  renderControls();
+  stage.dataset.logos = state.logos;
+  stage.querySelectorAll('.provider-logo[data-mode="pending"] img').forEach(fitLogo);
+  if (listScroll != null && stage.querySelector('.country-list')) stage.querySelector('.country-list').scrollTop = listScroll;
+  if (dlgScroll != null && stage.querySelector('.dialog')) stage.querySelector('.dialog').scrollTop = dlgScroll;
+  if (focusKey) {
+    let el = null;
+    if (focusKey.startsWith('c:')) el = stage.querySelector(`[data-country="${focusKey.slice(2)}"]`);
+    else if (focusKey.startsWith('e:')) el = stage.querySelector(`[data-expand="${focusKey.slice(2)}"]`);
+    else if (focusKey.startsWith('r:')) el = stage.querySelector(`input[name="src"][value="${focusKey.slice(2)}"]`);
+    else el = document.getElementById(focusKey);
+    if (el) { el.focus({ preventScroll: true }); if (caret != null && el.setSelectionRange) el.setSelectionRange(caret, caret); }
+  }
+}
+/* ProviderLogo fit: square-ish art is an app icon, anything wider or taller is a wordmark. */
+const logoModes = new Map();
+function fitLogo(img) {
+  const frame = img.parentElement;
+  const known = logoModes.get(img.src);
+  if (known) { applyMode(frame, img, known); return; }
+  const done = () => {
+    const r = img.naturalWidth / img.naturalHeight;
+    const mode = r > 0.9 && r < 1.1 ? 'icon' : 'wordmark';
+    logoModes.set(img.src, mode); applyMode(frame, img, mode);
+  };
+  const fail = () => { logoModes.set(img.src, 'monogram'); applyMode(frame, img, 'monogram'); };
+  if (img.complete && img.naturalWidth) done();
+  else { img.addEventListener('load', done, { once: true }); img.addEventListener('error', fail, { once: true }); }
+}
+function applyMode(frame, img, mode) {
+  frame.dataset.mode = mode;
+  if (mode === 'monogram') frame.innerHTML = `<span class="provider-logo-monogram">${frame.dataset.fallback}</span>`;
+}
+function setCountry(iso) { state.country = iso; state.selected = null; }
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button,[data-close]');
+  if (!t) return;
+  if (t.dataset.set) {
+    const k = t.dataset.set; let v = t.dataset.val;
+    if (k === 'manage') v = v === 'true';
+    state[k] = v; state.open = true; render(); return;
+  }
+  if (t.id === 'trigger') { state.open = true; state.selected = null; render(); stage.querySelector('.dialog')?.focus(); return; }
+  if (t.hasAttribute('data-close')) { state.open = false; render(); document.getElementById('trigger').focus(); return; }
+  if (t.dataset.expand) { state.expanded[t.dataset.expand] = !state.expanded[t.dataset.expand]; render(); return; }
+  if (t.dataset.country) { setCountry(t.dataset.country); render(); return; }
+  if (t.hasAttribute('data-retry')) { state.view = 'loading'; render(); setTimeout(() => { state.view = 'ready'; render(); }, 700); }
+});
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'country') { setCountry(e.target.value); render(); }
+  if (e.target.name === 'src' && state.manage) { state.selected = Number(e.target.value); render(); }
+});
+document.addEventListener('input', (e) => { if (e.target.id === 'country-filter') { state.filter = e.target.value; render(); } });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.open) { state.open = false; render(); document.getElementById('trigger').focus(); }
+  if (e.key === 'Tab' && state.open) {
+    const f = [...stage.querySelectorAll('.dialog button:not(:disabled),.dialog input:not(:disabled),.dialog select')];
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
+  }
+});
+render();
+</script>
+</body>
+</html>

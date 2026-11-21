@@ -15,10 +15,42 @@ Two configs point at it:
 
 `EVAL_SANDBOX=none|sbx` picks the sandbox for any scenario.
 
+## How it differs from webtarsthree and catalog
+
+It is a test repo, and it behaves differently from the real ones:
+
+- **Jira label.** Its tickets carry `repo:dev-loop-eval` and the
+  `dev-loop-eval` label. The eval config's pollJql requires
+  `labels = "dev-loop-eval"`. The real repos' queries exclude it
+  (`labels != "dev-loop-eval"`), so an eval ticket can never be picked up by
+  a real worker. `evals/preflight.sh` refuses a config that breaks either rule.
+- **Default branch: `master`**, not `main` (catalog is `main`).
+- **Two layouts in one repo.** Root (`package.json` at the top, like
+  webtarsthree) and `app/` (like catalog), picked by the config, as in the
+  table above.
+- **No real product or CI behind it.** A PR here proves the loop worked, not
+  that a feature shipped. Nothing deploys and no CI gates it; the graders
+  in `evals/check-*.mjs` are the only judge.
+- **Fixtures pin other repos, not this one.** Fixture evals
+  (`evals/README.md`, "Fixture evals") never use the sandbox repo. Each
+  fixture's `repo.json` names a real project and a commit, for example
+  catalog-ui-management at `3be2731f` for `mc-1435-xl`. The loop runs on a
+  detached worktree at that commit, and no ticket, PR or comment is created
+  anywhere.
+
 ## How it was verified
 
-Pending: the four live runs (`clean` and `clean-app`, each with no sandbox
-and `EVAL_SANDBOX=sbx`), run by a person from their own shell.
+- **Config and guard:** `test/evals/harness.test.ts` loads
+  `pipeline.eval.config.json` through the real loader, and checks that the
+  guard refuses a non-sandbox repo or a JQL without the eval label.
+- **Dry runs:** every scenario and `--fixture=<name>` dry-run in `npm test`
+  with stub `gh`/`claude`/`curl`/`npm` on PATH, and no stub is called.
+- **Fixture replays:** four real catalog research runs (MC-1435 ×3, MC-1718)
+  replay through the loop's verdict check in `npm test`.
+- **Live runs:** still pending. That means the four scenario runs (`clean`
+  and `clean-app`, each with no sandbox and `EVAL_SANDBOX=sbx`) run by a
+  person from their own shell, and the first live fixture run, which is
+  refused until its guard hook lands.
 
 ## Known drift
 

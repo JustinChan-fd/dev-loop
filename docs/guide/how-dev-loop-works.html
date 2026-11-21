@@ -453,7 +453,7 @@ ol.steps li.rest { opacity: .45; }
 <script>
 /* ===== DATA: the only place facts live. Update when dev-loop changes. ===== */
 const DATA = {
-  updated: "2026-11-20",
+  updated: "2026-11-21",
   /* Jira statuses every repo's config uses (jira.claimStatus / statusNames). */
   status: { todo: "To Do", bounced: "Blocked", prOpen: "Code Review" },
   repos: [
@@ -464,8 +464,10 @@ const DATA = {
       find: { research: "pipeline:v2", dev: "pipeline:v2:dev", extra: { not: "dev-loop-eval" } } },
     { id: "catalog-ui-public", jira: "repo:catalog-ui-public", name: "catalog-ui-public", gh: "fandango/catalog-ui-public", sandboxes: [],
       find: { research: "pipeline:research", dev: "pipeline:dev", devAssignee: true } },
-    { id: "eval", jira: "repo:dev-loop-eval", name: "eval (test repo)", gh: "JustinChan-fd/dev-loop-eval-sandbox", sandboxes: [],
-      find: { research: "pipeline:v2", dev: "pipeline:v2:dev", extra: { has: "dev-loop-eval" } } },
+    { id: "eval", jira: "repo:dev-loop-eval", name: "eval (test repo, behaves differently)", gh: "JustinChan-fd/dev-loop-eval-sandbox", sandboxes: [],
+      find: { research: "pipeline:v2", dev: "pipeline:v2:dev", extra: { has: "dev-loop-eval" } },
+      /* evals/README.md: scenarios use real eval tickets; fixture evals use none. */
+      note: "Only for evals. Its tickets carry dev-loop-eval, which the real repos' searches skip; its default branch is master; no real product or CI is behind it. Evals run three ways: one scenario (npm run eval -- clean), all six (--all), or a fixture (npm run eval -- --fixture=<name>), which runs research on a ticket kept in local files, pinned to another repo's commit, with no real ticket and nothing written to Jira or GitHub." },
   ],
   phases: [
     { id: "worker", label: "Both (default)", flag: "", skills: ["ticket-refine", "ticket-to-pr"] },
@@ -761,7 +763,7 @@ function drawSteps() {
 function drawRepos() {
   const t = document.getElementById("repos");
   const rows = DATA.repos.map((r) =>
-    `<tr><td><b>${r.name}</b></td><td>${r.gh}</td><td>${r.sandboxes.length ? r.sandboxes.map((x) => `<span class="by by-sbx">${ICON.sbx}${x}</span>`).join(" ") : `<span class="no">none yet</span>`}</td></tr>`).join("");
+    `<tr><td><b>${r.name}</b>${r.note ? `<br><span class="note">${r.note}</span>` : ""}</td><td>${r.gh}</td><td>${r.sandboxes.length ? r.sandboxes.map((x) => `<span class="by by-sbx">${ICON.sbx}${x}</span>`).join(" ") : `<span class="no">none yet</span>`}</td></tr>`).join("");
   t.innerHTML = `<thead><tr><th>Repo</th><th>On GitHub</th><th>Safety room</th></tr></thead><tbody>${rows}</tbody>`;
 }
 

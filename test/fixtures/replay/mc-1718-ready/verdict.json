@@ -1,0 +1,19 @@
+{
+  "outcome": "ready",
+  "phase_reached": "verify",
+  "failure_category": null,
+  "detail": "ready — refined ticket written (after 3 fix/re-verify cycles)",
+  "skill_version": "9cb7e8e",
+  "model": "sonnet",
+  "cost_usd": 0,
+  "tokens": { "in": 0, "out": 0 },
+  "log_version": "1.1",
+  "size_trajectory": { "step4_tshirt": "M", "delta": "grew", "final_score": 0.5 },
+  "size_estimate": "M",
+  "ac_count": 10,
+  "attachment_coverage": [
+    {"attachment": "MC-1435-availability-source-picker-mockup.html", "kind": "design", "mapped_to": ["AC3","AC4","AC5","AC6","AC8","AC9"], "out_of_scope": ["variants A and C","preview controls and scope toggle","theme switcher UI","footer No rule saved"]},
+    {"attachment": "MC-1435-availability-source-picker-mockup.png", "kind": "design", "mapped_to": ["AC4","AC5","AC9"], "out_of_scope": ["footer No rule saved"]},
+    {"attachment": "MC-1435-avatar-availability-sources.json", "kind": "data", "mapped_to": ["AC2","AC3"], "out_of_scope": []}
+  ]
+}

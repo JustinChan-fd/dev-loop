@@ -18,6 +18,9 @@ import {
   PROJECT_SLUG,
   RUN_ID,
   isPipelineWorktree,
+  v2FixtureRunDir,
+  v2FixtureRunsLog,
+  FIXTURE_NAME,
 } from "../../src/core/paths.ts";
 
 const RID = "20261111T010203Z";
@@ -119,5 +122,29 @@ describe("isPipelineWorktree -push", () => {
   it("accepts the host push worktree suffix", () => {
     expect(isPipelineWorktree("TARS-1", "TARS-1-20261117T090121Z-push")).toBe(true);
     expect(isPipelineWorktree("TARS-1", "TARS-1-20261117T090121Z-pushy")).toBe(false);
+  });
+});
+
+describe("fixture paths (eval fixtures)", () => {
+  it("v2FixtureRunDir: .pipeline/v2/fixtures/<fixture>/<ticket>/research-<runId>", () => {
+    expect(v2FixtureRunDir("mc-1718", "FX-1", RID)).toBe(`.pipeline/v2/fixtures/mc-1718/FX-1/research-${RID}`);
+  });
+  it("v2FixtureRunsLog: runs/v2/fixtures/<fixture>.jsonl, never the project log", () => {
+    expect(v2FixtureRunsLog("mc-1718")).toBe("runs/v2/fixtures/mc-1718.jsonl");
+  });
+  it("rejects a bad fixture name, ticket or run id", () => {
+    for (const bad of ["../x", "a/b", "Up", "", "-x"]) {
+      expect(() => v2FixtureRunDir(bad, "FX-1", RID)).toThrow(UnsafePathError);
+      expect(() => v2FixtureRunsLog(bad)).toThrow(UnsafePathError);
+    }
+    expect(() => v2FixtureRunDir("a", "fx-1", RID)).toThrow(UnsafePathError);
+    expect(() => v2FixtureRunDir("a", "FX-1", "x")).toThrow(UnsafePathError);
+  });
+  it("FIXTURE_NAME: lowercase, digits and dashes", () => {
+    expect(FIXTURE_NAME.test("mc-1435-xl")).toBe(true);
+    expect(FIXTURE_NAME.test("-x")).toBe(false);
+  });
+  it("resolveRepoPath accepts fixture paths", () => {
+    expect(resolveRepoPath(v2FixtureRunsLog("a"))).toBe(resolve(import.meta.dirname, "../..", "runs/v2/fixtures/a.jsonl"));
   });
 });

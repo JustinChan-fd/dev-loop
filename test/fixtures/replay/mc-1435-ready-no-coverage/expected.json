@@ -1,0 +1,31 @@
+{
+  "source": "MC-1435 research-20261121T005530Z: ready with 3 fetched attachments and no attachment_coverage (before bounce criteria v2)",
+  "cases": [
+    {
+      "coverageWarnsSoFar": 0,
+      "check": {
+        "action": "accept",
+        "check": "coverage_warned"
+      }
+    },
+    {
+      "coverageWarnsSoFar": 5,
+      "check": {
+        "action": "refuse",
+        "check": "coverage_missing"
+      }
+    }
+  ],
+  "grade": {
+    "expect": {
+      "outcomes": [
+        "ready"
+      ],
+      "coverageComplete": true
+    },
+    "pass": false,
+    "reasons": [
+      "attachment_coverage does not cover"
+    ]
+  }
+}

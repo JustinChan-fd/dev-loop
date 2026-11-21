@@ -1,0 +1,11 @@
+{
+  "source": "MC-1718 research-20261121T041045Z: the bounce criteria v2 live check. Grounded first, sized M, all 3 attachments covered",
+  "cases": [
+    { "coverageWarnsSoFar": 0, "check": { "action": "accept" } },
+    { "coverageWarnsSoFar": 5, "check": { "action": "accept" } }
+  ],
+  "grade": {
+    "expect": { "outcomes": ["ready"], "loopAction": ["accept"], "groundedBeforeScope": true, "coverageComplete": true, "sizeEstimate": ["S", "M", "L"], "acCount": { "min": 1, "max": 20 } },
+    "pass": true
+  }
+}

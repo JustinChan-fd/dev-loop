@@ -1,0 +1,4 @@
+{"ts":"2026-11-21T00:55:52Z","phase":"triage","event":"phase_start","detail":"re-pickup after 2 bounces; attachments now fetched"}
+{"ts":"2026-11-21T00:58:37Z","phase":"scope","event":"note","detail":"step4_tshirt: M"}
+{"ts":"2026-11-21T00:59:21Z","phase":"verify","event":"note","detail":"self-heal cycle 1: verifier gaps (derived-from-fixture values, fetch spy ambiguity, read-only dialog wiring, aria attr); size M kept - human ruled after prior too_large bounce"}
+{"ts":"2026-11-21T01:00:40Z","phase":"verify","event":"result","detail":"RESULT: ready — refined ticket written (after 1 fix/re-verify cycle)"}

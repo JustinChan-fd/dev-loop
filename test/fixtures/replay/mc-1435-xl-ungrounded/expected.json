@@ -1,0 +1,31 @@
+{
+  "source": "MC-1435 research-20261121T002720Z: bounced too_large (XL) after 86 s with no ground phase",
+  "cases": [
+    {
+      "coverageWarnsSoFar": 0,
+      "check": {
+        "action": "refuse",
+        "check": "too_large_ungrounded"
+      }
+    }
+  ],
+  "grade": {
+    "expect": {
+      "outcomes": [
+        "ready",
+        "bounced"
+      ],
+      "failureCategory": {
+        "forbid": [
+          "too_large"
+        ]
+      },
+      "groundedBeforeScope": true
+    },
+    "pass": false,
+    "reasons": [
+      "failure_category too_large is forbidden",
+      "no ground phase_end before scope"
+    ]
+  }
+}

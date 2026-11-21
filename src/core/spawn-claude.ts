@@ -144,6 +144,13 @@ export interface SpawnClaudeOpts {
    * env files with no sandbox; see src/core/fake-env.ts).
    */
   denyReads?: string[];
+  /**
+   * Whole tools (or `Tool(prefix:*)` rules) the child must not use, appended
+   * to the same `permissions.deny` list: the eval fixture runner's leak guard
+   * (`mcp__atlassian`, `Bash(gh:*)`, `WebFetch`). Each must match DENY_TOOL,
+   * or the spawn is refused (spawnError). Omitted: real runs are unchanged.
+   */
+  denyTools?: string[];
   /** Prefix for this run's log lines (the skill name). Overrides SpawnClaudeDeps.logPrefix. */
   logPrefix?: string;
   /** Run the spawn through this sandbox adapter. Omitted: no sandbox, the spawn is unchanged. */
@@ -344,9 +351,11 @@ export function startProgressTail(
 }
 
 const DENY_DIR = /^\/[A-Za-z0-9@._/+-]*$/;
+/** A tool name (`mcp__server`, `WebFetch`) or `Tool(prefix:*)`: a plain prefix of words joined by single spaces (`git push`). */
+const DENY_TOOL = /^[A-Za-z][A-Za-z0-9_]*(\([A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*:\*\))?$/;
 
 /** The `--settings` JSON, or null when there is nothing to set. Throws on an unsafe deny dir. */
-export function settingsJson(opts: Pick<SpawnClaudeOpts, "excludeClaudeMd" | "denyEditsUnder" | "denyReads">): string | null {
+export function settingsJson(opts: Pick<SpawnClaudeOpts, "excludeClaudeMd" | "denyEditsUnder" | "denyReads" | "denyTools">): string | null {
   const settings: { claudeMdExcludes?: string[]; permissions?: { deny: string[] } } = {};
   if (opts.excludeClaudeMd && opts.excludeClaudeMd.length > 0) settings.claudeMdExcludes = opts.excludeClaudeMd;
   const dirs = opts.denyEditsUnder ?? [];
@@ -357,9 +366,14 @@ export function settingsJson(opts: Pick<SpawnClaudeOpts, "excludeClaudeMd" | "de
   for (const f of reads) {
     if (!DENY_DIR.test(f)) throw new Error(`denyReads: ${JSON.stringify(f)} must be an absolute path with no glob characters`);
   }
+  const tools = opts.denyTools ?? [];
+  for (const t of tools) {
+    if (!DENY_TOOL.test(t)) throw new Error(`denyTools: ${JSON.stringify(t)} must be a tool name or Tool(prefix:*)`);
+  }
   const deny = [
     ...dirs.flatMap((d) => ["Edit", "Write", "NotebookEdit"].map((tool) => `${tool}(/${d.replace(/\/+$/, "")}/**)`)),
     ...reads.map((f) => `Read(/${f})`),
+    ...tools,
   ];
   if (deny.length > 0) settings.permissions = { deny };
   return Object.keys(settings).length > 0 ? JSON.stringify(settings) : null;

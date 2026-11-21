@@ -1,0 +1,3 @@
+{"ts":"2026-11-21T00:42:49Z","phase":"triage","event":"phase_start","detail":"MC-1435 start"}
+{"ts":"2026-11-21T00:43:50Z","phase":"scope","event":"note","detail":"step4_tshirt: M"}
+{"ts":"2026-11-21T00:43:50Z","phase":"interpret","event":"result","detail":"RESULT: bounced (spec_ambiguous) — response field names (source id/name, country ISO, distributor name, offer type/price/currency/quality) exist only in an unreadable Jira attachment; AC1-4 fixtures cannot be specified"}

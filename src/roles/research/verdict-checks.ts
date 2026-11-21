@@ -65,6 +65,14 @@ function checkTooLarge(v: Verdict, f: ResearchFacts): CheckResult {
   return { action: "accept" };
 }
 
+/** Fetched attachments the verdict's attachment_coverage does not name (by filename or fetched basename) with a mapping. */
+export function uncoveredAttachments(v: Verdict, m: AttachmentManifest): string[] {
+  const covered = new Set((v.attachment_coverage ?? []).filter((c) => c.mapped_to.length > 0 || c.out_of_scope.length > 0).map((c) => c.attachment));
+  return m.attachments
+    .filter((a) => a.status === "fetched" && !covered.has(a.filename) && !covered.has(basename(a.path)))
+    .map((a) => a.filename);
+}
+
 function checkReady(v: Verdict, f: ResearchFacts): CheckResult {
   const m = f.manifest;
   if (!m) return { action: "accept" };
@@ -77,10 +85,7 @@ function checkReady(v: Verdict, f: ResearchFacts): CheckResult {
   if (unreadable.length > 0) {
     return { action: "bounce_blocked", check: "attachment_unreadable", detail: `attachment(s) could not be read: ${unreadable.join("; ")}` };
   }
-  const fetched = m.attachments.filter((a) => a.status === "fetched");
-  if (fetched.length === 0) return { action: "accept" };
-  const covered = new Set((v.attachment_coverage ?? []).filter((c) => c.mapped_to.length > 0 || c.out_of_scope.length > 0).map((c) => c.attachment));
-  const missing = fetched.filter((a) => !covered.has(a.filename) && !(a.status === "fetched" && covered.has(basename(a.path)))).map((a) => a.filename);
+  const missing = uncoveredAttachments(v, m);
   if (missing.length === 0) return { action: "accept" };
   const what = `attachment_coverage does not cover: ${missing.join(", ")}`;
   if (f.coverageWarnsSoFar < f.coverageWarnRuns) {

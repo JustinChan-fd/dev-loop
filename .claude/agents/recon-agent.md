@@ -111,7 +111,9 @@ seeing what an endpoint actually returns:
    history, scan commit messages for Jira keys (e.g. a pattern like
    `[A-Z]+-\d+`) — a commit that touched this exact code under a prior
    ticket is a strong lead. If you find one, fetch that ticket (summary,
-   description, comments) and note anything relevant: was this "fixed"
+   description, comments; in fixture mode, when `RUN_DIR/ticket.json`
+   exists, read it from that file's `prior_tickets` or `linked` and make no
+   Jira call) and note anything relevant: was this "fixed"
    before and regressed? Was a deliberate tradeoff made that explains the
    current behavior? Don't chase this further than one prior ticket per
    commit trail found — report it as a lead, not a rabbit hole. If nothing

@@ -16,6 +16,55 @@ below); never derive any of the three yourself.
 - `run-dir=` — this run's directory (`RUN_DIR` below).
 - `repo-dir=` — the target repo checkout this run grounds against
   (`REPO_DIR` below).
+- `ground-dir=` — fixture mode only (below): the worktree the loop already
+  made at the fixture's pinned commit.
+
+## Fixture mode
+
+If `RUN_DIR/ticket.json` exists, this is a **fixture run**: an eval on a
+ticket kept in local files (`evals/README.md`, "Fixture evals"). There is no
+real ticket, and nothing may reach Jira or GitHub. This section overrides
+every Jira and gh step below. If there is no `RUN_DIR/ticket.json`, this
+section does not apply and every step below applies unchanged.
+
+- **Never call any `mcp__atlassian__*` tool, and never run `gh`** (or
+  `curl`, or any other way to reach Jira or GitHub). The tools are denied
+  anyway; do not try to work around a denial.
+- **Reads come from `RUN_DIR/ticket.json`:**
+  - the summary, issue type and description: `summary`, `issue_type`, `description`;
+  - this ticket's comment thread (Setup's prior-pass check, Interpret item 1):
+    `comments[]`, each `{id, author, is_pipeline, created, body}`. A comment
+    with `is_pipeline: true` whose body starts with `✅ research-loop -` or
+    `❌ research-loop -` is a prior pass, exactly as on Jira;
+  - the mirror Issue and its not-planned history (Step 0.5): `github`
+    (`title`, `comments[]`, `not_planned[]`). There is no Issue number: post
+    to the outbox instead (below);
+  - linked tickets: `linked{KEY: {summary, description, comments}}`;
+  - prior tickets recon would look up: `prior_tickets[]`.
+- **Skip the JQL and Confluence prior-art searches.** Write one progress
+  note: `{"phase": "interpret", "event": "note", "detail": "fixture mode:
+  JQL and Confluence search skipped"}`.
+- **Every post goes to the outbox.** Each comment, Issue title change or
+  pointer you would post goes to its own file,
+  `RUN_DIR/outbox/NNN-<jira|github>-<comment|title>.md`. `NNN` counts from
+  `001` in posting order, and the file holds exactly the body you would
+  have posted. After each one, append one line to
+  `RUN_DIR/outbox/index.jsonl`:
+  `{"seq": 1, "surface": "jira|github", "action": "comment|title", "target": "<the FX key>", "file": "001-github-comment.md", "edit_of": null}`.
+  Every rule about what goes where (Ticket content protocol) still applies.
+  Checklist item 0's re-fetch reads the published spec back from the
+  outbox file and compares it byte-for-byte.
+- **Ground in `ground-dir=`.** The loop already made a detached worktree
+  at the fixture's pinned commit and passes its path as `ground-dir=`. Use
+  it wherever this skill says `<REPO_DIR>/.claude/worktrees/<TICKET>-<RUN_ID>-ground`.
+  Run no `git fetch`, never `worktree add` or `worktree remove`, and do not
+  read `origin/<defaultBranch>`: the pinned commit is the codebase. The loop
+  removes the worktree after the run (Cleanup's step 2 is skipped; still
+  stop any dev server you started). If `ground-dir=` is missing in fixture
+  mode, write no posts and stop with an `agent_error` verdict.
+- Everything else is unchanged: the steps, the checklist, the attachments
+  (the loop wrote `attachments.json` from the fixture's files), the
+  size context, `verdict.json`.
 
 ## Role: the skeptic
 

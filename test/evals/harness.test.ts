@@ -132,6 +132,41 @@ describe("evals harness, dry run", () => {
     expect(outwardNamed.every((l) => l.startsWith("DRY: "))).toBe(true);
   });
 
+  it("run.sh --fixture refuses an unrunnable fixture (no ticket.json yet), naming every problem, and calls no stub", () => {
+    const fx = join(tmp, "fixtures", "fx-pending");
+    mkdirSync(fx, { recursive: true });
+    writeFileSync(join(fx, "repo.json"), JSON.stringify({ project: "webtarsthree", sha: null, verified: false }));
+    writeFileSync(join(fx, "expect.json"), JSON.stringify({ outcomes: ["ready"] }));
+    const r = run("run.sh", ["--fixture=fx-pending"], { EVAL_FIXTURES_DIR: join(tmp, "fixtures") });
+    expect(r.status).toBe(1);
+    expect(stubsCalled()).toEqual([]);
+    expect(r.stderr).toMatch(/ticket\.json: missing.*fixture:save/);
+    expect(r.stderr).toMatch(/UNVERIFIED/);
+    expect(r.stderr).not.toMatch(/DRY: gh auth status/);
+  });
+
+  it("run.sh --fixture dry-runs a runnable fixture: prints the plan, runs nothing, calls no stub", () => {
+    const fx = join(tmp, "fixtures", "fx-dry");
+    mkdirSync(fx, { recursive: true });
+    writeFileSync(join(fx, "ticket.json"), JSON.stringify({ key: "FX-1", summary: "s", issue_type: "Story", description: "d", reviewed: true }));
+    writeFileSync(join(fx, "repo.json"), JSON.stringify({ project: "webtarsthree", sha: "abcdef12", verified: true }));
+    writeFileSync(join(fx, "expect.json"), JSON.stringify({ outcomes: ["ready"] }));
+    const r = run("run.sh", ["--fixture=fx-dry", "--runs=2"], { EVAL_FIXTURES_DIR: join(tmp, "fixtures") });
+    expect(r.status, r.stderr).toBe(0);
+    expect(stubsCalled()).toEqual([]);
+    expect(r.stdout).toMatch(/fixture fx-dry: ticket FX-1/);
+    expect(r.stdout).toMatch(/2 run\(s\)/);
+    expect(r.stdout).toMatch(/nothing runs/);
+    expect(existsSync(join(ROOT, ".pipeline", "v2", "fixtures", "fx-dry"))).toBe(false);
+  });
+
+  it("run.sh --fixture refuses live inside Claude Code before anything runs", () => {
+    const r = run("run.sh", ["--fixture=mc-1718"], { DRY_RUN: "0", CLAUDECODE: "1" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/CLAUDECODE/);
+    expect(stubsCalled()).toEqual([]);
+  });
+
   it("run.sh clean exports the eval keys and the sandbox GH_REPO, and records dry keys only in keys.dry", () => {
     const r = run("run.sh", ["clean"]);
     expect(r.status, r.stderr).toBe(0);
