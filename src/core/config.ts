@@ -161,7 +161,13 @@ export function validateConfig(raw: unknown): Config {
   const roles = obj(root.roles, "roles");
   keys(roles, "roles", ["research", "dev"]);
   const research = obj(roles.research, "roles.research");
-  keys(research, "roles.research", ["triggerLabel", "handoffLabel", "pollJql", "ceilings"]);
+  keys(research, "roles.research", ["triggerLabel", "handoffLabel", "pollJql", "ceilings"], ["attachmentCoverageWarnRuns"]);
+  if (research.attachmentCoverageWarnRuns !== undefined) {
+    const w = research.attachmentCoverageWarnRuns;
+    if (typeof w !== "number" || !Number.isInteger(w) || w < 0) {
+      throw new ConfigError(`roles.research.attachmentCoverageWarnRuns must be an integer >= 0 (got ${JSON.stringify(w)})`);
+    }
+  }
   const researchTrigger = jqlValue(research, "triggerLabel", "roles.research");
   const handoff = jqlValue(research, "handoffLabel", "roles.research");
   str(research, "pollJql", "roles.research");

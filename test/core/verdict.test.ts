@@ -225,6 +225,26 @@ describe("parseVerdict: refine profile", () => {
     }
   });
 
+  it("keeps well-formed size_evidence / attachment_coverage and drops malformed ones without flipping the outcome", () => {
+    const ev = { criterion: "A", comparison_tickets: [], risk_factors: [], split: ["a", "b"] };
+    const cov = [{ attachment: "a.png", kind: "design", mapped_to: ["AC1"], out_of_scope: [] }];
+    const ok = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_evidence: ev, attachment_coverage: cov }), "refine");
+    expect(ok.size_evidence).toEqual(ev);
+    expect(ok.attachment_coverage).toEqual(cov);
+    for (const bad of [
+      { size_evidence: { criterion: "C", comparison_tickets: [], risk_factors: [] } },
+      { size_evidence: { criterion: "A", comparison_tickets: "x", risk_factors: [] } },
+      { attachment_coverage: [{ attachment: "", kind: "design", mapped_to: [], out_of_scope: [] }] },
+      { attachment_coverage: [{ attachment: "a", kind: "ui", mapped_to: [], out_of_scope: [] }] },
+      { attachment_coverage: "a.png" },
+    ]) {
+      const p = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ...bad }), "refine");
+      expect(p.outcome).toBe("ready");
+      expect(p.size_evidence).toBeUndefined();
+      expect(p.attachment_coverage).toBeUndefined();
+    }
+  });
+
   it("keeps a well-formed size_trajectory", () => {
     const traj = { step4_tshirt: "M", delta: "unchanged", final_score: 4.5 };
     const verdict = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_trajectory: traj }), "refine");

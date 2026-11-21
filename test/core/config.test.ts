@@ -292,6 +292,13 @@ describe("validateConfig", () => {
     ).toThrow(/must differ/);
   });
 
+  it("roles.research.attachmentCoverageWarnRuns is optional, an integer >= 0", () => {
+    const set = (v: unknown) => makeV2Config((c) => Object.assign(c.roles.research, { attachmentCoverageWarnRuns: v }));
+    expect(() => validateConfig(makeV2Config())).not.toThrow();
+    for (const ok of [0, 5]) expect(() => validateConfig(set(ok))).not.toThrow();
+    for (const bad of [-1, 1.5, "5"]) expect(() => validateConfig(set(bad))).toThrow(/roles\.research\.attachmentCoverageWarnRuns/);
+  });
+
   it("accepts \"___\" placeholders (requiredPlaceholderFree refuses them per phase)", () => {
     expect(() =>
       validateConfig(makeV2Config((c) => (c.roles.dev.codeReviewFields.piiField = "___"))),
