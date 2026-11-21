@@ -5,7 +5,7 @@
 
 import { ClaimMissingFieldsError, type JiraTicket } from "../core/jira-client.ts";
 import type { Role } from "../core/types.ts";
-import type { PhaseEntry } from "../core/iteration-log.ts";
+import type { IterationRecord, PhaseEntry } from "../core/iteration-log.ts";
 import { hasLandedPhase, lastSkipBlockers } from "../core/iteration-log.ts";
 import { buildPollJql, excludeIdsFromJql, excludeKeysFromJql, isIssueId } from "../core/jql.ts";
 import { gateTicket } from "../core/blocker-gate.ts";
@@ -13,6 +13,7 @@ import { checkCeilings } from "../core/ceilings.ts";
 import { TICKET_KEY, runIdNow, v2RunDir } from "../core/paths.ts";
 import { durationMin, errorMessage, type RunSkillFn, type RunSkillResult } from "../core/run-skill.ts";
 import { runResearchPhase } from "../roles/research/phase.ts";
+import { DEFAULT_COVERAGE_WARN_RUNS } from "../roles/research/verdict-checks.ts";
 import { runDevPhase } from "../roles/dev/phase.ts";
 import { append, latestRecord, MAX_SKIPS, nowIso, type Ctx } from "./context.ts";
 
@@ -245,6 +246,13 @@ export type PhaseRun =
   /** setInFlight(role) failed before the run: the phase never started. The caller records what is needed, then pauses. */
   | { entry: null; fatal: string };
 
+/** Research entries the loop warned for missing attachment coverage, across this project's v2 log. */
+export function coverageWarnsSoFar(records: IterationRecord[]): number {
+  let n = 0;
+  for (const r of records) for (const p of r.phases) if (p.role === "research" && p.verdict_check === "coverage_warned") n++;
+  return n;
+}
+
 /** setInFlight(role) -> run the phase -> setInFlight(null). Never throws for a lost session lock. */
 export async function runPhase(ctx: Ctx, role: Role, ticket: JiraTicket, maxBudgetUsd: number): Promise<PhaseRun> {
   const { deps } = ctx;
@@ -270,7 +278,16 @@ export async function runPhase(ctx: Ctx, role: Role, ticket: JiraTicket, maxBudg
   };
   const phaseEntry =
     role === "research"
-      ? await runResearchPhase(ticket, { jira: deps.jira, view: ctx.research, runSkill, runDir, maxBudgetUsd, now: deps.now })
+      ? await runResearchPhase(ticket, {
+          jira: deps.jira,
+          view: ctx.research,
+          runSkill,
+          runDir,
+          maxBudgetUsd,
+          now: deps.now,
+          coverageWarnsSoFar: coverageWarnsSoFar(ctx.records),
+          coverageWarnRuns: deps.config.roles.research.attachmentCoverageWarnRuns ?? DEFAULT_COVERAGE_WARN_RUNS,
+        })
       : await runDevPhase(ticket, {
           jira: deps.jira,
           github: deps.github,
@@ -280,6 +297,7 @@ export async function runPhase(ctx: Ctx, role: Role, ticket: JiraTicket, maxBudg
           maxBudgetUsd,
           session: deps.session.name,
           now: deps.now,
+          ...(deps.prDiffStats ? { prDiffStats: deps.prDiffStats } : {}),
           ...(deps.hostPush
             ? {
                 hostPush: async (ready) => {

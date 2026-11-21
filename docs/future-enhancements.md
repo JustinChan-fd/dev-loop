@@ -692,6 +692,15 @@ specific findings, if resuming this work later.
    log, and whether this is really specific to the size-score work at all
    (it predates it and would be worth fixing independently either way).
 
+### Research test-design fixes (ticket-refine), from bounce criteria v2
+
+**Idea**: research spent self-heal cycles on its own test design on
+TARS-1440 and TARS-1495. Add a check that each named test can actually
+fail on current code (not only that it is named), and fold in the
+TARS-1495 rules. Deferred out of
+`docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md` (scope
+decision 4). See also "Test-spec rigor for stateful ACs" below.
+
 ### Test-spec rigor for stateful ACs (ticket-refine)
 
 **Idea**: for ACs on stateful components, have Synthesize build a
@@ -841,6 +850,23 @@ Issue assignee/label) could serve as the claim, which also helps the
 N-instances-per-project idea tracked in research-loop's doc.
 
 ## Both phases
+
+### Already-merged check before either phase starts
+
+**Idea**: before research or dev starts, search git and GitHub for the
+ticket key; a merged PR stops the run with a clear message. **Evidence**:
+repeat runs on TARS-1465, TARS-1473 and TARS-1487, whose work had already
+merged. Deferred out of bounce criteria v2 (scope decision 4).
+
+### UI snapshots against the mockup
+
+**Idea**: compare the running UI with a mockup screenshot (QA, or a
+research check of "what exists today"). **Blocker**: login and auth on the
+target apps; the robot cannot get past the login to reach the screens.
+Until then, bounce criteria v2's QA note naming the POC element is how a
+person checks visual ACs. **Evidence**: 4 of the 6 fixes on catalog PR #237
+were items the POC showed but no AC covered.
+
 
 ### Monitoring view for many loops, batches and sandboxes (`npm run status`)
 

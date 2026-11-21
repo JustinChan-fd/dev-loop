@@ -278,6 +278,33 @@ describe("runDevPhase", () => {
     expect(jira.transitionStatus).not.toHaveBeenCalled();
   });
 
+  it("landed run records diff_stats from the PR", async () => {
+    const prDiffStats = vi.fn(async () => ({ files: 3, additions: 40, deletions: 2 }));
+    const e = await runDevPhase(makeTicket(), makeDeps({ prDiffStats }));
+    expect(e.diff_stats).toEqual({ files: 3, additions: 40, deletions: 2 });
+    expect(prDiffStats).toHaveBeenCalledWith("https://github.com/org/repo/pull/1");
+  });
+
+  it("a bounced run never asks for diff stats", async () => {
+    const prDiffStats = vi.fn(async () => ({ files: 3, additions: 40, deletions: 2 }));
+    const e = await runDevPhase(makeTicket(), makeDeps({ prDiffStats, runSkill: skillReturning(makeVerdict({ outcome: "bounced", failure_category: "spec_ambiguous", pr: null })) }));
+    expect(prDiffStats).not.toHaveBeenCalled();
+    expect(e.diff_stats).toBeUndefined();
+  });
+
+  it("prDiffStats returning null leaves no diff_stats and still lands", async () => {
+    const e = await runDevPhase(makeTicket(), makeDeps({ prDiffStats: vi.fn(async () => null) }));
+    expect(e.outcome).toBe("landed");
+    expect("diff_stats" in e).toBe(false);
+  });
+
+  it("prDiffStats throwing leaves no diff_stats, still lands, and adds nothing to jira_sync_error", async () => {
+    const e = await runDevPhase(makeTicket(), makeDeps({ prDiffStats: vi.fn(async () => { throw new Error("boom"); }) }));
+    expect(e.outcome).toBe("landed");
+    expect("diff_stats" in e).toBe(false);
+    expect(e.jira_sync_error).toBeUndefined();
+  });
+
   it("error / killed outcomes make no Jira write (the cycle's attempt cap handles repeats)", async () => {
     for (const outcome of ["error", "killed"] as const) {
       const jira = makeMockJiraClient();

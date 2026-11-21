@@ -8,6 +8,7 @@ import type { Config, ReadyToPush, DevView, ResearchView, Role } from "../core/t
 import type { InFlight, Session } from "../core/session.ts";
 import type { IterationOutcome, IterationRecord, PhaseEntry } from "../core/iteration-log.ts";
 import { appendIteration } from "../core/iteration-log.ts";
+import type { PrDiffStatsFn } from "../core/diff-stats.ts";
 import type { RunSkillFn } from "../core/run-skill.ts";
 import { roleView } from "../core/config.ts";
 import { redactSensitive } from "../core/redact.ts";
@@ -49,6 +50,8 @@ export interface WorkerDeps {
   notify?: (title: string, body: string) => void;
   /** Signs and pushes a ready_to_push dev run on the host. Absent unless the sandbox asks for it. */
   hostPush?: (ticketKey: string, runDir: string, ready: ReadyToPush) => Promise<HostPushResult>;
+  /** Reads a landed PR's size for the dev entry (realPrDiffStats in production). */
+  prDiffStats?: PrDiffStatsFn;
   log?: (message: string) => void;
 }
 

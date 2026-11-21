@@ -11,6 +11,10 @@ import type { PhaseEntry } from "../../core/iteration-log.ts";
 import type { RunSkillFn, RunSkillResult } from "../../core/run-skill.ts";
 import { errorMessage } from "../../core/run-skill.ts";
 import { agentErrorVerdict, parseVerdict } from "../../core/verdict.ts";
+import { resolveRepoPath } from "../../core/paths.ts";
+import { CONTRACT } from "../../core/contract.ts";
+import type { VerdictCheck, ResearchFacts } from "./verdict-checks.ts";
+import { checkResearchVerdict, DEFAULT_COVERAGE_WARN_RUNS, readResearchFacts } from "./verdict-checks.ts";
 
 export interface ResearchPhaseDeps {
   jira: JiraClient;
@@ -21,6 +25,44 @@ export interface ResearchPhaseDeps {
   runDir: string;
   maxBudgetUsd: number;
   now: () => Date;
+  /** Earlier research entries in this project's log with verdict_check "coverage_warned" (default 0). */
+  coverageWarnsSoFar?: number;
+  /** roles.research.attachmentCoverageWarnRuns (default DEFAULT_COVERAGE_WARN_RUNS). */
+  coverageWarnRuns?: number;
+  /** Reads RUN_DIR's progress.jsonl and attachments.json (default readResearchFacts on the resolved run dir). */
+  readFacts?: (runDir: string, coverageWarnsSoFar: number, coverageWarnRuns: number) => Promise<ResearchFacts>;
+}
+
+function titledAdf(title: string, body: string): Record<string, unknown> {
+  return {
+    type: "doc",
+    version: 1,
+    content: [
+      { type: "paragraph", content: [{ type: "text", text: title, marks: [{ type: "strong" }] }] },
+      { type: "paragraph", content: [{ type: "text", text: body }] },
+    ],
+  };
+}
+
+/**
+ * The Jira comment for a loop-made blocked bounce (an attachment the loop
+ * could not read). Titled with CONTRACT.researchFail so a re-pickup's
+ * prior-comment lookup finds it, not the skill's earlier ✅ comment.
+ */
+export function attachmentBlockedCommentAdf(detail: string): Record<string, unknown> {
+  return titledAdf(
+    `${CONTRACT.researchFail} blocked, attachment unreadable`,
+    `${detail}. Fix the attachment (type, size or access) and re-label the ticket; the ticket text does not need rewriting. ` +
+      "Any research comment above this one is superseded.",
+  );
+}
+
+/** The Jira comment when the loop refuses a verdict: the skill may already have published its own comment. */
+export function verdictRefusedCommentAdf(check: VerdictCheck, detail: string): Record<string, unknown> {
+  return titledAdf(
+    `${CONTRACT.researchFail} verdict refused by the loop (${check})`,
+    `${detail} Any research comment posted by this run is superseded; research will run again.`,
+  );
 }
 
 export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDeps): Promise<PhaseEntry> {
@@ -35,17 +77,61 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
     verdict = agentErrorVerdict(`runSkill threw: ${errorMessage(err)}`);
   }
 
+  // The loop checks the verdict against its rules before acting on it (bounce criteria v2).
+  let verdictCheck: VerdictCheck | undefined;
+  let refusedComment: Record<string, unknown> | undefined;
+  if (verdict.failure_category !== "agent_error") {
+    const warns = deps.coverageWarnsSoFar ?? 0;
+    const warnRuns = deps.coverageWarnRuns ?? DEFAULT_COVERAGE_WARN_RUNS;
+    let facts: ResearchFacts;
+    try {
+      facts = await (deps.readFacts ?? ((d, w, r) => readResearchFacts(resolveRepoPath(d), w, r)))(deps.runDir, warns, warnRuns);
+    } catch {
+      // Unreadable facts are no facts: too_large is then ungrounded, ready has no manifest to check.
+      facts = { progressRaw: null, manifest: null, coverageWarnsSoFar: warns, coverageWarnRuns: warnRuns };
+    }
+    const check = checkResearchVerdict(verdict, facts);
+    if (check.action === "refuse") {
+      verdictCheck = check.check;
+      refusedComment = verdictRefusedCommentAdf(check.check, check.detail);
+      verdict = agentErrorVerdict(`loop refused the verdict: ${check.detail}`);
+    } else if (check.action === "bounce_blocked") {
+      verdictCheck = check.check;
+      verdict = { ...verdict, outcome: "bounced", failure_category: "blocked", detail: check.detail };
+    } else if (check.check) {
+      verdictCheck = check.check;
+    }
+  }
+
   // ticket-refine's passing word is "ready" (a refined ticket, not a PR).
   const outcome = verdict.outcome === "ready" ? "landed" : verdict.outcome;
 
-  let jiraSyncError: string | undefined;
+  const syncErrors: string[] = [];
+  // The skill posts its comment before writing verdict.json, so a refused
+  // verdict may have left a ✅/❌ comment behind: say it is superseded.
+  if (refusedComment) {
+    try {
+      await deps.jira.addComment(ticket.key, refusedComment);
+    } catch (err) {
+      syncErrors.push(errorMessage(err));
+    }
+  }
   if (outcome === "bounced") {
+    // A loop-made bounce has no skill-written comment, so the loop writes one.
+    if (verdictCheck === "attachment_unreadable") {
+      try {
+        await deps.jira.addComment(ticket.key, attachmentBlockedCommentAdf(verdict.detail));
+      } catch (err) {
+        syncErrors.push(errorMessage(err));
+      }
+    }
     try {
       await deps.jira.transitionStatus(ticket.key, deps.view.statusNames.bounced);
     } catch (err) {
-      jiraSyncError = errorMessage(err);
+      syncErrors.push(errorMessage(err));
     }
   }
+  const jiraSyncError = syncErrors.length > 0 ? syncErrors.join("; ") : undefined;
 
   return {
     role: "research",
@@ -68,6 +154,10 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
     ...(verdict.retries !== undefined ? { retries: verdict.retries } : {}),
     // Already sanitized by parseVerdict: a malformed value never reaches here.
     ...(verdict.size_trajectory !== undefined ? { size_trajectory: verdict.size_trajectory } : {}),
+    ...(verdict.size_evidence !== undefined ? { size_evidence: verdict.size_evidence } : {}),
+    ...(verdictCheck !== undefined ? { verdict_check: verdictCheck } : {}),
+    ...(verdict.size_estimate !== undefined ? { size_estimate: verdict.size_estimate } : {}),
+    ...(verdict.ac_count !== undefined ? { ac_count: verdict.ac_count } : {}),
     ...(jiraSyncError !== undefined ? { jira_sync_error: jiraSyncError } : {}),
   };
 }

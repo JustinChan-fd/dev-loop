@@ -121,6 +121,22 @@ export interface FollowUp {
   pr: string | null;
 }
 
+/** Why a too_large bounce is real: A = more than one deliverable (with a split), B = real risk to the dev limits. */
+export interface SizeEvidence {
+  criterion: "A" | "B";
+  comparison_tickets: string[];
+  risk_factors: string[];
+  split?: string[];
+}
+
+/** One fetched attachment and where its contents went: AC ids, or named out-of-scope lines. */
+export interface AttachmentCoverageEntry {
+  attachment: string;
+  kind: "design" | "data" | "other";
+  mapped_to: string[];
+  out_of_scope: string[];
+}
+
 export interface Verdict {
   outcome: VerdictOutcome;
   phase_reached: PhaseReached;
@@ -174,6 +190,14 @@ export interface Verdict {
    * `outcome` to "error"; it is dropped at the parse boundary instead.
    */
   size_trajectory?: SizeTrajectory;
+  /** Research, required on a too_large bounce: which criterion and its evidence (checked by the loop). */
+  size_evidence?: SizeEvidence;
+  /** Research, required on ready when attachments were fetched: one entry per attachment (checked by the loop). */
+  attachment_coverage?: AttachmentCoverageEntry[];
+  /** Research: Step 4's size read, written on every outcome (bounce criteria v2). Dropped if malformed. */
+  size_estimate?: TShirtSize;
+  /** Research: the refined ticket's behaviour-AC count, a note for Step 4 (never too_large evidence alone). */
+  ac_count?: number;
 }
 
 /** What a sandboxed dev run hands the host so it can sign, push and open the PR. */
@@ -397,6 +421,12 @@ export interface Config {
     research: RoleSettings & {
       /** The label a green research verdict swaps the ticket to; equals roles.dev.triggerLabel. */
       handoffLabel: string;
+      /**
+       * Ready verdicts on tickets with attachments that may lack
+       * attachment_coverage (warned, still accepted) before the loop refuses
+       * them. Optional, default 5 (DEFAULT_COVERAGE_WARN_RUNS).
+       */
+      attachmentCoverageWarnRuns?: number;
     };
     dev: RoleSettings & { codeReviewFields: CodeReviewFieldsConfig };
   };

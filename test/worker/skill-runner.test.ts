@@ -153,6 +153,26 @@ describe("makeRunSkill", () => {
     expect(seen).toEqual(projectJson(APP_PROFILE));
   });
 
+  it("writes RUN_DIR/size-context.json for research only, before the spawn", async () => {
+    const ctx = { generated: "x", limits: { dev_max_cost_per_run_usd: 20, dev_run_timeout_min: 75, max_cost_per_ticket_usd: 50 }, window: 30, stats: { tickets: 0, cost_usd: null, minutes: null }, tickets: [] };
+    let seen: unknown = null;
+    onSpawn = async () => {
+      if (spawned.length === 1) seen = JSON.parse(await readFile(join(resolveRepoPath(runDir("research")), "size-context.json"), "utf8"));
+    };
+    const run = makeRunSkill(deps({ sizeContext: async () => ctx }));
+    await run({ role: "research", ticketKey: "TARS-1", runDir: runDir("research"), maxBudgetUsd: 50 });
+    await run({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    expect(seen).toEqual(ctx);
+    await expect(readFile(join(resolveRepoPath(runDir("dev")), "size-context.json"), "utf8")).rejects.toThrow();
+  });
+
+  it("a sizeContext that throws is logged and the run still spawns", async () => {
+    const errors: string[] = [];
+    await makeRunSkill(deps({ sizeContext: async () => { throw new Error("log unreadable"); }, logError: (m) => errors.push(m) }))({ role: "research", ticketKey: "TARS-1", runDir: runDir("research"), maxBudgetUsd: 50 });
+    expect(spawned).toHaveLength(1);
+    expect(errors.join("\n")).toContain("log unreadable");
+  });
+
   it("fetches the ticket's attachments into RUN_DIR before the spawn, for both roles", async () => {
     const seen: unknown[] = [];
     onSpawn = async (o) => {

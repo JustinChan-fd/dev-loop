@@ -75,6 +75,8 @@ import { fakeEnvSummary, realFakeEnvDeps, writeFakeEnv } from "./core/fake-env.t
 import { realProfileDeps, resolveProjectProfile, type ResolvedProfile } from "./core/project-profile.ts";
 import { notify } from "./core/notify.ts";
 import { recordAdoptedFlights, runWorkerIteration, type WorkerDeps } from "./worker/cycle.ts";
+import { realPrDiffStats } from "./core/diff-stats.ts";
+import { loadSizeContext } from "./core/size-context.ts";
 import { makeRunSkill, sandboxInstancePrefix, sandboxMounts, sandboxPreflightInstanceName } from "./worker/skill-runner.ts";
 import { reconcileMergedTickets } from "./roles/dev/reconcile.ts";
 import { loadResearchStance, REFINE_SKILL_MD_PATH } from "./roles/research/startup.ts";
@@ -235,6 +237,7 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
       log,
       logError,
       profile: ctx.profile,
+      sizeContext: () => loadSizeContext(slug, config, new Date()),
       attachments: {
         list: (key) => ctx.jiraClient.listAttachments(key),
         download: (a) => ctx.jiraClient.downloadAttachment(a.id),
@@ -250,6 +253,7 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
       mergedCache: new Map(),
     },
     findOpenPrUrl: realFindOpenPrUrl(config.github.repo),
+    prDiffStats: realPrDiffStats(),
     roles: ctx.roles,
     // Never re-refine a ticket the v1 research runner already refined.
     hasLandedResearchV1: runsResearch ? (key) => hasLandedV1("research", slug, key) : undefined,

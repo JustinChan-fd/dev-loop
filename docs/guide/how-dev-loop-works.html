@@ -528,7 +528,7 @@ function stepsFor() {
     more: "Your Mac opens a GitHub Issue for the ticket. Every step posts its progress there." });
   if (state.phase !== "dev") {
     out.push({ zone: robot, title: "Check ticket", sub: ["is it clear", "enough to build?"], uses: "AI (Bedrock)" + viaGate,
-      more: "The robot reads the ticket and the code to check it's clear enough to build. It thinks through Fandango's Bedrock AI gateway." + unapprovedNote });
+      more: "The robot reads the ticket, its attachments and the code to check it's clear enough to build. Everything a mockup shows becomes a check in the ticket, or is named as left out. It sizes the work against what recent tickets really cost, and your Mac refuses a \"too big\" answer that skipped that check. It thinks through Fandango's Bedrock AI gateway." + unapprovedNote });
     out.push({ zone: "mac", title: "Post result", sub: ["\u2705 go on", "\u274c bounce"], uses: "Jira + Issue", decision: true,
       more: "Your Mac posts the findings to the Issue and Jira. \u2705 Clear: on to building. \u274c Not clear: the ticket goes to Blocked with the reason, for a person to fix." });
   }

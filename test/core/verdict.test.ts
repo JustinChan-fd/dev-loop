@@ -209,6 +209,47 @@ describe("parseVerdict: refine profile", () => {
     expect(verdict.outcome).toBe("ready");
   });
 
+  it("keeps a valid size_estimate and drops an invalid one without flipping the outcome", () => {
+    expect(parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_estimate: "M" }), "refine").size_estimate).toBe("M");
+    const bad = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_estimate: "XXL" }), "refine");
+    expect(bad.outcome).toBe("ready");
+    expect("size_estimate" in bad).toBe(false);
+  });
+
+  it("keeps a non-negative integer ac_count and drops anything else", () => {
+    expect(parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ac_count: 7 }), "refine").ac_count).toBe(7);
+    for (const v of [-1, "7", 1.5]) {
+      const p = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ac_count: v }), "refine");
+      expect(p.outcome).toBe("ready");
+      expect("ac_count" in p).toBe(false);
+    }
+  });
+
+  it("criterion A size_evidence without the empty comparison/risk arrays is kept, defaulted to []", () => {
+    const v = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_evidence: { criterion: "A", split: ["a", "b"] } }), "refine");
+    expect(v.size_evidence).toEqual({ criterion: "A", comparison_tickets: [], risk_factors: [], split: ["a", "b"] });
+  });
+
+  it("keeps well-formed size_evidence / attachment_coverage and drops malformed ones without flipping the outcome", () => {
+    const ev = { criterion: "A", comparison_tickets: [], risk_factors: [], split: ["a", "b"] };
+    const cov = [{ attachment: "a.png", kind: "design", mapped_to: ["AC1"], out_of_scope: [] }];
+    const ok = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_evidence: ev, attachment_coverage: cov }), "refine");
+    expect(ok.size_evidence).toEqual(ev);
+    expect(ok.attachment_coverage).toEqual(cov);
+    for (const bad of [
+      { size_evidence: { criterion: "C", comparison_tickets: [], risk_factors: [] } },
+      { size_evidence: { criterion: "A", comparison_tickets: "x", risk_factors: [] } },
+      { attachment_coverage: [{ attachment: "", kind: "design", mapped_to: [], out_of_scope: [] }] },
+      { attachment_coverage: [{ attachment: "a", kind: "ui", mapped_to: [], out_of_scope: [] }] },
+      { attachment_coverage: "a.png" },
+    ]) {
+      const p = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ...bad }), "refine");
+      expect(p.outcome).toBe("ready");
+      expect(p.size_evidence).toBeUndefined();
+      expect(p.attachment_coverage).toBeUndefined();
+    }
+  });
+
   it("keeps a well-formed size_trajectory", () => {
     const traj = { step4_tshirt: "M", delta: "unchanged", final_score: 4.5 };
     const verdict = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_trajectory: traj }), "refine");

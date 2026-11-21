@@ -28,6 +28,19 @@ The loop runner (`src/worker/skill-runner.ts`) invokes each skill as
   the run. ticket-refine and ticket-to-pr read the manifest and the fetched
   files and never fetch one themselves; an attachment the ticket depends on
   that was not fetched is grounds for a bounce, cited from the manifest.
+  For research, any unreadable attachment (or a failed listing) is a
+  `blocked` bounce, and the loop enforces it (see "Loop checks on the
+  research verdict" below).
+- `RUN_DIR/size-context.json` is written by the loop before every
+  **research** spawn (`src/core/size-context.ts`): the dev limits
+  (`dev_max_cost_per_run_usd`, `dev_run_timeout_min`,
+  `max_cost_per_ticket_usd`), `stats` (median and p90 of cost and minutes,
+  nearest rank) over the 30 most recent landed tickets in the v1 and v2 dev
+  logs, and per ticket its cost and minutes summed over every dev run, dev
+  runs, QA loops, files/additions/deletions (from the entry's `diff_stats`
+  or the backfill sidecar), research's `size_estimate` and `ac_count`.
+  A project with no history gets `tickets: []`, null stats and its limits.
+  A failure to build it is logged; the run still starts.
 - `RUN_DIR/project.json` is written by the loop before every spawn
   (`src/core/project-profile.ts` `projectJson`): `{ appDir, nodeMajor,
   devCommand, devUrl }`, from the project config's `targetRepo.local` (see
@@ -208,11 +221,14 @@ lives in the GitHub Issue's `## ✅ research-loop - <short context>`
 comment, not Jira, per "Jira/GitHub content routing (Phase 1)" below —
 the Jira comment is just its pointer), (1) every AC testable, (2)
 files/modules named, (3) TDD-ready
-test expectations per AC, (4) small/medium size bound, (5) no open
+test expectations per AC, (4) size per Step 4's criteria A/B (after
+Ground, against `size-context.json`; AC count is never evidence), (5) no open
 questions, (6) a literal-minded Sonnet-tier implementer could act on it
 without inferring anything, (7) no raw secret/credential/token/password
 value anywhere in the draft (presence/shape only — see Ticket content
-protocol). Item 7 also has a code-level backstop: a `PreToolUse` hook
+protocol), (8) AC shape, (9) attachment coverage (every fetched attachment
+in `attachment_coverage`, every mockup item an AC or a named out-of-scope
+line, no blanket "spec wins" clause). Item 7 also has a code-level backstop: a `PreToolUse` hook
 (`.claude/hooks/block-secret-comments.sh`) denies any Jira/Confluence write
 whose content matches a known secret name or format pattern before it
 reaches the real API — see `CHANGELOG.md`'s "Round 2" entry. Phase 1 added
@@ -239,10 +255,57 @@ items 4/8, or gate a cross-run growth cap — see
 `docs/future-enhancements.md`'s size-score entry for everything that was
 deliberately deferred out of this change, and why.
 
+Since bounce criteria v2 (2.3.0) the AC-count advisory is gone: item 8 is
+shape only, and too_large is decided by Step 4's criteria (below).
+
 `src/verdict.ts`'s `parseSizeTrajectory` validates this field completely
 independently of the rest of `Verdict` — a malformed `size_trajectory`
 is dropped (never persisted) and can never flip a verdict's `outcome` to
 `"error"`.
+
+### Size and attachments (bounce criteria v2)
+
+Design: `docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md`.
+
+- **too_large** only after Ground, and only for (A) two or more separately
+  mergeable deliverables, with a drafted split, or (B) a real risk to the
+  dev limits, judged against `size-context.json`, naming comparison
+  tickets and risk factors (new infrastructure, async/stateful UI, more
+  than one service, about 21+ files). AC count alone is never evidence. A
+  design choice inside one deliverable is `spec_ambiguous`; a person's
+  scope ruling is final.
+- **Attachments become ACs.** Research inventories each design attachment
+  (a new component: everything plus layout; a change: the delta against
+  today's UI; styling: one line plus a QA note), maps each item to an AC or
+  an `Out of scope: X (shown in the mockup)` line, and records the map in
+  `attachment_coverage`. Unchosen mockup variants are `spec_ambiguous`.
+  The verifier gets the attachments (item 9); qa-agent names the POC
+  element for visual ACs.
+- **Verdict fields:** `size_estimate` (every outcome), `ac_count`,
+  `size_evidence` (required on too_large), `attachment_coverage` (required
+  on ready when attachments were fetched).
+
+### Loop checks on the research verdict
+
+`src/roles/research/verdict-checks.ts`, run in `runResearchPhase` before
+the loop acts. The agent judges; the loop checks the parts are there:
+
+| Verdict | Fact checked | Result |
+|---|---|---|
+| bounced `too_large` | no `ground` `phase_end` in `progress.jsonl` | refused → `agent_error` (`verdict_check: too_large_ungrounded`) |
+| bounced `too_large` | no valid `size_evidence` (A: split of 2+; B: comparison tickets + risk factors) | refused → `agent_error` (`too_large_no_evidence`) |
+| `ready` | `attachments.json` has a skipped/failed entry or a listing `error` | loop bounces `blocked` with a Jira comment naming the files (`attachment_unreadable`) |
+| `ready` | a fetched attachment missing from `attachment_coverage` | warned and accepted for the first `roles.research.attachmentCoverageWarnRuns` (default 5) such runs (`coverage_warned`), then refused (`coverage_missing`) |
+
+A refused verdict makes no status move and counts as a failed attempt, so
+the ticket runs again; the loop posts one `❌ research-loop - verdict refused
+by the loop (<check>)` comment, because the skill posts its own comment
+before writing `verdict.json`. The loop-made blocked bounce's comment is
+titled `❌ research-loop - blocked, attachment unreadable`, so a re-pickup's
+prior-comment lookup finds it. A `too_large` bounce always re-runs Ground in
+its own run, re-pickups included. The coverage warn count is project-wide
+(every research entry in the v2 log), not per ticket. Every other verdict
+passes untouched.
 
 ### Ticket content protocol
 

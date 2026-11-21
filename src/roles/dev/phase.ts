@@ -10,6 +10,7 @@ import type { JiraClient, JiraTicket } from "../../core/jira-client.ts";
 import type { GitHubClient } from "../../core/github-client.ts";
 import type { DevView, ExecutorVerdict, ReadyToPush, Verdict } from "../../core/types.ts";
 import type { HostPushResult } from "../../worker/host-push.ts";
+import type { DiffStats, PrDiffStatsFn } from "../../core/diff-stats.ts";
 import type { PhaseEntry } from "../../core/iteration-log.ts";
 import type { RunSkillFn, RunSkillResult } from "../../core/run-skill.ts";
 import { errorMessage } from "../../core/run-skill.ts";
@@ -35,6 +36,8 @@ export interface DevPhaseDeps {
   now: () => Date;
   /** Present only on a run whose sandbox leaves signing and pushing to the host. */
   hostPush?: (ready: ReadyToPush) => Promise<HostPushResult>;
+  /** Reads a landed PR's size for the entry's diff_stats (realPrDiffStats). Absent: none recorded. */
+  prDiffStats?: PrDiffStatsFn;
 }
 
 /** Post to the ticket's mirror GitHub Issue if one exists; a missing Issue is silently skipped. Returns an error message or undefined. */
@@ -131,6 +134,16 @@ export async function runDevPhase(ticket: JiraTicket, deps: DevPhaseDeps): Promi
     errors.push(errorMessage(err));
   }
 
+  // Telemetry only: a failed read never changes the outcome or the sync errors.
+  let diffStats: DiffStats | null = null;
+  if (verdict.outcome === "landed" && verdict.pr && deps.prDiffStats) {
+    try {
+      diffStats = await deps.prDiffStats(verdict.pr);
+    } catch {
+      diffStats = null;
+    }
+  }
+
   return {
     role: "dev",
     skill: "ticket-to-pr",
@@ -153,6 +166,7 @@ export async function runDevPhase(ticket: JiraTicket, deps: DevPhaseDeps): Promi
       ? { preexisting_failures: verdict.preexisting_failures }
       : {}),
     ...(verdict.follow_up ? { follow_up: verdict.follow_up } : {}),
+    ...(diffStats ? { diff_stats: diffStats } : {}),
     ...(errors.length > 0 ? { jira_sync_error: errors.join("; ") } : {}),
   };
 }

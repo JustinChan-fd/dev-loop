@@ -131,6 +131,72 @@ describe("runResearchPhase", () => {
     expect(entry.cost_usd).toBe(0);
   });
 
+  describe("verdict checks (bounce criteria v2)", () => {
+    const GROUND = '{"phase":"ground","event":"phase_end"}\n';
+    const fetchedManifest = { ticket: "PROJ-142", dir: "/r/attachments", attachments: [{ id: "1", filename: "mock.html", size: 1, status: "fetched" as const, path: "/r/attachments/mock.html" }] };
+    const factsDeps = (f: Partial<import("../../../src/roles/research/verdict-checks.ts").ResearchFacts>) => ({
+      readFacts: async () => ({ progressRaw: GROUND, manifest: null, coverageWarnsSoFar: 0, coverageWarnRuns: 5, ...f }),
+    });
+
+    it("a refused verdict becomes an agent_error entry with verdict_check and no Jira transition", async () => {
+      const deps = makeDeps({ runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large", detail: "XL" })), ...factsDeps({ progressRaw: "" }) });
+      const e = await runResearchPhase(makeTicket(), deps);
+      expect(e).toMatchObject({ outcome: "error", failure_category: "agent_error", verdict_check: "too_large_ungrounded", cost_usd: 4.5 });
+      expect(e.detail.startsWith("loop refused the verdict: ")).toBe(true);
+      expect(deps.jira.transitionStatus).not.toHaveBeenCalled();
+    });
+
+    it("a refused verdict posts one '❌ research-loop -' comment saying the skill's comment is superseded", async () => {
+      const deps = makeDeps({ runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large", detail: "XL" })), ...factsDeps({ progressRaw: "" }) });
+      await runResearchPhase(makeTicket(), deps);
+      expect(deps.jira.addComment).toHaveBeenCalledTimes(1);
+      const body = JSON.stringify((deps.jira.addComment as ReturnType<typeof vi.fn>).mock.calls[0][1]);
+      expect(body).toContain("❌ research-loop - verdict refused by the loop (too_large_ungrounded)");
+      expect(body).toContain("superseded");
+    });
+
+    it("a failed refusal comment is a sync error, never a throw", async () => {
+      const jira = makeMockJiraClient({ addComment: vi.fn(async () => { throw new Error("Jira 500"); }) });
+      const e = await runResearchPhase(makeTicket(), makeDeps({ jira, runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large" })), ...factsDeps({ progressRaw: "" }) }));
+      expect(e.outcome).toBe("error");
+      expect(e.jira_sync_error).toContain("Jira 500");
+    });
+
+    it("bounce_blocked moves the ticket to bounced and comments the manifest lines", async () => {
+      const m = { ticket: "PROJ-142", dir: "/r", attachments: [{ id: "1", filename: "build.zip", size: 1, status: "skipped" as const, reason: "type .zip is not fetched" }] };
+      const deps = makeDeps(factsDeps({ manifest: m }));
+      const e = await runResearchPhase(makeTicket(), deps);
+      expect(e).toMatchObject({ outcome: "bounced", failure_category: "blocked", verdict_check: "attachment_unreadable" });
+      expect(e.detail).toContain("build.zip");
+      expect(deps.jira.transitionStatus).toHaveBeenCalledWith("PROJ-142", deps.view.statusNames.bounced);
+      expect(deps.jira.addComment).toHaveBeenCalledTimes(1);
+      const body = JSON.stringify((deps.jira.addComment as ReturnType<typeof vi.fn>).mock.calls[0][1]);
+      expect(body).toContain("build.zip");
+      expect(body).toContain("❌ research-loop - blocked, attachment unreadable");
+    });
+
+    it("coverage_warned lands and records verdict_check", async () => {
+      const e = await runResearchPhase(makeTicket(), makeDeps(factsDeps({ manifest: fetchedManifest })));
+      expect(e).toMatchObject({ outcome: "landed", verdict_check: "coverage_warned" });
+    });
+
+    it("an accepted too_large bounce records size_evidence", async () => {
+      const ev = { criterion: "B", comparison_tickets: ["TARS-1554"], risk_factors: ["async or stateful UI"] };
+      const e = await runResearchPhase(makeTicket(), makeDeps({ runSkill: skill(verdict({ outcome: "bounced", phase_reached: "plan", failure_category: "too_large", size_evidence: ev })), ...factsDeps({}) }));
+      expect(e).toMatchObject({ outcome: "bounced", failure_category: "too_large", size_evidence: ev });
+      expect("verdict_check" in e).toBe(false);
+    });
+  });
+
+  it("carries size_estimate and ac_count on a bounced run too", async () => {
+    const e = await runResearchPhase(
+      makeTicket(),
+      makeDeps({ runSkill: skill(verdict({ outcome: "bounced", failure_category: "spec_ambiguous", size_estimate: "L", ac_count: 9 })) }),
+    );
+    expect(e.size_estimate).toBe("L");
+    expect(e.ac_count).toBe(9);
+  });
+
   describe("size_trajectory", () => {
     it("carries a well-formed size_trajectory", async () => {
       const entry = await runResearchPhase(

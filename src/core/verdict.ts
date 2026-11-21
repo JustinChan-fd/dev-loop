@@ -17,11 +17,13 @@
 import { readFile } from "node:fs/promises";
 import { TICKET_KEY } from "./paths.ts";
 import type {
+  AttachmentCoverageEntry,
   ExecutorVerdict,
   FollowUp,
   PhaseReached,
   RunOutcome,
   SizeDelta,
+  SizeEvidence,
   SizeTrajectory,
   TShirtSize,
   Verdict,
@@ -102,6 +104,20 @@ function isFollowUp(value: unknown): value is FollowUp {
   const v = value as Record<string, unknown>;
   if (typeof v.ticket !== "string" || !TICKET_KEY.test(v.ticket)) return false;
   return v.pr === null || (typeof v.pr === "string" && v.pr.length > 0);
+}
+
+const strList = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string" && s.length > 0);
+
+function isSizeEvidence(value: unknown): value is SizeEvidence {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (v.criterion === "A" || v.criterion === "B") && strList(v.comparison_tickets) && strList(v.risk_factors) && (v.split === undefined || strList(v.split));
+}
+
+function isCoverageEntry(value: unknown): value is AttachmentCoverageEntry {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.attachment === "string" && v.attachment.length > 0 && ["design", "data", "other"].includes(v.kind as string) && strList(v.mapped_to) && strList(v.out_of_scope);
 }
 
 /**
@@ -210,6 +226,23 @@ export function parseVerdict(
     const ok = Array.isArray(v) && v.every((t) => typeof t === "string" && t.length > 0);
     if (!ok) delete verdict.preexisting_failures;
   }
+  // size_evidence / attachment_coverage: shape-checked here, dropped if
+  // malformed. Whether one is REQUIRED is roles/research/verdict-checks.ts's job.
+  if (verdict.size_evidence !== undefined) {
+    // Criterion A needs no comparison tickets or risk factors: missing lists default to [].
+    const e = verdict.size_evidence as unknown;
+    if (typeof e === "object" && e !== null) {
+      const o = e as Record<string, unknown>;
+      verdict.size_evidence = { ...o, comparison_tickets: o.comparison_tickets ?? [], risk_factors: o.risk_factors ?? [] } as SizeEvidence;
+    }
+    if (!isSizeEvidence(verdict.size_evidence)) delete verdict.size_evidence;
+  }
+  if (verdict.attachment_coverage !== undefined && !(Array.isArray(verdict.attachment_coverage) && verdict.attachment_coverage.every(isCoverageEntry))) {
+    delete verdict.attachment_coverage;
+  }
+  // size_estimate / ac_count: research telemetry (bounce criteria v2), same rule.
+  if (verdict.size_estimate !== undefined && !VALID_TSHIRTS.includes(verdict.size_estimate)) delete verdict.size_estimate;
+  if (verdict.ac_count !== undefined && !(Number.isInteger(verdict.ac_count) && verdict.ac_count >= 0)) delete verdict.ac_count;
   if (verdict.follow_up !== undefined && !isFollowUp(verdict.follow_up)) {
     delete verdict.follow_up;
   }

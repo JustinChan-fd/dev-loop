@@ -13,6 +13,62 @@ History before 2.0.0 lives in two files, one per former repo:
 - [docs/changelog/dev-loop-legacy.md](docs/changelog/dev-loop-legacy.md)
 - [docs/changelog/research-loop-legacy.md](docs/changelog/research-loop-legacy.md)
 
+## [Unreleased]
+
+Bounce criteria v2. Design:
+[bounce criteria v2](docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md),
+plan [2026-11-20-bounce-criteria-v2](docs/superpowers/plans/2026-11-20-bounce-criteria-v2.md).
+Found on MC-1435 (bounced XL after 86 s with no grounding, then landed for
+$1.73 in 8.5 min) and catalog PR #237 (4 of 6 review fixes were things the
+POC showed but no AC covered, behind a "this spec wins" clause).
+
+- `[research]` **too_large is judged after Ground, against real history.**
+  Only for two or more separately mergeable deliverables (with a split) or a
+  real risk to the dev limits (naming comparison tickets and risk factors).
+  AC count alone is never evidence; a design choice is `spec_ambiguous`; a
+  person's scope ruling is final. The loop writes `RUN_DIR/size-context.json`
+  (dev limits, median/p90 cost and minutes, per-ticket cost, QA loops, diff
+  size, research's estimate) before every research run.
+- `[research]` **Attachments become ACs.** Each design attachment is
+  inventoried (new component: everything plus layout; change: the delta;
+  styling: one line) and each item maps to an AC or a named out-of-scope
+  line, recorded as `attachment_coverage`. No blanket "spec wins". The
+  verifier checks it (item 9); qa-agent names the POC element.
+- `[research]` **The loop checks the research verdict before acting**
+  (`src/roles/research/verdict-checks.ts`): a too_large without a ground
+  phase or `size_evidence` is refused (agent_error, runs again); a ready
+  verdict with an unreadable attachment becomes a `blocked` bounce with a
+  Jira comment; a ready verdict missing coverage is warned for the first
+  `roles.research.attachmentCoverageWarnRuns` (default 5) runs, then refused.
+- `[research]` `size_estimate` and `ac_count` are logged on every research
+  run, bounced ones too, so estimate can be compared with actual.
+- `[core]` **Evals run from either path case.** `evals/lib.sh` `assert_clone`
+  compared `git rev-parse --show-toplevel` with `pwd -P`, which keep different
+  cases on case-insensitive macOS, so a run from `~/Desktop/repos/dev-loop`
+  failed preflight with "git root mismatch" (the user's live `clean` eval,
+  2026-11-20). It now asks git whether the folder is the repo root
+  (`--show-prefix` empty); a folder inside another repo is still refused.
+- `[dev]` A landed dev entry records its PR's `diff_stats`
+  (`gh pr view --json changedFiles,additions,deletions`). One-off backfill
+  for older PRs: `scripts/backfill-diff-stats.mjs` (writes a sidecar, never
+  the logs).
+
+Live check (2026-11-20): MC-1718, a clone of MC-1435's description as it was when it bounced, passed research for $2.46. It was grounded first and sized M. It named mockup variant B and listed A and C as out of scope, and wrote no "spec wins" clause. The verifier's coverage check found unmapped mockup items, for example the tile groups, quality chips and footer, and they were mapped over 3 fix rounds. All 3 attachments are in `attachment_coverage`. The loop's check accepted it.
+
+Pillar check: agents judge (fine: the agent still makes the size and
+coverage calls; the loop supplies facts and checks the parts exist). Loop
+does the mechanics (fine: stats, diff stats and checks are tested
+TypeScript). Handoff is a contract (stronger: new required fields, refused
+when missing). Security (fine: `gh` runs on the host, read-only; no new
+agent access). A bounce beats a guess (stronger). TDD (fine). Plain loop
+unchanged (fine: a project with no history or attachments gets one extra
+file and no behaviour change). **Bend:** the loop itself turns a `ready`
+verdict into a `blocked` bounce when `attachments.json` shows an unreadable
+attachment. Acceptable because it acts only on the manifest the loop wrote,
+a mechanical fact, and the rule is the user's own decision (an attachment
+is a resource the ask rests on); the agent's judgment is not overridden on
+anything it could have read.
+
 ## [2.2.0] — 2026-11-20
 
 The sbx sandbox adapter, project profiles, and catalog-ui-management on v2.

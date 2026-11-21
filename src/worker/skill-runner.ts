@@ -31,6 +31,7 @@ import type { SandboxSelection } from "../sandbox/select.ts";
 import { allowedToolsFor, HOST_ATLASSIAN_MCP } from "../core/atlassian-tools.ts";
 import { profileDenyPaths } from "../core/env-files.ts";
 import { projectJson, type ResolvedProfile } from "../core/project-profile.ts";
+import type { SizeContext } from "../core/size-context.ts";
 import { fetchAttachments, type AttachmentDeps, type AttachmentManifest } from "../core/attachments.ts";
 import { realFakeEnvDeps, ROBOT_ENV_VAR, writeFakeEnv } from "../core/fake-env.ts";
 
@@ -72,6 +73,12 @@ export interface SkillRunnerDeps {
    * Absent: nothing is fetched (tests).
    */
   attachments?: AttachmentDeps;
+  /**
+   * Research only: the facts for the size call (src/core/size-context.ts),
+   * written to RUN_DIR/size-context.json before the spawn. Absent: no file. A
+   * failure is logged, never fatal.
+   */
+  sizeContext?: () => Promise<SizeContext>;
 }
 
 /** One log line for the run's attachments. */
@@ -187,6 +194,13 @@ export function makeRunSkill(deps: SkillRunnerDeps): RunSkillFn {
     await mkdir(absRunDir, { recursive: true });
     // The skills read the app folder, Node major and dev server from here; they never guess.
     await writeFile(join(absRunDir, "project.json"), JSON.stringify(projectJson(deps.profile), null, 2) + "\n");
+    if (role === "research" && deps.sizeContext) {
+      try {
+        await writeFile(join(absRunDir, "size-context.json"), JSON.stringify(await deps.sizeContext(), null, 2) + "\n");
+      } catch (err) {
+        deps.logError(`[${skill}] ${ticketKey}: could not write size-context.json: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     try {
       await refreshFakeEnv(deps.profile);
     } catch (err) {
