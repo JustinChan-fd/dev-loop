@@ -42,7 +42,9 @@ export async function syncSandboxBranches(a: SyncArgs): Promise<BranchSync[]> {
   const remoteRefs = lines(await run("for-each-ref", "--format=%(refname)", `refs/remotes/${remote}/`))
     .map((r) => r.slice(`refs/remotes/${remote}/`.length))
     .filter((b) => b !== "HEAD");
-  const main = await run("rev-parse", "--verify", `${a.defaultBranch}^{commit}`);
+  await run("rev-parse", "--verify", `${a.defaultBranch}^{commit}`);
+  // Everything the host already has (never the sandbox's own remote refs).
+  const HOST_REFS = ["--branches", "--tags", "--remotes=origin"];
   // Every local ref, case-folded: the Mac's disk is case-insensitive, so `MAIN` is `main`
   // once written as a loose ref, even when `main` itself only lives in packed-refs.
   const localRefs = async (): Promise<Map<string, string>> =>
@@ -72,14 +74,23 @@ export async function syncSandboxBranches(a: SyncArgs): Promise<BranchSync[]> {
 
   async function syncOne(branch: string): Promise<BranchSync[]> {
     const tip = await run("rev-parse", "--verify", `refs/remotes/${remote}/${branch}^{commit}`);
-    if (await ok("merge-base", "--is-ancestor", tip, main)) return []; // nothing new
+    // "New" means not reachable from anything the host already has: its branches, tags and
+    // origin. A sandbox branch cut from your unmerged feat/x carries only its own commits.
+    const shas = lines(await run("rev-list", "--reverse", "--topo-order", tip, "--not", ...HOST_REFS));
+    if (shas.length === 0) return []; // nothing new
     if (!isSafeBranchName(branch)) {
       return [{ branch: "(unsafe name)", status: "failed", ...empty, detail: `unsafe branch name ${JSON.stringify(branch)}; read it with git log ${remote} --all` }];
     }
-    const baseR = await a.git(["merge-base", tip, main], a.repo).then((x) => x.trim(), () => "");
-    if (!baseR) return [{ branch, status: "failed", ...empty, detail: `no history in common with ${a.defaultBranch}; not synced` }];
-    const base = baseR;
-    const shas = lines(await run("rev-list", "--reverse", `${base}..${tip}`));
+    // The host commit the new ones grew from: the first new commit's only parent.
+    const parents = (await run("rev-list", "--parents", "-n", "1", shas[0])).split(" ").slice(1);
+    if (parents.length === 0) return [{ branch, status: "failed", ...empty, detail: `no history in common with your branches; not synced` }];
+    if (parents.length > 1) return [{ branch, status: "failed", ...empty, detail: "has a merge commit; refusing to rewrite (rebase it in the sandbox)" }];
+    const base = parents[0];
+    // A linear run: every new commit's parent is the one before it (else a merge or a side branch).
+    const chain = lines(await run("rev-list", "--reverse", `${base}..${tip}`));
+    if (chain.join() !== shas.join() || lines(await run("rev-list", "--merges", tip, "--not", ...HOST_REFS)).length > 0) {
+      return [{ branch, status: "failed", ...empty, detail: "has a merge commit or a side branch; refusing to rewrite (rebase it in the sandbox)" }];
+    }
     // -z: raw paths (git C-quotes non-ASCII and special characters otherwise).
     const z = (await raw("diff", "--numstat", "-z", "--no-renames", base, tip)).split("\0").filter(Boolean);
     const numstat = z.map((rec) => rec.split("\t"));

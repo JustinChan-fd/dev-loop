@@ -235,4 +235,24 @@ describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
     expect(r.find((x) => x.branch === "orphan")).toMatchObject({ status: "failed" });
     expect(r.find((x) => x.branch === "feat/good")).toMatchObject({ status: "synced" });
   });
+
+  it("counts only commits the host lacks: a branch cut from an unmerged host branch syncs just its own commit", async () => {
+    // The host has an unmerged branch that touches a protected file.
+    await h("checkout", "-q", "-b", "feat/host");
+    writeFileSync(join(host, "CLAUDE.md"), "host rules\n");
+    await h("add", "-A");
+    await h("commit", "-q", "-m", "host change to CLAUDE.md");
+    const hostTip = await h("rev-parse", "HEAD");
+    await h("checkout", "-q", "main");
+    // The sandbox branches from it and adds one ordinary commit.
+    await b("fetch", "-q", "origin", "feat/host:feat/host");
+    await b("checkout", "-q", "-b", "smoke/test", "feat/host");
+    await boxCommit("SMOKE.md", "smoke\n", "smoke");
+    const r = await run();
+    expect(r.find((x) => x.branch === "feat/host")).toBeUndefined(); // nothing new there
+    expect(r.find((x) => x.branch === "smoke/test")).toEqual({ branch: "smoke/test", status: "synced", commits: 1, adds: 1, dels: 0, files: 1, hits: [] });
+    // Re-signed on top of the host's own commit, which is untouched.
+    expect(await h("rev-parse", "smoke/test~1")).toBe(hostTip);
+    expect(await h("log", "-1", "--format=%G?", "smoke/test")).toBe("G");
+  });
 });
