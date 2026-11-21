@@ -35,10 +35,10 @@
         "piiNoImpactOptionId": "14310",
         "qaNotesField": "customfield_14226"
       },
-      "ceilings": { "maxCostPerRunUsd": 20, "runTimeoutMin": 75 }
+      "ceilings": { "maxCostPerRunUsd": 40, "runTimeoutMin": 150 }
     }
   },
-  "ceilings": { "maxRunsPerDay": 100, "maxAttemptsPerTicket": 2, "maxCostPerTicketUsd": 50 },
+  "ceilings": { "maxRunsPerDay": 100, "maxAttemptsPerTicket": 2, "maxCostPerTicketUsd": 90 },
   "sandbox": {
     "mode": "discover",
     "sbx": {

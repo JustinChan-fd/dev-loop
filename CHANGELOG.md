@@ -19,6 +19,9 @@ Steps 1–3 built (plan 2026-11-12-sandbox-adapter-foundation.md, then the
 sbx adapter, not yet dogfooded). Design:
 [docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md).
 
+- `[dev]` catalog-ui-management's dev limits are raised to $40 and 150 minutes per run,
+  and its per-ticket cap to $90, so one XL ticket (MC-1435, about 30 files) can
+  land as one PR. The other projects keep $20 and 75 minutes.
 - `[core]` **A blocker can clear on its Jira status** (`jira.blockerClearedStatuses`).
   Found on the first catalog run: MC-1435 "is blocked by" MC-1431, a
   catalog-svc-management ticket already Deployed to INT. The gate only knew

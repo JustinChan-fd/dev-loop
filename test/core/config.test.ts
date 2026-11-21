@@ -322,6 +322,12 @@ describe("the three project config files", () => {
     expect(c.roles.dev.pollJql).toContain("AND statusCategory != Done");
   });
 
+  it("catalog-ui-management: dev 40/150 and a $90 per-ticket cap (room for one-PR XL tickets)", async () => {
+    const c = await loadConfig(path.join(REPO_ROOT, "pipeline.catalog-ui-management.config.json"));
+    expect(c.roles.dev.ceilings).toEqual({ maxCostPerRunUsd: 40, runTimeoutMin: 150 });
+    expect(c.ceilings.maxCostPerTicketUsd).toBe(90);
+  });
+
   it("catalog-ui-management config: v2 labels, sbx block, local profile, no assignee clause", async () => {
     const { preflight } = await import("../../src/core/cli-args.ts");
     const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")) as { version: string };
@@ -438,6 +444,10 @@ describe("per-role equivalence with the legacy config files", () => {
         role === "research"
           ? beforeOrderBy(expected.pollJql as string, EVAL)
           : beforeOrderBy(withNotDone(legacyDevJql.replace(' AND assignee = "{assignee}"', "")), EVAL);
+    }
+    // catalog-ui-management dev limits raised for one-PR XL tickets (MC-1435, 2026-11-20).
+    if (project === "catalog-ui-management" && role === "dev") {
+      expected.limits = { ...(expected.limits as object), maxCostPerRunUsd: 40, runTimeoutMin: 150 };
     }
     expect(actual).toEqual(expected);
   });
