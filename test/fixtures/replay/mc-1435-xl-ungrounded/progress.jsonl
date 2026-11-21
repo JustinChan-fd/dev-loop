@@ -1,0 +1,3 @@
+{"ts":"2026-11-21T00:27:35Z","phase":"triage","event":"phase_start","detail":"MC-1435"}
+{"ts":"2026-11-21T00:28:28Z","phase":"scope","event":"note","detail":"step4_tshirt: XL"}
+{"ts":"2026-11-21T00:28:28Z","phase":"scope","event":"result","detail":"RESULT: bounced (too_large) — too_large: ticket bundles data layer (service method, adapter, country-keyed view-model), 3+ new UI components, a new theme token, country-first dialog layout with 5 states, read-only gating, mobile layout, tests and stories; 10+ behavior ACs. Suggested split attached on Jira/GitHub"}

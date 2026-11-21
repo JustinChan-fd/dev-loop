@@ -1,0 +1,27 @@
+{
+  "ticket": "MC-1718",
+  "dir": "attachments",
+  "attachments": [
+    {
+      "id": "682205",
+      "filename": "MC-1435-availability-source-picker-mockup.html",
+      "size": 100220,
+      "status": "fetched",
+      "path": "attachments/MC-1435-availability-source-picker-mockup.html"
+    },
+    {
+      "id": "682206",
+      "filename": "MC-1435-availability-source-picker-mockup.png",
+      "size": 417697,
+      "status": "fetched",
+      "path": "attachments/MC-1435-availability-source-picker-mockup.png"
+    },
+    {
+      "id": "682207",
+      "filename": "MC-1435-avatar-availability-sources.json",
+      "size": 313893,
+      "status": "fetched",
+      "path": "attachments/MC-1435-avatar-availability-sources.json"
+    }
+  ]
+}

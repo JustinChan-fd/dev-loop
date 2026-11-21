@@ -1,0 +1,7 @@
+{
+  "source": "MC-1435 research-20261121T004235Z: bounced spec_ambiguous, the response sample was in an attachment research could not read (before the loop fetched attachments)",
+  "cases": [
+    { "coverageWarnsSoFar": 0, "check": { "action": "accept" } }
+  ],
+  "grade": { "expect": { "outcomes": ["bounced"], "failureCategory": { "allow": ["spec_ambiguous", "blocked"] } }, "pass": true }
+}

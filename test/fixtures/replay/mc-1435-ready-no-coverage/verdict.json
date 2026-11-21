@@ -1,0 +1,1 @@
+{"outcome":"ready","phase_reached":"verify","failure_category":null,"detail":"ready — refined ticket written (after 1 fix/re-verify cycle)","skill_version":"unknown","model":"sonnet","cost_usd":0,"tokens":{"in":0,"out":0},"log_version":"1.1","size_trajectory":{"step4_tshirt":"M","delta":"unchanged","final_score":3.0}}

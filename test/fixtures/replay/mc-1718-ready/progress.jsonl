@@ -1,0 +1,14 @@
+{"ts":"2026-11-21T04:11:02Z","phase":"triage","event":"phase_start","detail":"MC-1718 research start"}
+{"ts":"2026-11-21T04:15:45Z","phase":"triage","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"interpret","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"ground","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"attack","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"scope","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"blocked-check","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"synthesize","event":"phase_end","detail":"done"}
+{"ts":"2026-11-21T04:15:45Z","phase":"scope","event":"note","detail":"step4_tshirt: M"}
+{"ts":"2026-11-21T04:17:00Z","phase":"verify","event":"note","detail":"self-heal cycle 1: verifier named unmapped mockup items (tile groups/price ranges/quality chips, status note, footer, copy, preview controls) and missing fails-now statements; fixed in draft-spec.md from mockup code"}
+{"ts":"2026-11-21T04:17:19Z","phase":"verify","event":"note","detail":"self-heal cycle 1: verifier named unmapped mockup items (tile groups/price ranges/quality chips, status note, footer, copy, preview controls) and missing fails-now statements; fixed in draft-spec.md from mockup code"}
+{"ts":"2026-11-21T04:19:47Z","phase":"verify","event":"note","detail":"self-heal cycle 2: verifier named undefined preview/showAll/count for serviceTiles, checked radio, SourceOption move ordering, and mockup copy/logo CSS/error text/title; fixed in draft-spec.md from mockup code"}
+{"ts":"2026-11-21T04:20:48Z","phase":"verify","event":"note","detail":"self-heal cycle 3: verifier named missing country-hint line and source card order; added to AC4/AC5 from mockup code"}
+{"ts":"2026-11-21T04:21:42Z","phase":"verify","event":"result","detail":"ready — refined ticket written (after 3 fix/re-verify cycles)"}
