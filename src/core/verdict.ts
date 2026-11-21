@@ -210,6 +210,9 @@ export function parseVerdict(
     const ok = Array.isArray(v) && v.every((t) => typeof t === "string" && t.length > 0);
     if (!ok) delete verdict.preexisting_failures;
   }
+  // size_estimate / ac_count: research telemetry (bounce criteria v2), same rule.
+  if (verdict.size_estimate !== undefined && !VALID_TSHIRTS.includes(verdict.size_estimate)) delete verdict.size_estimate;
+  if (verdict.ac_count !== undefined && !(Number.isInteger(verdict.ac_count) && verdict.ac_count >= 0)) delete verdict.ac_count;
   if (verdict.follow_up !== undefined && !isFollowUp(verdict.follow_up)) {
     delete verdict.follow_up;
   }

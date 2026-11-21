@@ -209,6 +209,22 @@ describe("parseVerdict: refine profile", () => {
     expect(verdict.outcome).toBe("ready");
   });
 
+  it("keeps a valid size_estimate and drops an invalid one without flipping the outcome", () => {
+    expect(parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_estimate: "M" }), "refine").size_estimate).toBe("M");
+    const bad = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_estimate: "XXL" }), "refine");
+    expect(bad.outcome).toBe("ready");
+    expect("size_estimate" in bad).toBe(false);
+  });
+
+  it("keeps a non-negative integer ac_count and drops anything else", () => {
+    expect(parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ac_count: 7 }), "refine").ac_count).toBe(7);
+    for (const v of [-1, "7", 1.5]) {
+      const p = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, ac_count: v }), "refine");
+      expect(p.outcome).toBe("ready");
+      expect("ac_count" in p).toBe(false);
+    }
+  });
+
   it("keeps a well-formed size_trajectory", () => {
     const traj = { step4_tshirt: "M", delta: "unchanged", final_score: 4.5 };
     const verdict = parseVerdict(JSON.stringify({ ...minimalRefineVerdict, size_trajectory: traj }), "refine");

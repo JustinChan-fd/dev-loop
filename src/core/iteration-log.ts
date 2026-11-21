@@ -8,7 +8,7 @@ import { redactSensitive } from "./redact.ts";
 import { resolveRepoPath, SESSION_ID, TICKET_KEY, v1PreCutoverRunsLog, v1RunsLog, v2RunsLog } from "./paths.ts";
 import type { SandboxDenial } from "../sandbox/types.ts";
 import type { DiffStats } from "./diff-stats.ts";
-import type { FailureCategory, FollowUp, PhaseReached, Role, RunOutcome, SizeTrajectory } from "./types.ts";
+import type { FailureCategory, FollowUp, PhaseReached, Role, RunOutcome, SizeTrajectory, TShirtSize } from "./types.ts";
 
 /** Which sandbox a run went through (spec §6). Instance names carry no PII, so they are logged as-is. */
 export interface RunSandboxMeta {
@@ -40,6 +40,9 @@ export interface PhaseEntry {
   verify_loops?: number;
   retries?: number;
   size_trajectory?: SizeTrajectory;
+  /** Research entries: the verdict's size_estimate (every outcome) and ac_count, when reported. */
+  size_estimate?: TShirtSize;
+  ac_count?: number;
   /** Dev entries: tests that also fail on the unmodified base branch (Ruling 29). */
   preexisting_failures?: string[];
   /** Dev entries: the follow-up ticket filed for them, and its fix PR (Ruling 30). */

@@ -174,6 +174,10 @@ export interface Verdict {
    * `outcome` to "error"; it is dropped at the parse boundary instead.
    */
   size_trajectory?: SizeTrajectory;
+  /** Research: Step 4's size read, written on every outcome (bounce criteria v2). Dropped if malformed. */
+  size_estimate?: TShirtSize;
+  /** Research: the refined ticket's behaviour-AC count, a note for Step 4 (never too_large evidence alone). */
+  ac_count?: number;
 }
 
 /** What a sandboxed dev run hands the host so it can sign, push and open the PR. */

@@ -131,6 +131,15 @@ describe("runResearchPhase", () => {
     expect(entry.cost_usd).toBe(0);
   });
 
+  it("carries size_estimate and ac_count on a bounced run too", async () => {
+    const e = await runResearchPhase(
+      makeTicket(),
+      makeDeps({ runSkill: skill(verdict({ outcome: "bounced", failure_category: "spec_ambiguous", size_estimate: "L", ac_count: 9 })) }),
+    );
+    expect(e.size_estimate).toBe("L");
+    expect(e.ac_count).toBe(9);
+  });
+
   describe("size_trajectory", () => {
     it("carries a well-formed size_trajectory", async () => {
       const entry = await runResearchPhase(

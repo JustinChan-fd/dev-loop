@@ -76,6 +76,7 @@ import { realProfileDeps, resolveProjectProfile, type ResolvedProfile } from "./
 import { notify } from "./core/notify.ts";
 import { recordAdoptedFlights, runWorkerIteration, type WorkerDeps } from "./worker/cycle.ts";
 import { realPrDiffStats } from "./core/diff-stats.ts";
+import { loadSizeContext } from "./core/size-context.ts";
 import { makeRunSkill, sandboxInstancePrefix, sandboxMounts, sandboxPreflightInstanceName } from "./worker/skill-runner.ts";
 import { reconcileMergedTickets } from "./roles/dev/reconcile.ts";
 import { loadResearchStance, REFINE_SKILL_MD_PATH } from "./roles/research/startup.ts";
@@ -236,6 +237,7 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
       log,
       logError,
       profile: ctx.profile,
+      sizeContext: () => loadSizeContext(slug, config, new Date()),
       attachments: {
         list: (key) => ctx.jiraClient.listAttachments(key),
         download: (a) => ctx.jiraClient.downloadAttachment(a.id),

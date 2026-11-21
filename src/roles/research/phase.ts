@@ -68,6 +68,8 @@ export async function runResearchPhase(ticket: JiraTicket, deps: ResearchPhaseDe
     ...(verdict.retries !== undefined ? { retries: verdict.retries } : {}),
     // Already sanitized by parseVerdict: a malformed value never reaches here.
     ...(verdict.size_trajectory !== undefined ? { size_trajectory: verdict.size_trajectory } : {}),
+    ...(verdict.size_estimate !== undefined ? { size_estimate: verdict.size_estimate } : {}),
+    ...(verdict.ac_count !== undefined ? { ac_count: verdict.ac_count } : {}),
     ...(jiraSyncError !== undefined ? { jira_sync_error: jiraSyncError } : {}),
   };
 }
