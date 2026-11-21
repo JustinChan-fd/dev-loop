@@ -86,7 +86,7 @@ h2 { font-size: 1.3rem; }
 p { margin: 0; max-width: 70ch; }
 .col > * { min-width: 0; }
 .pillars-sec { gap: 12px; }
-.pillars { margin: 0; padding: 0; list-style: none; counter-reset: p; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.pillars { margin: 0; padding: 0; list-style: none; counter-reset: p; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .pillars li { counter-increment: p; display: grid; align-content: start; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; font-size: .95rem; color: var(--muted); }
 .pillars li::before { content: counter(p, decimal-leading-zero); font-family: var(--display); font-weight: 600; font-size: .95rem; color: var(--muted); }
 .pillars li b { color: var(--ink); font-size: 1rem; line-height: 1.35; }
@@ -258,6 +258,8 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
 .no { color: var(--muted); }
 .note { color: var(--muted); font-size: .92rem; }
+.build-cmd { white-space: normal; display: grid; gap: 2px; }
+.build-cmd div { white-space: pre; overflow-x: auto; }
 .guide-foot { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
 .guide-foot a { color: var(--ink); white-space: nowrap; }
 .toc a.whatsnew { border-style: dashed; }
@@ -368,19 +370,20 @@ ol.steps li.rest { opacity: .45; }
       <svg class="ext" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M9.5 2.5h4v4M13.5 2.5 7 9M12 9.5v3.25c0 .41-.34.75-.75.75h-8c-.41 0-.75-.34-.75-.75v-8c0-.41.34-.75.75-.75H6.5"/></svg>
     </a>
     <nav class="toc" aria-label="On this page"><span class="toc-label">On this page</span>
-      <a href="#pillars-h">1. Key pillars</a><a href="#workflow-h">2. See it work</a><a href="#env-h">3. Settings and secrets</a><a href="#repos-h">4. Repos</a><a class="whatsnew" href="changelog.html">What's new</a>
+      <a href="#pillars-h">1. Key pillars</a><a href="#workflow-h">2. See it work</a><a href="#env-h">3. Settings and secrets</a><a href="#repos-h">4. Repos</a><a href="#build-h">5. How we build dev-loop</a><a class="whatsnew" href="changelog.html">What's new</a>
     </nav>
   </header>
 </div>
 <main>
   <section class="col pillars-sec sec" aria-labelledby="pillars-h">
-    <div class="sec-head"><span class="eyebrow">01</span><h2 id="pillars-h">Key pillars</h2><p class="sub">The five rules every part of dev-loop follows.</p></div>
+    <div class="sec-head"><span class="eyebrow">01</span><h2 id="pillars-h">Key pillars</h2><p class="sub">The six rules every part of dev-loop follows.</p></div>
     <ol class="pillars">
       <li><b>The robot thinks, the loop does the routine.</b> The robot (its skills) reads, plans and writes code. dev-loop's own code does the fixed steps: Jira, GitHub, signing, cleanup.</li>
       <li><b>Tests first, always.</b> Every requirement gets a failing test before any code is written.</li>
       <li><b>A bounce beats a guess.</b> If something is unclear or won't work, the robot stops and says why instead of guessing.</li>
       <li><b>Your key stays with you.</b> Only your Mac signs and sends. The robot never holds your key.</li>
       <li><b>Locked down when you want it.</b> With a safety room, the robot reaches only approved services.</li>
+      <li><b>We follow our own rules.</b> dev-loop is built the same way it builds your repos: long unattended work runs in a safety room, your Mac signs and sends, and every change reaches main through a PR you approve.</li>
     </ol>
   </section>
 
@@ -431,6 +434,7 @@ ol.steps li.rest { opacity: .45; }
         <a href="img/sbx-dashboard.png" target="_blank" rel="noopener" title="Open full size"><img src="img/sbx-dashboard.png" alt="Two Terminal windows side by side. Left: sbx's dashboard showing the sandbox dl-12-webtarsthree-tars-1634-research and its network log of 6 hosts, all allowed: api.anthropic.com, the Bedrock gateway, mcp-gateway.docker.internal, deb.debian.org, deb.nodesource.com and dhi.io. Right: npm run loop with --sandbox=sbx, which opened the dashboard, picked up TARS-1634, created its GitHub Issue and started the research phase in that sandbox."></a>
         <p class="small-note">Click the picture to open it full size.</p>
         <p><b>Left:</b> sbx's dashboard. <b>Right:</b> the loop that started it. With <code>--sandbox=sbx</code>, dev-loop opens the dashboard in a new Terminal window (skip it with <code>--no-dashboard</code>, or open it yourself with <code>npm run sbx:dashboard</code>). Each safety room shows up here while it runs, with every host it tried and whether sbx let it through.</p>
+        <p>Working on dev-loop itself uses the same safety room: <code>npm run claude:sbx</code> runs Claude Code on the same sbx kit, template and network rules, with GitHub blocked as well.</p>
         <p>Some hosts here are sbx's own, not dev-loop's: when a safety room starts, sbx's Claude setup refreshes its package lists (<code>deb.debian.org</code>, <code>dhi.io</code>, <code>deb.nodesource.com</code>) and checks in with <code>api.anthropic.com</code>. <code>mcp-gateway.docker.internal</code> is sbx's link back to your Mac for tools. The robot's AI work itself goes through Bedrock.</p>
       </div>
     </dialog>
@@ -454,6 +458,13 @@ ol.steps li.rest { opacity: .45; }
     <div class="tablewrap"><table id="repos"></table></div>
   </section>
 
+  <section class="envsec sec" aria-labelledby="build-h">
+    <div class="sec-head"><span class="eyebrow">05</span><h2 id="build-h">How we build dev-loop</h2><p class="sub">The same rules, on dev-loop's own code. Two ways to start Claude on it; which one is your call each session, and long unattended work is offered the sandbox first.</p></div>
+    <div class="cmd build-cmd" aria-label="The two commands"><div>claude --dangerously-skip-permissions   # normal session, unchanged</div><div>npm run claude:sbx                      # same, but inside the sandbox</div></div>
+    <div class="tablewrap"><table id="build"></table></div>
+    <p class="note">Details, including the overnight mode and how the work comes back: <a href="https://github.com/JustinChan-fd/dev-loop/blob/main/docs/sandbox-sbx.md#dev-loop-sessions"><code>docs/sandbox-sbx.md</code>, "Dev-loop sessions"</a>.</p>
+  </section>
+
 
   <p class="note" id="updated"></p>
   <footer class="note guide-foot" id="guide-foot"></footer>
@@ -465,10 +476,21 @@ ol.steps li.rest { opacity: .45; }
 /* ===== DATA: the only place facts live. Update when dev-loop changes. ===== */
 const DATA = {
   /* The guide's own version; bump it with an entry in guide-changes.js (see the header comment). */
-  guideVersion: "1.0.0",
+  guideVersion: "1.1.0",
   updated: "2026-11-20",
   /* package.json version this page was checked against. */
   loopVersion: "2.2.0",
+  /* Section 05: the two ways to start Claude on dev-loop itself (README, "Starting a session"). */
+  build: {
+    cols: ["Plain claude", "claude:sbx"],
+    rows: [
+      ["Runs on", "your Mac", "a Docker sbx safety room (Linux)"],
+      ["Repo it edits", "your checkout", "its own copy; your checkout is untouched"],
+      ["GitHub", "yes, your login", "blocked; you push after sync"],
+      ["Signing", "your key", "unsigned inside; your Mac re-signs at sync"],
+      ["Getting work back", "it's already there", "automatic when you exit (npm run claude:sbx:sync after an overnight run), then you push and open a PR"],
+    ],
+  },
   /* Jira statuses every repo's config uses (jira.claimStatus / statusNames). */
   status: { todo: "To Do", bounced: "Blocked", prOpen: "Code Review" },
   repos: [
@@ -1002,6 +1024,11 @@ document.addEventListener("keydown", (e) => {
 });
 
 drawRepos();
+(function drawBuild() {
+  const b = DATA.build, t = document.getElementById("build");
+  const esc = (x) => String(x).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  t.innerHTML = `<thead><tr><th></th>${b.cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r) => `<tr><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join("")}</tbody>`;
+})();
 render();
 document.getElementById("updated").textContent = "Batch mode is planned and will get its own picture.";
 (function guideFoot() {

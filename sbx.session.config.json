@@ -1,0 +1,30 @@
+{
+  "sandbox": {
+    "sbx": {
+      "kitDir": "~/Desktop/Repos/keystone-bedrock-kit",
+      "template": "docker.io/library/dev-loop-sbx:v2",
+      "memory": "8g"
+    }
+  },
+  "session": {
+    "denyNetwork": [
+      "github.com",
+      "api.github.com"
+    ],
+    "protectedPaths": [
+      ".claude/",
+      "CLAUDE.md",
+      "scripts/check-*",
+      ".github/",
+      ".mcp.json",
+      "package.json",
+      "package-lock.json",
+      ".npmrc",
+      "sbx.session.config.json"
+    ],
+    "plugins": [
+      "superpowers@claude-plugins-official"
+    ],
+    "npmRegistry": "https://nexus3.mgo.com/repository/fd-npm-all/"
+  }
+}

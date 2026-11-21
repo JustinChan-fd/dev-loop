@@ -52,6 +52,18 @@ via `--append-system-prompt`. Edit the stance there, not here.
 - **Security follows the same line.** Credentials and signing keys stay
   with the loop on the host. A sandboxed agent produces work but never
   decides what gets signed or published.
+- **Long unattended work runs in a sandbox, and you're asked first.**
+  Sandbox or host is the user's call, each session. Before anything that
+  runs without the human (an overnight build, a loop batch, a long eval),
+  the host session or orchestrator offers `npm run claude:sbx` first,
+  naming what the sandbox can reach. The overnight launcher only starts
+  inside a sandbox. Running unsandboxed is an explicit choice, never the
+  default, and is written down. The same holds for dev-loop's own code:
+  two ways to start a session are in README, "Starting a session".
+- **Every change reaches main through a PR the user merges.** `main` on
+  GitHub requires a PR (no direct push, no force-push, enforced for admins).
+  A sandboxed session never pushes: `claude:sbx:sync` brings its branches
+  back re-signed, and the user pushes and opens the PR.
 - **Before every merge, check the pillars.** At the end of a session or a
   large group of changes, list each change against each pillar above (and
   TDD, "a bounce beats a guess", "plain loop unchanged"): breaks, bends or
@@ -103,7 +115,8 @@ Each doc has `## Research phase` and `## Dev phase` sections.
 - `docs/logging.md` — `runs/<project>.jsonl`, per-run `progress.jsonl`,
   `.pipeline/` layout, the `stats` script.
 - `docs/sandbox-sbx.md` — setting up the sbx sandbox adapter (kit, node, secrets,
-  discover run).
+  discover run), and "Dev-loop sessions": `npm run claude:sbx` vs plain
+  `claude --dangerously-skip-permissions`, and `claude:sbx:sync`.
 - `docs/adapters/sbx/` — sbx how-tos (`templates.md`: build, update, roll back
   the sandbox template from `sandbox/sbx/template.sh`).
 - `docs/guide/how-dev-loop-works.html` — the plain-language, interactive picture

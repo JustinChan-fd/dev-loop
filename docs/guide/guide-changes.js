@@ -22,6 +22,17 @@
 
   window.GUIDE_CHANGES = [
     {
+      version: "1.1.0",
+      date: "2026-11-20",
+      title: "We follow our own rules",
+      items: [
+        { text: "Pillar 06, \"We follow our own rules\": dev-loop is built the way it builds your repos. Long unattended work runs in a safety room, your Mac signs and sends, and every change reaches main through a PR you approve." },
+        { text: "New section 05, \"How we build dev-loop\": the two ways to start Claude on dev-loop itself (plain claude, or npm run claude:sbx inside the sandbox) and how they differ.",
+          links: [{ label: "Dev-loop sessions", href: GH + "docs/sandbox-sbx.md#dev-loop-sessions" }, { label: "spec", href: SPEC + "2026-11-20-claude-sbx-design.md" }] },
+        { text: "The sbx dashboard note says npm run claude:sbx uses the same kit, template and network rules as the robot's safety room." },
+      ],
+    },
+    {
       version: "1.0.0",
       date: "2026-11-20",
       title: "First versioned guide",

@@ -851,6 +851,71 @@ N-instances-per-project idea tracked in research-loop's doc.
 
 ## Both phases
 
+### Split the sbx code into its own package
+
+**Idea**: move `src/sandbox/sbx/` (adapter, session, sync) into its own npm
+package. **Trigger**: a second repo outside dev-loop needs it, or the sbx
+code needs its own release schedule. Until then one repo is simpler
+(decided 2026-11-20 with `claude:sbx`).
+
+### A dev-loop-scoped GitHub token for session sandboxes
+
+**Idea**: a fine-grained token limited to `JustinChan-fd/dev-loop`, so a
+`claude:sbx` session could push its own branch (never `main`). **Today**:
+GitHub is denied for session sandboxes. The stored sbx `github` token is
+fandango-scoped and can't reach a user-owned repo. Sync re-signs on the
+host, and the user pushes. **Trigger**: syncing by hand becomes the
+bottleneck.
+
+### Limits for `claude:sbx --overnight` (deadline, idle stop)
+
+**Idea**: `--deadline=HH:MM` and `--idle-minutes=N` on `--overnight`, with
+defaults. When a limit trips, the run is stopped (`screen -X quit`, then
+`sbx stop`, never `rm`, so its commits stay syncable) and the log says which
+limit it was. The decisions are pure functions with tests. **Evidence**: the
+first overnight runs (2026-11-21). With `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`
+nothing ends a run that is stuck or past morning. A one-night host script
+(`/tmp/overnight-watchdog.sh`, written by the overnight session) did this
+from outside: no commit or file change in 60 minutes, no `claude` process
+left, the sandbox unreachable, or 07:00. **Gap it leaves**: a fix-and-fail
+loop that keeps editing files counts as activity. A cap on turns or cost
+would cover that. **Idle means anywhere**: the script's probe watched only
+`.worktrees/`, but run 3 worked in the clone's root; a built-in check should
+use the stream log's mtime and git activity across the repo, not a fixed path.
+**Trigger**: the next `--overnight` run.
+
+### The full suite inside a `claude:sbx` sandbox
+
+**Idea**: make `npm test` fully green inside the sandbox. **Evidence**: run 3
+(2026-11-21): `/tmp` there is overlayfs, where a file's `st_dev` can differ
+from its directory's, so `migrate-v1-folders.mjs --write` refuses ("rename
+cannot cross volumes") even `/tmp` to `/tmp`: 2 failures in
+`test/scripts/migrate-v1-folders.test.ts`, also on main. `/dev/shm` (64 MB)
+gives 19; a `TMPDIR` inside the repo trips the harness clean-app guard (5).
+**Options**: the template mounts a tmpfs `/tmp`; the launcher sets `TMPDIR`
+to a dir outside the repo on one filesystem; or the script compares the
+directories' devices and keeps the `EXDEV` refusal as the real guard.
+Check which in a throwaway sandbox first. **Trigger**: before the next
+overnight run that changes `scripts/`.
+
+### Smaller friction from the first overnight runs (2026-11-21)
+
+- `block-unsafe-git.sh` runs on every Bash call and refused a non-git `sed`
+  with nested quotes ("could not verify"). It could pass commands that don't
+  mention git. A hook change, so it gets its own review.
+- `~/Desktop/Repos/` is root-owned inside, so no sibling repos: eval work
+  can't check catalog-ui-management pins. An optional read-only mount of
+  named sibling repos would help.
+- The template has no browser; run 2 seemed to find Chromium, run 3 didn't.
+  Find out why before guide edits are left to a sandbox.
+
+### `claude:sbx` from a git worktree
+
+**Idea**: let `npm run claude:sbx` start from a worktree. **Today**: sbx
+refuses `--clone` from a git worktree, so the launcher always clones the main
+checkout. A worktree-only branch is still there (same repo). **Trigger**: sbx
+supports it, or a worktree's uncommitted changes need to go in.
+
 ### Already-merged check before either phase starts
 
 **Idea**: before research or dev starts, search git and GitHub for the
