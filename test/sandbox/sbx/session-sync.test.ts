@@ -14,7 +14,7 @@ try { execFileSync("ssh-keygen", ["-?"], { stdio: "ignore" }); } catch (e) {
 }
 
 const NAME = "dl-session-t";
-const PROTECTED = ["CLAUDE.md", ".claude/hooks/"];
+const PROTECTED = ["CLAUDE.md", ".claude/"];
 
 describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
   let tmp: string, host: string, box: string, key: string;
@@ -146,5 +146,93 @@ describe.skipIf(!hasKeygen)("syncSandboxBranches", () => {
     expect(r[0]).toMatchObject({ branch: "feat/a", status: "failed" });
     expect(r[0].detail).toMatch(/signing failed/);
     await expect(h("rev-parse", "--verify", "-q", "refs/heads/feat/a")).rejects.toThrow();
+  });
+  // --- review fixes (case-insensitive APFS, quoting, shadowing, history) ---
+
+  it("never overwrites main through a case variant, even when refs are packed", async () => {
+    await h("pack-refs", "--all");
+    const before = await h("rev-parse", "main");
+    // In the sandbox (Linux) MAIN and main are different branches; here the box
+    // is on the same Mac disk, so make MAIN a packed ref there without a loose file.
+    await b("checkout", "-q", "-b", "evil-tmp");
+    await boxCommit("evil", "evil\n", "evil on MAIN");
+    const evil = await b("rev-parse", "HEAD");
+    await b("checkout", "-q", "main");
+    await b("branch", "-D", "evil-tmp");
+    await b("pack-refs", "--all");
+    // packed-refs is sorted by byte order (MAIN before main); keep it so, or git skips the entry.
+    const packed = readFileSync(join(box, ".git", "packed-refs"), "utf8").split("\n").filter(Boolean);
+    const [head, ...rest] = packed;
+    writeFileSync(join(box, ".git", "packed-refs"), [head, ...[...rest, `${evil} refs/heads/MAIN`].sort((x, y) => (x.split(" ")[1] < y.split(" ")[1] ? -1 : 1))].join("\n") + "\n");
+    expect(await b("ls-remote", "--heads", ".")).toContain("refs/heads/MAIN");
+    const r = await run();
+    const row = r.find((x) => x.branch.toLowerCase().includes("main"));
+    expect(row?.status).toBe("failed");
+    expect(row?.detail).toMatch(/differ only in case/);
+    expect(r.some((x) => x.status === "synced")).toBe(false);
+    expect(await h("rev-parse", "main")).toBe(before);
+  });
+
+  it("never overwrites an existing packed branch through a case variant", async () => {
+    await h("branch", "feat/x");
+    await h("pack-refs", "--all");
+    const before = await h("rev-parse", "feat/x");
+    await b("checkout", "-q", "-b", "feat/X");
+    await boxCommit("y", "y\n", "y");
+    const r = await run();
+    expect(r[0]).toMatchObject({ branch: "feat/X", status: "exists" });
+    expect(await h("rev-parse", "refs/heads/feat/x")).toBe(before);
+  });
+
+  it("catches a protected path written in another case", async () => {
+    await b("checkout", "-q", "-b", "feat/c");
+    await boxCommit("claude.md", "pwn\n", "lower");
+    await boxCommit(".Claude/Settings.json", "{}\n", "upper");
+    const r = await run();
+    expect(r[0]).toMatchObject({ status: "protected" });
+    expect(r[0].hits.sort()).toEqual([".Claude/Settings.json", "claude.md"]);
+  });
+
+  it("catches a protected path with non-ASCII characters (git would quote it)", async () => {
+    await b("checkout", "-q", "-b", "feat/q");
+    await boxCommit(".claude/hooks/\u00e9.sh", "x\n", "quoted");
+    const r = await run();
+    expect(r[0]).toMatchObject({ status: "protected", hits: [".claude/hooks/\u00e9.sh"] });
+  });
+
+  it("catches a protected change hidden in a commit that a later commit reverts", async () => {
+    await b("checkout", "-q", "-b", "feat/h");
+    await boxCommit("CLAUDE.md", "pwn\n", "change");
+    await b("rm", "-q", "CLAUDE.md");
+    await b(...agent, "commit", "-q", "-m", "revert");
+    await boxCommit("ok.txt", "ok\n", "ok");
+    const r = await run();
+    expect(r[0]).toMatchObject({ status: "protected", hits: ["CLAUDE.md"] });
+  });
+
+  it("refuses a branch name that would shadow a host ref (origin/main, a tag)", async () => {
+    await h("remote", "add", "origin", box);
+    await h("tag", "v1");
+    for (const name of ["origin/main", "v1", "refs/x", "tags/x", "x/HEAD"]) {
+      await b("checkout", "-q", "-B", name, "main");
+      await boxCommit(`f-${name.replace(/\//g, "_")}`, "z\n", name);
+    }
+    const r = await run();
+    for (const name of ["origin/main", "v1", "refs/x", "tags/x", "x/HEAD"]) {
+      const row = r.find((x) => x.branch === name || x.detail?.includes(JSON.stringify(name)));
+      expect(row, name).toBeDefined();
+      expect(row!.status, name).toBe("failed");
+    }
+    await expect(h("rev-parse", "--verify", "-q", "refs/heads/origin/main")).rejects.toThrow();
+  });
+
+  it("reports one bad branch (no common history) and still syncs the others", async () => {
+    await b("checkout", "-q", "--orphan", "orphan");
+    await boxCommit("o", "o\n", "orphan");
+    await b("checkout", "-q", "-B", "feat/good", "main");
+    await boxCommit("g", "g\n", "good");
+    const r = await run();
+    expect(r.find((x) => x.branch === "orphan")).toMatchObject({ status: "failed" });
+    expect(r.find((x) => x.branch === "feat/good")).toMatchObject({ status: "synced" });
   });
 });

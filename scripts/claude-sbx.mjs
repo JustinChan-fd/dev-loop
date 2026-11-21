@@ -14,15 +14,14 @@
 // with the human: it never runs `sbx policy allow` or `sbx secret set`.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { FlagError, parseFlags } from "../src/core/flags.ts";
 import { fillModelEnvFromClaudeSettings } from "../src/core/claude-settings-env.ts";
-import { rootEnvFiles } from "../src/core/env-files.ts";
 import { realGit } from "../src/worker/host-sign.ts";
 import {
-  claudeArgs, overnightArgv, overnightPromptFile, parseSandboxCheck, renderSyncSummary, resolvePlugins,
+  claudeArgs, isSafeSessionName, realEnvFilesUnder, overnightArgv, overnightPromptFile, parseSandboxCheck, renderSyncSummary, resolvePlugins, safeReportNames,
   SANDBOX_CHECK_SCRIPT, SANDBOX_OVERNIGHT_DIR, SESSION_PREFIX, sessionCreateArgs, sessionName, validateSessionConfig,
 } from "../src/sandbox/sbx/session.ts";
 import { syncSandboxBranches } from "../src/sandbox/sbx/session-sync.ts";
@@ -39,6 +38,8 @@ try {
   die(err.message);
 }
 
+/** True when anything (even a dangling symlink) is at p. */
+const lstatOk = (p) => { try { lstatSync(p); return true; } catch { return false; } };
 const sh = (bin, args, opts = {}) => spawnSync(bin, args, { encoding: "utf8", ...opts });
 const sbxOut = (args) => sh("sbx", args);
 
@@ -71,8 +72,9 @@ function sandboxCheck(name) {
 function preflight(repo, cfg) {
   if (sh("sbx", ["version"]).error) die("sbx is not installed or not on PATH (see docs/sandbox-sbx.md)");
   if (!existsSync(cfg.sbx.kitDir)) die(`kit folder ${cfg.sbx.kitDir} not found (sbx.session.config.json sandbox.sbx.kitDir)`);
-  const env = rootEnvFiles(repo);
-  if (env.length > 0) die(`${env[0]} is in ${repo}, which the sandbox can read: move it out and point DEVLOOP_ENV_FILE at it (docs/sandbox-sbx.md)`);
+  // The whole checkout (ignored files too) is readable inside at /run/sandbox/source.
+  const env = realEnvFilesUnder(repo);
+  if (env.length > 0) die(`${env[0]} is in ${repo}, which the sandbox can read (the whole checkout is mounted read-only): move it out of the repo (dev-loop's own env: point DEVLOOP_ENV_FILE at it; docs/sandbox-sbx.md)`);
   const dirty = sh("git", ["-C", repo, "status", "--porcelain", "--untracked-files=no"]).stdout.trim();
   if (dirty) console.warn(`Note: ${repo} has uncommitted changes. The sandbox clones commits only; it won't see them.`);
   for (const d of ["in", "out"]) mkdirSync(join(repo, ".overnight", d), { recursive: true });
@@ -105,7 +107,7 @@ async function sync(repo, cfg, name) {
     return 1;
   }
   const outDir = join(repo, ".overnight", "out");
-  const reports = existsSync(outDir) ? readdirSync(outDir).filter((f) => f.endsWith(".md")).map((f) => `.overnight/out/${f}`) : [];
+  const reports = existsSync(outDir) ? safeReportNames(readdirSync(outDir)).map((f) => `.overnight/out/${f}`) : [];
   console.log(`\n${renderSyncSummary(name, rows, reports)}`);
   return rows.some((r) => r.status === "failed") ? 1 : 0;
 }
@@ -139,7 +141,7 @@ switch (cmd) {
     }
     const plugins = preflight(repo, cfg);
     const name = flags.values["--name"] ?? sessionName(new Date());
-    if (!name.startsWith(SESSION_PREFIX) || !/^[a-z0-9-]{3,63}$/.test(name)) die(`--name must start with ${SESSION_PREFIX}`);
+    if (!isSafeSessionName(name)) die(`--name must be ${SESSION_PREFIX}<lowercase letters, digits, dashes>`);
 
     console.log(`Creating ${name}: its own clone of ${repo}, GitHub blocked, no signing key. Watch: npm run sbx:dashboard`);
     const create = sh("sbx", sessionCreateArgs(name, cfg, repo, plugins), { stdio: "inherit", cwd: repo });
@@ -156,12 +158,18 @@ switch (cmd) {
     if (overnight) {
       const inSandbox = `${SANDBOX_OVERNIGHT_DIR}/in/${relative(join(repo, ".overnight", "in"), prompt)}`;
       const ask = `Read ${inSandbox} and do what it says. Your clone is ${repo}. Inputs: ${SANDBOX_OVERNIGHT_DIR}/in (read-only). Write your report to ${SANDBOX_OVERNIGHT_DIR}/out. You cannot push; commit on branches and the host syncs them.`;
-      const [bin, ...argv] = overnightArgv({ name, repo, env, agent, ask, log: join(repo, ".overnight", "out", `${name}.log`) });
+      // The log is host-only: .overnight/out is writable from every session, so a planted
+      // symlink there could redirect the host's tee. .overnight/logs is never mounted.
+      const logDir = join(repo, ".overnight", "logs");
+      mkdirSync(logDir, { recursive: true });
+      const log = join(logDir, `${name}.log`);
+      if (existsSync(log) || lstatOk(log)) { sh("sbx", ["rm", "-f", name]); die(`${log} already exists; refusing to append to it`); }
+      const [bin, ...argv] = overnightArgv({ name, repo, env, agent, ask, log });
       const screen = sh(bin, argv, { stdio: "inherit" });
-      if (screen.status !== 0) die("could not start screen");
+      if (screen.status !== 0) { sh("sbx", ["rm", "-f", name], { stdio: "inherit" }); die("could not start screen; removed the sandbox"); }
       console.log(`\nRunning unattended in ${name} (caffeinate keeps the Mac awake).
   watch:   screen -r ${name}        (detach again: Ctrl-a d)
-  log:     .overnight/out/${name}.log
+  log:     .overnight/logs/${name}.log
   after:   npm run claude:sbx:sync -- --name=${name}
   remove:  sbx rm ${name}           (after sync)`);
       break;
@@ -188,7 +196,7 @@ switch (cmd) {
       if (all.length > 1) die(`More than one session sandbox; pick one with --name=:\n${all.map((n) => `  ${n}`).join("\n")}`);
       name = all[0];
     }
-    if (!name.startsWith(SESSION_PREFIX)) die(`--name must start with ${SESSION_PREFIX}`);
+    if (!isSafeSessionName(name)) die(`--name must be ${SESSION_PREFIX}<lowercase letters, digits, dashes>`);
     sh("sbx", ["exec", name, "true"]); // the remote needs the sandbox running
     process.exit(await sync(repo, cfg, name));
   }

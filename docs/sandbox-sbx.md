@@ -322,11 +322,15 @@ fields and checks as a project, plus a `session` block; see
 [config.md](config.md#dev-loop-session-sandbox-sbxsessionconfigjson)).
 
 - **Its own clone.** `sbx create --clone`: the sandbox works on a private
-  clone; your checkout is mounted read-only at `/run/sandbox/source` and is
-  never written. Only committed files are cloned, so `.env` files, `runs/`,
-  `.pipeline/` and anything uncommitted are not there. Run it from the main
-  checkout: sbx refuses `--clone` from a git worktree. A branch you have only
-  in a worktree is still in the clone (same repo): `git checkout <branch>`.
+  clone of the committed files and never writes your checkout. But sbx also
+  mounts **the whole checkout read-only** at `/run/sandbox/source`, ignored
+  files included: `runs/`, `.pipeline/`, `evals/.state/`, `.worktrees/`,
+  `node_modules/`. The agent can read those (run logs, ticket keys, eval
+  state), not change them. So `claude:sbx` refuses to start while a real env
+  file of any name or case is anywhere in the checkout (the loop's own fake
+  `.envrc` under `.pipeline/` is allowed; it holds placeholders). Run it from
+  the main checkout: sbx refuses `--clone` from a git worktree. A branch you
+  have only in a worktree is still in the clone (same repo): `git checkout <branch>`.
 - **GitHub blocked for this sandbox only** (`--deny-network github.com` and
   `api.github.com`). The robot's sandboxes are unchanged. The stored sbx
   `github` token is fandango-scoped anyway: `JustinChan-fd/dev-loop` is owned
@@ -345,7 +349,8 @@ fields and checks as a project, plus a `session` block; see
   writable at `/home/agent/.dev-loop/overnight/out`, for the report only.
   They sit outside the clone's path because sbx refuses a mount inside it.
 - **A real sandbox check** before Claude starts: Linux, `/home/agent`, no
-  readable SSH private key, and a read-only `/run/sandbox/source`. A sandbox
+  readable SSH private key, a read-only `/run/sandbox/source`, and GitHub
+  not reachable. A sandbox
   that fails is removed. `npm run claude:sbx -- --check` runs the same check
   from inside.
 
@@ -358,7 +363,8 @@ screen -r <name>                        # watch; Ctrl-a d detaches again
 
 The prompt file must be under `.overnight/in`. It runs `claude -p` in a
 detached `screen`, under `caffeinate` (the Mac stays awake for as long as the
-job runs), logging to `.overnight/out/<name>.log`.
+job runs), logging to `.overnight/logs/<name>.log`. That folder is host-only:
+`.overnight/out` is writable from inside, so nothing on the host writes there.
 
 ### Getting the work back: `claude:sbx:sync`
 
@@ -367,15 +373,23 @@ An attended `claude:sbx` syncs when you exit Claude. After `--overnight`, run
 `dl-session-*` sandbox exists). It fetches the `sandbox-<name>` git remote and,
 for each branch with new commits:
 
-- refuses an unsafe branch name, a merge commit, and commits on `main` (your
-  `main` is never moved);
-- lists the protected files it touches (`session.protectedPaths`). Such a
-  branch is fetched but **not** made into a local branch until you have read
-  the diff and rerun with `--allow-protected`;
+- refuses an unsafe branch name, one that would shadow a ref here
+  (`origin/main`, a tag, `refs/…`, `…/HEAD`), names that differ only in case
+  (this Mac's disk folds case, so `MAIN` would land on `main`), a branch with
+  no history in common with `main`, a merge commit, and commits on `main`.
+  One bad branch is reported; the others still sync;
+- lists the protected files **any** commit touched, in any case
+  (`session.protectedPaths`; a change then revert still counts). Such a branch
+  is fetched but **not** made into a local branch until you have read every
+  commit (`git log -p`) and rerun with `--allow-protected`;
 - rebuilds each commit with your key (`git commit-tree -S`: same tree, same
-  message, your identity), checks the tree is unchanged and every commit is
-  signed, then creates the local branch. An existing local branch is never
-  moved.
+  message plus a `Sandbox-Commit: <name> <sha>` trailer, your identity),
+  checks the tree is unchanged and every commit is signed, then creates the
+  local branch. An existing local branch, in any case, is never moved.
+
+The protected list is a speed bump, not the control. Anything synced runs on
+your Mac the moment you run `npm test` there. Read the whole diff before you
+run or push it.
 
 It never pushes or checks anything out. It prints:
 
@@ -387,7 +401,7 @@ Synced from sandbox "dl-session-20261120-224501" (checked and re-signed, nothing
 Report: .overnight/out/report.md
 
 Next:
-  git diff main..feat/run-watcher                            # look
+  git diff main...feat/run-watcher                           # look
   git push -u origin feat/run-watcher && gh pr create        # keep: you push, then merge the PR
   git branch -D feat/run-watcher                             # drop
 ```
@@ -398,5 +412,6 @@ sandbox when you're done: `sbx rm <name>`.
 
 Checked live 2026-11-20 (sbx v0.54.0): the clone, the read-only source, the
 GitHub deny (403 from inside), nexus3 `npm ci` plus the vitest and tsc runs
-inside, the superpowers plugin through `--plugin-dir`, and a sync that
-re-signed one branch and held back one that touched `CLAUDE.md`.
+inside, the superpowers plugin through `--plugin-dir`, the whole checkout
+readable at `/run/sandbox/source`, and a sync that re-signed one branch and
+held back one that touched `CLAUDE.md`.

@@ -5,6 +5,9 @@ import {
   claudeArgs,
   overnightArgv,
   isSafeBranchName,
+  isSafeSessionName,
+  realEnvFilesUnder,
+  safeReportNames,
   overnightPromptFile,
   parseSandboxCheck,
   protectedHits,
@@ -71,7 +74,7 @@ describe("validateSessionConfig", () => {
     const raw = JSON.parse(readFileSync(join(import.meta.dirname, "../../../sbx.session.config.json"), "utf8"));
     const c = validateSessionConfig(raw);
     expect(c.denyNetwork).toEqual(expect.arrayContaining(["github.com", "api.github.com"]));
-    expect(c.protectedPaths).toEqual(expect.arrayContaining([".claude/settings.json", ".claude/hooks/", "scripts/check-*", "CLAUDE.md"]));
+    expect(c.protectedPaths).toEqual(expect.arrayContaining([".claude/", "CLAUDE.md", "scripts/check-*", ".github/", "package.json", "sbx.session.config.json"]));
   });
 });
 
@@ -128,20 +131,21 @@ describe("claudeArgs", () => {
 
 describe("parseSandboxCheck", () => {
   it("passes on linux with /home/agent, no ssh key and a read-only clone source", () => {
-    expect(parseSandboxCheck("os=Linux\nhome=yes\nsshkeys=0\nsource=ro\n")).toEqual({ ok: true, reasons: [] });
+    expect(parseSandboxCheck("os=Linux\nhome=yes\nsshkeys=0\nsource=ro\ngithub=blocked\n")).toEqual({ ok: true, reasons: [] });
   });
   it("fails on a Mac (the session is not in a sandbox)", () => {
-    const r = parseSandboxCheck("os=Darwin\nhome=no\nsshkeys=2\nsource=missing\n");
+    const r = parseSandboxCheck("os=Darwin\nhome=no\nsshkeys=2\nsource=missing\ngithub=open\n");
     expect(r.ok).toBe(false);
     expect(r.reasons).toEqual([
       "not Linux (os=Darwin)",
       "no /home/agent",
       "2 readable SSH private keys",
       "not a --clone sandbox (no /run/sandbox/source)",
+      "GitHub is reachable (it must be denied)",
     ]);
   });
   it("fails when the host checkout is writable from inside", () => {
-    expect(parseSandboxCheck("os=Linux\nhome=yes\nsshkeys=0\nsource=rw\n").reasons).toEqual(["the host checkout is writable from inside"]);
+    expect(parseSandboxCheck("os=Linux\nhome=yes\nsshkeys=0\nsource=rw\ngithub=blocked\n").reasons).toEqual(["the host checkout is writable from inside"]);
   });
   it("fails closed on output it can't read", () => {
     expect(parseSandboxCheck("").ok).toBe(false);
@@ -170,6 +174,9 @@ describe("protectedHits", () => {
       "CLAUDE.md", ".claude/hooks/x.sh", "scripts/check-secret.ts", ".claude/settings.json",
     ]);
   });
+  it("matches case variants and ./ prefixes (the Mac disk folds case)", () => {
+    expect(protectedHits(["claude.md", "./CLAUDE.md", ".Claude/Hooks/x"], P)).toEqual(["claude.md", "./CLAUDE.md", ".Claude/Hooks/x"]);
+  });
   it("does not match look-alikes", () => {
     expect(protectedHits(["docs/CLAUDE.md", ".claude/settings.json.bak", ".claude/hooksy", "scripts/checker.ts"], P)).toEqual([]);
   });
@@ -180,7 +187,7 @@ describe("isSafeBranchName", () => {
     for (const b of ["feat/run-watcher", "fix/a_b.c", "x"]) expect(isSafeBranchName(b)).toBe(true);
   });
   it("refuses anything that could act as a flag or shell text when printed in a command", () => {
-    for (const b of ["-x", "a b", "a;rm", "$(x)", "a..b", "a/", "/a", "HEAD", "a.lock", "a`b", ""]) expect(isSafeBranchName(b)).toBe(false);
+    for (const b of ["-x", "a b", "a;rm", "$(x)", "a..b", "a/", "/a", "HEAD", "a.lock", "a`b", "", "refs/x", "tags/x", "x/HEAD", "heads/x", "remotes/o/x"]) expect(isSafeBranchName(b)).toBe(false);
   });
 });
 
@@ -193,7 +200,7 @@ describe("renderSyncSummary", () => {
     expect(s).toMatch(/feat\/run-watcher\s+3 commits\s+\+120 −4\s+7 files\s+✓ no protected files/);
     expect(s).toMatch(/feat\/x\s+1 commit\s+\+2 −0\s+1 file\s+⚠ CLAUDE\.md \(needs --allow-protected\)/);
     expect(s).toContain("Report: .overnight/out/report.md");
-    expect(s).toContain("git diff main..feat/run-watcher");
+    expect(s).toContain("git diff main...feat/run-watcher");
     expect(s).toContain("git push -u origin feat/run-watcher && gh pr create");
     expect(s).toContain("git branch -D feat/run-watcher");
   });
@@ -225,5 +232,37 @@ describe("overnightArgv", () => {
       "sbx", "exec", "-w", "/r", "-e", "ANTHROPIC_DEFAULT_OPUS_MODEL", "dl-session-1",
       "claude", "-p", "--dangerously-skip-permissions", "--plugin-dir", "/p", "do it",
     ]);
+  });
+});
+
+describe("isSafeSessionName", () => {
+  it("accepts dl-session-* names sbx allows", () => {
+    expect(isSafeSessionName("dl-session-20261120-224501")).toBe(true);
+  });
+  it("refuses anything else (it goes into a git remote and ref name)", () => {
+    for (const n of ["dl-1-x", "dl-session-", "dl-session-A", "dl-session-a/b", "dl-session-a..b", `dl-session-${"a".repeat(60)}`]) expect(isSafeSessionName(n), n).toBe(false);
+  });
+});
+
+describe("safeReportNames", () => {
+  it("keeps plain .md names and drops anything that could carry terminal escapes", () => {
+    expect(safeReportNames(["report.md", "a b.md", "x\u001b[2J.md", "notes.txt", "ok-1_2.md"])).toEqual(["report.md", "ok-1_2.md"]);
+  });
+});
+
+describe("realEnvFilesUnder", () => {
+  it("finds a real env file at any depth, skipping node_modules, .git and the loop's own fake", async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const d = mkdtempSync(join(tmpdir(), "envscan-"));
+    try {
+      for (const f of ["a/b/.env.local", "node_modules/x/.env", ".git/.env", "c/.env.example", "w/.claude/worktrees/.envrc", "w/.ENVRC"]) {
+        mkdirSync(join(d, f, ".."), { recursive: true });
+        writeFileSync(join(d, f), f.endsWith("worktrees/.envrc") ? "# dev-loop fake env: generated\n" : "X=1\n");
+      }
+      expect(realEnvFilesUnder(d).sort()).toEqual(["a/b/.env.local", "w/.ENVRC"]);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 });

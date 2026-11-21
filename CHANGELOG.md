@@ -33,7 +33,10 @@ permissions bypassed.
   - `.overnight/in` is mounted read-only and `.overnight/out` writable.
 
   A real sandbox check runs before Claude starts: Linux, `/home/agent`, no
-  readable SSH key, and a read-only clone source. A sandbox that fails it is
+  readable SSH key, a read-only clone source, and GitHub not reachable.
+  sbx also mounts the whole host checkout read-only (ignored files
+  included), so it refuses to start while a real env file is anywhere in
+  the checkout. A sandbox that fails it is
   removed. `--overnight --prompt-file=.overnight/in/<f>.md` runs it detached
   under `screen` and `caffeinate`. Config: `sbx.session.config.json`, whose
   `sandbox.sbx` block is checked by the same validator as a project's. The
@@ -42,14 +45,17 @@ permissions bypassed.
   re-signed, and never pushes.** It also runs when an attended `claude:sbx`
   exits.
   - It fetches the `sandbox-<name>` remote.
-  - It refuses unsafe branch names, merge commits and commits on `main`
-    (`main` is never moved).
-  - A branch that touches a protected path (`CLAUDE.md`,
-    `.claude/settings.json`, `.claude/hooks/`, `scripts/check-*`,
-    `sbx.session.config.json`) is held until `--allow-protected`.
+  - It refuses unsafe branch names, names that would shadow a ref
+    (`origin/main`, a tag), names that differ only in case (the Mac's disk
+    folds case: `MAIN` would land on `main`), merge commits, unrelated
+    history and commits on `main` (`main` is never moved). One bad branch is
+    reported; the others still sync.
+  - A branch where any commit touches a protected path, in any case, is held
+    until `--allow-protected`: `.claude/` (settings, hooks, skills, agents), `CLAUDE.md`, `scripts/check-*`, `.github/`, `.mcp.json`, `package.json`, `package-lock.json`, `.npmrc`, `sbx.session.config.json`.
   - Each commit is rebuilt with `git commit-tree -S` on the host (same tree,
-    same message, the host's identity). The trees and signatures are checked
-    before a local branch is created. An existing branch is never moved.
+    same message plus a `Sandbox-Commit:` trailer, the host's identity). The
+    trees and signatures are checked before a local branch is created. An
+    existing branch, in any case, is never moved.
   - It prints the look / keep / drop commands.
   - It is tested against real git (`test/sandbox/sbx/session-sync.test.ts`).
 - `[core]` **Main is PR-only.** On GitHub, `main` requires a PR, allows no

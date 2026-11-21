@@ -273,7 +273,7 @@ Checked by `validateSessionConfig` in `src/sandbox/sbx/session.ts`.
   "sandbox": { "sbx": { "kitDir": "~/Desktop/Repos/keystone-bedrock-kit", "template": "docker.io/library/dev-loop-sbx:v2", "memory": "8g" } },
   "session": {
     "denyNetwork": ["github.com", "api.github.com"],
-    "protectedPaths": [".claude/settings.json", ".claude/hooks/", "scripts/check-*", "CLAUDE.md", "sbx.session.config.json"],
+    "protectedPaths": [".claude/", "CLAUDE.md", "scripts/check-*", ".github/", ".mcp.json", "package.json", "package-lock.json", ".npmrc", "sbx.session.config.json"],
     "plugins": ["superpowers@claude-plugins-official"],
     "npmRegistry": "https://nexus3.mgo.com/repository/fd-npm-all/"
   }
@@ -284,9 +284,10 @@ Checked by `validateSessionConfig` in `src/sandbox/sbx/session.ts`.
   (above). `mcp` and `hostSkills` are not used: a session has no Jira.
 - `session.denyNetwork` — hosts denied for this sandbox only. Must include
   `github.com` and `api.github.com` (the sandbox never pushes).
-- `session.protectedPaths` — repo-relative paths a synced branch may not
-  touch without `--allow-protected`. `dir/` is a folder, `x*` a prefix,
-  anything else an exact file.
+- `session.protectedPaths` — repo-relative paths no commit on a synced branch
+  may touch without `--allow-protected`. `dir/` is a folder, `x*` a prefix,
+  anything else an exact file. Matched case-insensitively (the Mac's disk
+  folds case).
 - `session.plugins` — `name@marketplace` keys from
   `~/.claude/plugins/installed_plugins.json`, mounted read-only.
 - `session.npmRegistry` — optional https registry written to the sandbox's

@@ -71,7 +71,7 @@ npm run claude:sbx                      # same, but inside the sandbox
 | GitHub / push | yes, your `gh` login | blocked; you push after sync |
 | Jira MCP | yes | no |
 | Commit signing | your SSH key | unsigned inside; re-signed on your Mac at sync |
-| Real env files | readable (deny rules only) | not there (the clone has tracked files only) |
+| Real env files | readable (deny rules only) | refused: it won't start while one is anywhere in the checkout |
 | Plugins (superpowers) | yes | yes (read-only) |
 | Survives a closed terminal | no | with `--overnight` (screen + caffeinate) |
 | Getting work back | it's already there | automatic when you exit; `npm run claude:sbx:sync` after `--overnight` |
@@ -87,10 +87,12 @@ npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
 npm run claude:sbx:sync                 # after it: branches come back signed; nothing is pushed
 ```
 
-Sync prints each branch with its commits, size and whether it touched a
-protected file (`CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`,
-`scripts/check-*`), then the `git diff` / `git push` / `git branch -D` lines
-to look, keep or drop it. Every change reaches `main` through a PR you merge.
+Sync prints each branch with its commits, size and whether any commit touched
+a protected file (`.claude/` (settings, hooks, skills, agents), `CLAUDE.md`, `scripts/check-*`, `.github/`, `.mcp.json`, `package.json`, `package-lock.json`, `.npmrc`, `sbx.session.config.json`), then the `git diff` / `git push` /
+`git branch -D` lines to look, keep or drop it. Every change reaches `main`
+through a PR you merge. The protected list is a speed bump, not the control:
+anything synced runs on your Mac the moment you run `npm test` there, so read
+the whole diff (`git log -p main..<branch>`) before you run or push it.
 Details: [docs/sandbox-sbx.md, "Dev-loop sessions"](docs/sandbox-sbx.md#dev-loop-sessions).
 
 ## Current status

@@ -60,9 +60,15 @@ dev-loop itself doesn't use sbx."
 
 ## Calls I made (for review)
 - **The protected-path check happens at sync, not as read-only mounts.**
-  With `--clone` there is no host path to cover. The paths are
-  `.claude/settings.json`, `.claude/hooks/`, `scripts/check-*`, `CLAUDE.md`
-  and the session config itself.
+  With `--clone` there is no host path to cover. Widened after review to
+  `.claude/` (settings, hooks, skills, agents), `CLAUDE.md`, `scripts/check-*`, `.github/`, `.mcp.json`, `package.json`, `package-lock.json`, `.npmrc`, `sbx.session.config.json`, because anything there runs or configures the host after
+  sync. Every commit is checked (not only the net diff), case-folded. It is a
+  speed bump; reading the diff is the control.
+- **The whole checkout is readable inside** (`/run/sandbox/source`, ignored
+  files included; verified). Accepted for run logs and eval state, which are
+  not secrets. Real env files are refused anywhere in the tree.
+- **The overnight log is host-only** (`.overnight/logs/`), never in the
+  writable `.overnight/out`, where a planted symlink could redirect it.
 - **Re-sign with `commit-tree`, not `host-sign.ts`'s rebase.** The rebase
   needs a worktree and runs hooks. `commit-tree` keeps the trees identical
   by construction.

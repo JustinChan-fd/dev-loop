@@ -12,7 +12,9 @@
 //   never pushes; the host re-signs and the user pushes and opens the PR.
 // - No signing key inside: commits there are unsigned; sync re-signs them.
 
-import { posix } from "node:path";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
+import { join, posix } from "node:path";
+import { isEnvFile } from "../../core/env-files.ts";
 import { createArgs } from "./adapter.ts";
 import { validateSbxConfig, type SbxConfig } from "./config.ts";
 
@@ -136,12 +138,14 @@ export const SANDBOX_CHECK_SCRIPT = [
   'echo "os=$(uname -s)"',
   'if [ -d /home/agent ]; then echo home=yes; else echo home=no; fi',
   'n=0; for f in "$HOME"/.ssh/id_*; do case "$f" in *.pub) ;; *) [ -r "$f" ] && n=$((n+1));; esac; done; echo "sshkeys=$n"',
+  // The deny works when GitHub answers 403 (the proxy) or not at all.
+  'c=$(curl -s -o /dev/null -m 10 -w "%{http_code}" https://api.github.com/ 2>/dev/null); case "$c" in 2??|3??) echo github=open;; *) echo github=blocked;; esac',
   'if [ ! -d /run/sandbox/source ]; then echo source=missing; elif ( : > /run/sandbox/source/.dl-write-probe ) 2>/dev/null; then rm -f /run/sandbox/source/.dl-write-probe; echo source=rw; else echo source=ro; fi',
 ].join("\n");
 
 export function parseSandboxCheck(out: string): { ok: boolean; reasons: string[] } {
   const kv = new Map(out.split("\n").map((l) => l.trim().split("=", 2) as [string, string]).filter((p) => p.length === 2));
-  if (!["os", "home", "sshkeys", "source"].every((k) => kv.has(k))) return { ok: false, reasons: ["check output incomplete"] };
+  if (!["os", "home", "sshkeys", "source", "github"].every((k) => kv.has(k))) return { ok: false, reasons: ["check output incomplete"] };
   const reasons: string[] = [];
   if (kv.get("os") !== "Linux") reasons.push(`not Linux (os=${kv.get("os")})`);
   if (kv.get("home") !== "yes") reasons.push("no /home/agent");
@@ -149,6 +153,7 @@ export function parseSandboxCheck(out: string): { ok: boolean; reasons: string[]
   if (!(keys === 0)) reasons.push(`${Number.isNaN(keys) ? "unknown" : keys} readable SSH private keys`);
   if (kv.get("source") === "missing") reasons.push("not a --clone sandbox (no /run/sandbox/source)");
   else if (kv.get("source") !== "ro") reasons.push("the host checkout is writable from inside");
+  if (kv.get("github") !== "blocked") reasons.push("GitHub is reachable (it must be denied)");
   return { ok: reasons.length === 0, reasons };
 }
 
@@ -165,10 +170,18 @@ export function overnightPromptFile(repo: string, arg: string, realpath: (p: str
   return abs;
 }
 
-/** The changed files that touch a protected path. "dir/" matches the folder; "x*" a prefix; else exact. */
+/**
+ * The changed files that touch a protected path. "dir/" matches the folder; "x*" a prefix; else exact.
+ * Compared case-folded and NFC-normalized: on the Mac's case-insensitive disk `claude.md` and
+ * `.Claude/settings.json` ARE `CLAUDE.md` and `.claude/settings.json` once checked out.
+ */
 export function protectedHits(files: string[], patterns: string[]): string[] {
-  const hit = (f: string): boolean =>
-    patterns.some((p) => (p.endsWith("/") ? f.startsWith(p) : p.endsWith("*") ? f.startsWith(p.slice(0, -1)) : f === p));
+  const fold = (x: string): string => x.normalize("NFC").toLowerCase().replace(/^\.\//, "");
+  const ps = patterns.map(fold);
+  const hit = (raw: string): boolean => {
+    const f = fold(raw);
+    return ps.some((p) => (p.endsWith("/") ? f.startsWith(p) : p.endsWith("*") ? f.startsWith(p.slice(0, -1)) : f === p));
+  };
   return files.filter(hit);
 }
 
@@ -177,10 +190,54 @@ export function protectedHits(files: string[], patterns: string[]): string[] {
  * commands the user copies. Plain git-safe characters only.
  */
 export function isSafeBranchName(b: string): boolean {
+  const parts = b.split("/");
   return (
     /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/.test(b) &&
-    !b.includes("..") && !b.includes("//") && !b.endsWith("/") && !b.endsWith(".lock") && !b.endsWith(".") && b !== "HEAD"
+    !b.includes("..") && !b.includes("//") && !b.endsWith("/") && !b.endsWith(".lock") && !b.endsWith(".") &&
+    // Never a name git could read as another ref (refs/x, tags/x, x/HEAD).
+    !parts.some((p) => p.toUpperCase() === "HEAD") && !["refs", "heads", "remotes", "tags"].includes(parts[0].toLowerCase())
   );
+}
+
+/** The first line of the loop's fake .envrc (src/core/fake-env.ts); it holds placeholders only. */
+const FAKE_ENV_HEADER = "# dev-loop fake env:";
+
+/**
+ * Real env files anywhere in the checkout (any case, any depth), as repo-relative
+ * paths. sbx --clone mounts the WHOLE host checkout read-only at /run/sandbox/source,
+ * ignored files included, so one there is readable by the sandboxed agent.
+ * Skips node_modules, .git and the loop's own fake .envrc. Symlinks are not followed.
+ */
+export function realEnvFilesUnder(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    let names: string[];
+    try { names = readdirSync(dir); } catch { return; }
+    for (const n of names) {
+      if (n === "node_modules" || n === ".git") continue;
+      const p = join(dir, n);
+      let st;
+      try { st = lstatSync(p); } catch { continue; }
+      if (st.isDirectory()) walk(p);
+      else if (isEnvFile(n.toLowerCase())) {
+        let head = "";
+        try { head = readFileSync(p, "utf8").slice(0, FAKE_ENV_HEADER.length); } catch { /* unreadable: still listed */ }
+        if (head !== FAKE_ENV_HEADER) out.push(posix.relative(root, p));
+      }
+    }
+  };
+  walk(root);
+  return out;
+}
+
+/** A session sandbox name: it becomes a git remote (`sandbox-<name>`) and a ref folder. */
+export function isSafeSessionName(n: string): boolean {
+  return n.startsWith(SESSION_PREFIX) && n.length <= 63 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(n) && n.length > SESSION_PREFIX.length;
+}
+
+/** Report file names from the writable .overnight/out are untrusted; only plain ones are printed. */
+export function safeReportNames(names: string[]): string[] {
+  return names.filter((n) => /^[A-Za-z0-9._-]+\.md$/.test(n));
 }
 
 export interface BranchSync {
@@ -216,13 +273,13 @@ export function renderSyncSummary(name: string, branches: BranchSync[], reports:
   if (synced.length > 0) {
     out.push("", "Next:");
     for (const b of synced) {
-      out.push(`  git diff main..${b.branch}                            # look`);
+      out.push(`  git diff main...${b.branch}                           # look`);
       out.push(`  git push -u origin ${b.branch} && gh pr create        # keep: you push, then merge the PR`);
       out.push(`  git branch -D ${b.branch}                             # drop`);
     }
   }
   if (branches.some((b) => b.status === "protected")) {
-    out.push("", `Protected files changed. Read the diff first: git diff main..sandbox-${name}/<branch>`);
+    out.push("", `Protected files changed. Read every commit first: git log -p main..sandbox-${name}/<branch>`);
     out.push(`Then, only if you approve: npm run claude:sbx:sync -- --name=${name} --allow-protected`);
   }
   return out.join("\n");
