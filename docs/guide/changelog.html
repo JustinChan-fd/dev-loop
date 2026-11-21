@@ -79,13 +79,14 @@ li .links a + a::before { content: "·"; display: inline-block; margin: 0 6px; c
       if (it.date && it.date !== c.date) li.append(el("span", "when", "(" + it.date + ")"));
       if (it.links && it.links.length) {
         const ls = el("span", "links"); ls.append(" ");
-        for (const l of it.links) { const a = el("a", null, l.label); a.href = l.href; a.target = "_blank"; a.rel = "noopener noreferrer"; ls.append(a); }
+        for (const l of it.links) { const a = el("a", null, l.label); a.href = l.href; a.target = "_blank"; a.rel = "noopener noreferrer"; a.setAttribute("aria-label", l.label + " (opens in a new tab)"); ls.append(a); }
         li.append(ls);
       }
       ul.append(li);
     }
     art.append(ul); root.append(art);
   }
+  if (!root.children.length) root.append(el("p", "sub", "Couldn't load the list of changes (guide-changes.js). See docs/guide/guide-changes.js on GitHub."));
   if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
 })();
 </script>

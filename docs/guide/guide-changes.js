@@ -12,7 +12,8 @@
     major (x.0.0)  a restructure of the page
 
   Entry: { version, date, title, items: [{ text, date?, links?: [{ label, href }] }] }
-  Links are absolute https URLs (CHANGELOG.md sections, specs on GitHub).
+  Links are absolute https URLs: a released CHANGELOG.md section
+  (#220--2026-11-20, never #unreleased, which moves) or a spec on GitHub.
 */
 (function () {
   var GH = "https://github.com/JustinChan-fd/dev-loop/blob/main/";
@@ -26,8 +27,8 @@
       title: "First versioned guide",
       items: [
         { text: "The guide now has its own version and this page of what changed. The footer says which dev-loop version it was checked against.", date: "2026-11-20" },
-        { text: "Bounce criteria v2: the research step says when a ticket bounces and when it is too large.", date: "2026-11-20",
-          links: [{ label: "CHANGELOG (Unreleased)", href: CL + "#unreleased" }, { label: "spec", href: SPEC + "2026-11-20-bounce-criteria-v2-design.md" }] },
+        { text: "Bounce criteria v2: the research step reads attachments, turns what a mockup shows into checks, and sizes the work against recent tickets before calling it too large.", date: "2026-11-20",
+          links: [{ label: "spec", href: SPEC + "2026-11-20-bounce-criteria-v2-design.md" }] },
         { text: "catalog-ui-management runs on v2 and in the sbx sandbox. The steps show the app folder and the repo's own Node.", date: "2026-11-20",
           links: [{ label: "CHANGELOG 2.2.0", href: CL + "#220--2026-11-20" }, { label: "spec", href: SPEC + "2026-11-20-project-profiles-design.md" }] },
         { text: "Shorter step explanations, core ideas only. The double-check step says why it installs packages from nexus3.", date: "2026-11-18" },

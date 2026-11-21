@@ -30,11 +30,19 @@ change. Written in CLAUDE.md ("The guide page"), the guide's header comment and
 the head of `guide-changes.js`.
 
 ## Mechanical check (the pillar)
-`test/guide/guide-version.test.ts` (in `npm test`): entries are well formed;
-versions strictly decrease and dates never go up down the list;
-`DATA.guideVersion` and `DATA.updated` equal the newest entry; `DATA.loopVersion`
-equals package.json; both pages load `guide-changes.js` and link each other;
-entry links are absolute https or in-guide.
+`test/guide/guide-version.test.ts` (in `npm test`):
+- On a branch (HEAD is not main), when `docs/guide/` differs from the merge
+  base with main, the guide's version and the newest entry must both be higher
+  than main's. This is the "edited but forgot to bump" check. It is skipped on
+  main itself and when `main` doesn't resolve (a shallow clone). There is no CI
+  running `npm test`, so it runs wherever the developer runs the suite.
+- Entries are well formed; versions strictly decrease and dates never go up.
+- `DATA.guideVersion` and `DATA.updated` equal the newest entry.
+- `DATA.loopVersion` is semver and never newer than package.json. It may lag a
+  release: "checked against" means what someone last checked.
+- No entry links `CHANGELOG.md#unreleased` (that anchor moves at the next release).
+- Both pages load `guide-changes.js` and link each other; entry links are
+  absolute https or in-guide.
 
 ## Publishing
 `.github/workflows/guide-pages.yml` already copies all of `docs/guide/` to

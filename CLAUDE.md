@@ -70,7 +70,10 @@ facts live in the `DATA` block at the top of its script.
 package.json moved), and adds an entry at the top of
 `docs/guide/guide-changes.js`, which `docs/guide/changelog.html` shows
 ("What's new"). Patch: a wording fix. Minor: a new section, step or repo.
-Major: a restructure. `test/guide/guide-version.test.ts` fails on drift.
+Major: a restructure. `test/guide/guide-version.test.ts` fails when a branch
+changes `docs/guide/` without a higher version than main's, or when the page and
+the newest entry disagree. `DATA.loopVersion` may lag package.json (it says what
+the page was last checked against), never lead it.
 A push to main that touches `docs/guide/` republishes it to GitHub Pages
 (`.github/workflows/guide-pages.yml`): https://justinchan-fd.github.io/dev-loop/
 
