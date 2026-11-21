@@ -153,6 +153,32 @@ describe("makeRunSkill", () => {
     expect(seen).toEqual(projectJson(APP_PROFILE));
   });
 
+  it("fetches the ticket's attachments into RUN_DIR before the spawn, for both roles", async () => {
+    const seen: unknown[] = [];
+    onSpawn = async (o) => {
+      const dir = o.ticketKey && resolveRepoPath(spawned.length === 1 ? runDir("dev") : runDir("research"));
+      seen.push(JSON.parse(await readFile(join(dir as string, "attachments.json"), "utf8")));
+    };
+    const attachments = {
+      list: async () => [{ id: "9", filename: "resp.json", size: 4, mimeType: "text/plain" }],
+      download: async () => Buffer.from("{}\n"),
+    };
+    const run = makeRunSkill(deps({ attachments }));
+    await run({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    await run({ role: "research", ticketKey: "TARS-1", runDir: runDir("research"), maxBudgetUsd: 50 });
+    expect(seen).toHaveLength(2);
+    for (const m of seen as Array<{ attachments: Array<{ status: string }> }>) expect(m.attachments.map((a) => a.status)).toEqual(["fetched"]);
+    expect(await readFile(join(resolveRepoPath(runDir("dev")), "attachments", "resp.json"), "utf8")).toBe("{}\n");
+  });
+
+  it("logs a one-line attachment summary, and a failed listing never stops the run", async () => {
+    const logs: string[] = [];
+    const attachments = { list: async () => { throw new Error("Jira 503"); }, download: async () => Buffer.from("") };
+    await makeRunSkill(deps({ attachments, log: (m) => void logs.push(m) }))({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });
+    expect(spawned).toHaveLength(1);
+    expect(logs.some((l) => /TARS-1: attachments: could not list \(Jira 503\)/.test(l))).toBe(true);
+  });
+
   it("refreshFakeEnv gets the profile, once per run", async () => {
     const got: ResolvedProfile[] = [];
     await makeRunSkill(deps({ profile: APP_PROFILE, refreshFakeEnv: async (p) => void got.push(p) }))({ role: "dev", ticketKey: "TARS-1", runDir: runDir("dev"), maxBudgetUsd: 20 });

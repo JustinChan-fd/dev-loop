@@ -579,6 +579,28 @@ export class RealJiraClient implements JiraClient {
     return data.fields.status.name;
   }
 
+  /** The ticket's attachments (`GET issue?fields=attachment`); entries with a non-numeric id are dropped. */
+  async listAttachments(ticketKey: string): Promise<Array<{ id: string; filename: string; size: number; mimeType: string }>> {
+    if (!TICKET_KEY.test(ticketKey)) {
+      throw new Error(`RealJiraClient.listAttachments: invalid ticket key ${JSON.stringify(ticketKey)}`);
+    }
+    const response = await this.request(`/rest/api/3/issue/${ticketKey}?fields=attachment`);
+    const data = (await response.json()) as { fields?: { attachment?: Array<{ id?: unknown; filename?: unknown; size?: unknown; mimeType?: unknown }> } };
+    return (data.fields?.attachment ?? [])
+      .filter((a) => /^\d+$/.test(String(a.id)))
+      .map((a) => ({ id: String(a.id), filename: String(a.filename ?? ""), size: Number(a.size) || 0, mimeType: String(a.mimeType ?? "") }));
+  }
+
+  /**
+   * One attachment's bytes from this Jira site (`/rest/api/3/attachment/content/<id>`),
+   * with the loop's own auth. Host-side only: the agents never get a download URL.
+   */
+  async downloadAttachment(id: string): Promise<Buffer> {
+    if (!/^\d+$/.test(id)) throw new Error(`RealJiraClient.downloadAttachment: invalid attachment id ${JSON.stringify(id)}`);
+    const response = await this.request(`/rest/api/3/attachment/content/${id}`, { redirect: "follow", headers: { Accept: "*/*" } });
+    return Buffer.from(await response.arrayBuffer());
+  }
+
   /** The ticket's status name and whether its statusCategory is "done". */
   async getStatusDetail(ticketKey: string): Promise<{ name: string; done: boolean }> {
     if (!TICKET_KEY.test(ticketKey)) {

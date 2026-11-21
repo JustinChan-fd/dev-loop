@@ -143,6 +143,18 @@ app-folder project) with placeholder values, so `direnv exec <worktree>`
 loads the fake, never the person's real `<REPO_DIR>/.envrc`. Never read or
 create an app folder's real env file (e.g. `app/.env.local`) either.
 
+**Ticket attachments.** The loop downloads the ticket's Jira attachments on
+the host before every run into `<RUN_DIR>/attachments/` and lists each one in
+`<RUN_DIR>/attachments.json` as `fetched` (with its `path`), `skipped` (with
+the `reason`: type or size) or `failed` (with the `error`). Read the manifest
+in Triage and read every fetched file the ticket points at (a response
+sample, a mockup, a spec) with the Read tool. Never fetch an attachment
+yourself (no download tool, no `curl`). An attachment the ticket depends on
+that is `skipped` or `failed` is evidence for a bounce: cite its manifest
+line. Ground what you write against the fetched file: copy field names and
+values from it into the refined ticket, so the implementer never needs the
+attachment.
+
 **The project profile.** The loop writes `<RUN_DIR>/project.json`
 (`appDir`, `nodeMajor`, `devCommand`, `devUrl`). Read it; never guess them
 from the repo. Missing means `appDir` `.`, `devCommand` `npm run dev`,

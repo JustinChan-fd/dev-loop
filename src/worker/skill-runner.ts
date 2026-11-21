@@ -31,6 +31,7 @@ import type { SandboxSelection } from "../sandbox/select.ts";
 import { allowedToolsFor, HOST_ATLASSIAN_MCP } from "../core/atlassian-tools.ts";
 import { profileDenyPaths } from "../core/env-files.ts";
 import { projectJson, type ResolvedProfile } from "../core/project-profile.ts";
+import { fetchAttachments, type AttachmentDeps, type AttachmentManifest } from "../core/attachments.ts";
 import { realFakeEnvDeps, ROBOT_ENV_VAR, writeFakeEnv } from "../core/fake-env.ts";
 
 export const MODEL = "sonnet";
@@ -64,6 +65,21 @@ export interface SkillRunnerDeps {
   refreshFakeEnv?: (profile: ResolvedProfile) => Promise<void>;
   /** The project profile (resolveProjectProfile at startup): deny paths, fake env, RUN_DIR/project.json. */
   profile: ResolvedProfile;
+  /**
+   * Lists and downloads the ticket's Jira attachments on the host (the
+   * RealJiraClient in production), into RUN_DIR/attachments/ with
+   * RUN_DIR/attachments.json, before every spawn (src/core/attachments.ts).
+   * Absent: nothing is fetched (tests).
+   */
+  attachments?: AttachmentDeps;
+}
+
+/** One log line for the run's attachments. */
+export function attachmentSummary(m: AttachmentManifest): string {
+  if (m.error) return `attachments: could not list (${m.error})`;
+  const n = (s: string) => m.attachments.filter((a) => a.status === s).length;
+  if (m.attachments.length === 0) return "attachments: none";
+  return `attachments: ${n("fetched")} fetched, ${n("skipped")} skipped, ${n("failed")} failed`;
 }
 
 /** Lowercase, and any char outside [a-z0-9-] becomes "-". */
@@ -175,6 +191,11 @@ export function makeRunSkill(deps: SkillRunnerDeps): RunSkillFn {
       await refreshFakeEnv(deps.profile);
     } catch (err) {
       deps.logError(`[${skill}] ${ticketKey}: could not refresh the robot's fake env: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // The ticket's attachments, fetched on the host: the agent only reads files.
+    if (deps.attachments) {
+      const m = await fetchAttachments(ticketKey, absRunDir, deps.attachments);
+      deps.log(`[${skill}] ${ticketKey}: ${attachmentSummary(m)}`);
     }
     // Rescanned per run: a person may add a .env between runs.
     const denyReads = profileDenyPaths(repoDir, deps.profile);

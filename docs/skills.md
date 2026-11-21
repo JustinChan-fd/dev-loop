@@ -18,6 +18,16 @@ The loop runner (`src/worker/skill-runner.ts`) invokes each skill as
   `<repo>/.pipeline/v2/<project>/<session>/<KEY>/<role>-<RUN_ID>`. The runner
   creates it before spawning and afterwards reads `RUN_DIR/verdict.json`, the
   only place a verdict is read. Raw claude usage goes to `RUN_DIR/usage.json`.
+- `RUN_DIR/attachments/` and `RUN_DIR/attachments.json` are written by the
+  loop before every spawn, for both roles and every project
+  (`src/core/attachments.ts`). The loop downloads the ticket's Jira attachments
+  on the host with its own Jira credentials: text-like files and images only,
+  at most 2 MB each and 10 MB per ticket. The manifest names each attachment
+  as `fetched` (with `path`), `skipped` (with `reason`) or `failed` (with
+  `error`). A failed listing writes the manifest with `error` and never stops
+  the run. ticket-refine and ticket-to-pr read the manifest and the fetched
+  files and never fetch one themselves; an attachment the ticket depends on
+  that was not fetched is grounds for a bounce, cited from the manifest.
 - `RUN_DIR/project.json` is written by the loop before every spawn
   (`src/core/project-profile.ts` `projectJson`): `{ appDir, nodeMajor,
   devCommand, devUrl }`, from the project config's `targetRepo.local` (see

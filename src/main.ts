@@ -235,6 +235,10 @@ async function runLoop(ctx: LoopContext, tracked: TrackedSession, assigneeAccoun
       log,
       logError,
       profile: ctx.profile,
+      attachments: {
+        list: (key) => ctx.jiraClient.listAttachments(key),
+        download: (a) => ctx.jiraClient.downloadAttachment(a.id),
+      },
     }),
     logPath: resolveRepoPath(v2RunsLog(slug)),
     now: () => new Date(),

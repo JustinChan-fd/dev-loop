@@ -851,6 +851,64 @@ describe("RealJiraClient.pollAllMatching", () => {
   });
 });
 
+describe("RealJiraClient attachments", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("listAttachments GETs the attachment field and maps id, filename, size and mimeType", async () => {
+    const body = { fields: { attachment: [
+      { id: "682184", filename: "avatar.json", size: 313893, mimeType: "text/plain", content: "https://example.atlassian.net/rest/api/3/attachment/content/682184" },
+    ] } };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(body), { status: 200 }));
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+
+    await expect(client.listAttachments("MC-1435")).resolves.toEqual([
+      { id: "682184", filename: "avatar.json", size: 313893, mimeType: "text/plain" },
+    ]);
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://example.atlassian.net/rest/api/3/issue/MC-1435?fields=attachment");
+  });
+
+  it("listAttachments returns [] when the ticket has none, and drops entries with a non-numeric id", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ fields: {} }), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ fields: { attachment: [{ id: "../x", filename: "a", size: 1, mimeType: "" }] } }), { status: 200 }));
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+    await expect(client.listAttachments("MC-1")).resolves.toEqual([]);
+    await expect(client.listAttachments("MC-1")).resolves.toEqual([]);
+  });
+
+  it("listAttachments refuses an invalid key without a request", async () => {
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+    await expect(client.listAttachments("../x")).rejects.toThrow(/invalid ticket key/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("downloadAttachment GETs the content endpoint on the Jira site, with auth, and returns the bytes", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("{\"rules\":null}", { status: 200 }));
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+
+    const buf = await client.downloadAttachment("682184");
+    expect(buf.toString("utf8")).toBe('{"rules":null}');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe("https://example.atlassian.net/rest/api/3/attachment/content/682184");
+    expect(init.headers.Authorization).toMatch(/^Basic /);
+    expect(init.redirect).toBe("follow");
+  });
+
+  it("downloadAttachment refuses a non-numeric id without a request, and rejects on a non-2xx", async () => {
+    const client = new RealJiraClient(CREDENTIALS, makeConfig());
+    await expect(client.downloadAttachment("../1")).rejects.toThrow(/invalid attachment id/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(new Response("nope", { status: 403, statusText: "Forbidden" }));
+    await expect(client.downloadAttachment("5")).rejects.toThrow(/403/);
+  });
+});
+
 describe("RealJiraClient.getBlockedBy", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 

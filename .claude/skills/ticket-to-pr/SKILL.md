@@ -151,6 +151,16 @@ the robot needs goes through the fake env, never a file. Never work directly in 
 into it or be mid-inspection of a prior run's worktree at any moment
 while this loop runs unattended in the background.
 
+### Ticket attachments
+
+The loop downloads the ticket's Jira attachments on the host before every run
+into `<RUN_DIR>/attachments/` and lists each one in `<RUN_DIR>/attachments.json`
+as `fetched` (with its `path`), `skipped` (with the `reason`) or `failed` (with
+the `error`). Read the manifest at the start of Phase 0, and read a fetched file
+when the ticket points at it (for example a response sample to build fixtures
+from). Never fetch an attachment yourself. If the ticket depends on one that is
+`skipped` or `failed`, bounce `spec_ambiguous` citing its manifest line.
+
 ### The project profile
 
 The loop writes `<RUN_DIR>/project.json` before every run:

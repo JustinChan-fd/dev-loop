@@ -19,6 +19,14 @@ Steps 1–3 built (plan 2026-11-12-sandbox-adapter-foundation.md, then the
 sbx adapter, not yet dogfooded). Design:
 [docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md).
 
+- `[core]` **Ticket attachments reach the agents.** Found on MC-1435: research
+  bounced `spec_ambiguous` because the response sample was a Jira attachment it
+  could not open (no download tool, and sbx blocks the media host). Before
+  every spawn, both roles and every project, the loop now downloads the
+  ticket's attachments on the host into `RUN_DIR/attachments/`, with
+  `RUN_DIR/attachments.json` naming each as fetched, skipped (type or size:
+  text-like and images only, 2 MB each, 10 MB per ticket) or failed. No new
+  tool, network rule or credential reaches the agent; it reads files.
 - `[dev]` catalog-ui-management's dev limits are raised to $40 and 150 minutes per run,
   and its per-ticket cap to $90, so one XL ticket (MC-1435, about 30 files) can
   land as one PR. The other projects keep $20 and 75 minutes.
