@@ -280,6 +280,7 @@ export async function runPhase(ctx: Ctx, role: Role, ticket: JiraTicket, maxBudg
           maxBudgetUsd,
           session: deps.session.name,
           now: deps.now,
+          ...(deps.prDiffStats ? { prDiffStats: deps.prDiffStats } : {}),
           ...(deps.hostPush
             ? {
                 hostPush: async (ready) => {
