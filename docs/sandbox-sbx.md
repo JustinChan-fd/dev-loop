@@ -361,7 +361,11 @@ npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
 screen -r <name>                        # watch; Ctrl-a d detaches again
 ```
 
-The prompt file must be under `.overnight/in`. It runs `claude -p` in a
+The prompt file must be under `.overnight/in`. `claude -p` ends the run when
+its turn ends, so the launcher tells it to stay in its turn until the work is
+done. It sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, because without it
+`claude -p` stops its background subagents 10 minutes after its last turn.
+It runs `claude -p` in a
 detached `screen`, under `caffeinate` (the Mac stays awake for as long as the
 job runs), logging to `.overnight/logs/<name>.log`. That folder is host-only:
 `.overnight/out` is writable from inside, so nothing on the host writes there.

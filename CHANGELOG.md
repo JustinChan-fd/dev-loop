@@ -77,9 +77,17 @@ permissions bypassed.
   was created or moved) but wrong. "New" is now what no host branch, tag or
   `origin` ref has. Those commits are re-signed on top of the host commit
   they grew from, and the "look" line diffs from that commit, not `main`.
-  The first `--overnight` run started 2026-11-21 inside a session sandbox:
-  both overnight branches were cut off `main`, and the only blocked host was
-  `api.github.com`.
+- `[core]` **`--overnight` no longer stops its own subagents after 10
+  minutes.** Found in the first overnight run (2026-11-21), which ended after
+  12 minutes with no commits. The sandboxed `claude -p` passed the check, ran
+  `npm ci`, cut both branches off `main` and started two builder subagents,
+  then ended its turn. `claude -p` stops background tasks 10 minutes after
+  the last turn unless `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`. The loop
+  sets that for its own runs; the launcher didn't. `--overnight` now always
+  passes it as 0 and runs `claude -p` with stdin from `/dev/null`, which
+  removes a 3 s wait. Its prompt says that `origin` is the host's checkout
+  and that the run ends when the turn does. The session relaunched it with
+  the variable set (run 2).
 - **Bend, written down:** `scripts/claude-sbx.mjs` (the thin launcher that
   runs sbx, screen and git) has no unit tests of its own, like the existing
   `scripts/sbx.mjs`. Every decision it makes is a pure function in

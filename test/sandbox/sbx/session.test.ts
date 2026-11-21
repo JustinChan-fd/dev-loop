@@ -231,16 +231,24 @@ describe("renderSyncSummary", () => {
 });
 
 describe("overnightArgv", () => {
+  it("never lets claude -p stop its own background subagents (run 1 died at the 10-minute default)", () => {
+    const v = overnightArgv({ name: "n", repo: "/r", env: ["-e", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"], agent: [], ask: "x", log: "/l" });
+    const at = v.indexOf("exec");
+    const execArgs = v.slice(at, v.indexOf("n", at));
+    expect(execArgs).toContain("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0");
+    // A host value passed by name would override ours; it is dropped.
+    expect(execArgs.filter((x) => x.startsWith("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"))).toEqual(["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0"]);
+  });
   const argv = overnightArgv({ name: "dl-session-1", repo: "/r", env: ["-e", "ANTHROPIC_DEFAULT_OPUS_MODEL"], agent: ["--plugin-dir", "/p"], ask: "do it", log: "/r/.overnight/out/dl-session-1.log" });
   it("runs caffeinate inside a detached screen, so the Mac stays awake for as long as the job runs", () => {
     expect(argv.slice(0, 6)).toEqual(["screen", "-dmS", "dl-session-1", "caffeinate", "-is", "sh"]);
   });
   it("passes the prompt and every argument as sh positionals, never inside the script text", () => {
     const script = argv[7];
-    expect(script).toBe('log="$1"; shift; "$@" 2>&1 | tee -a "$log"');
+    expect(script).toBe('log="$1"; shift; "$@" < /dev/null 2>&1 | tee -a "$log"');
     expect(argv.slice(8)).toEqual([
       "sh", "/r/.overnight/out/dl-session-1.log",
-      "sbx", "exec", "-w", "/r", "-e", "ANTHROPIC_DEFAULT_OPUS_MODEL", "dl-session-1",
+      "sbx", "exec", "-w", "/r", "-e", "ANTHROPIC_DEFAULT_OPUS_MODEL", "-e", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0", "dl-session-1",
       "claude", "-p", "--dangerously-skip-permissions", "--plugin-dir", "/p", "do it",
     ]);
   });

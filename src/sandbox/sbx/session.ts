@@ -121,11 +121,25 @@ export function claudeArgs(plugins: Plugin[]): string[] {
  * output to a log. The script text is fixed; the prompt and every argument go
  * in as positionals, so nothing from the prompt is ever parsed by a shell.
  */
+/**
+ * `claude -p` stops its background subagents 10 minutes after its last turn
+ * unless this is 0 (found 2026-11-21: the first overnight run spawned two
+ * builder subagents, ended its turn, and was cut off at 10 minutes).
+ */
+const BG_WAIT = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS";
+
 export function overnightArgv(o: { name: string; repo: string; env: string[]; agent: string[]; ask: string; log: string }): string[] {
+  // Drop a host value passed by name (`-e NAME`); ours wins.
+  const env: string[] = [];
+  for (let i = 0; i < o.env.length; i++) {
+    if (o.env[i] === "-e" && (o.env[i + 1] === BG_WAIT || o.env[i + 1]?.startsWith(`${BG_WAIT}=`))) { i++; continue; }
+    env.push(o.env[i]);
+  }
   return [
     "screen", "-dmS", o.name, "caffeinate", "-is",
-    "sh", "-c", 'log="$1"; shift; "$@" 2>&1 | tee -a "$log"', "sh", o.log,
-    "sbx", "exec", "-w", o.repo, ...o.env, o.name, "claude", "-p", "--dangerously-skip-permissions", ...o.agent, o.ask,
+    // stdin from /dev/null: claude -p otherwise waits 3 s for piped input.
+    "sh", "-c", 'log="$1"; shift; "$@" < /dev/null 2>&1 | tee -a "$log"', "sh", o.log,
+    "sbx", "exec", "-w", o.repo, ...env, "-e", `${BG_WAIT}=0`, o.name, "claude", "-p", "--dangerously-skip-permissions", ...o.agent, o.ask,
   ];
 }
 
