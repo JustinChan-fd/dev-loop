@@ -13,11 +13,14 @@ History before 2.0.0 lives in two files, one per former repo:
 - [docs/changelog/dev-loop-legacy.md](docs/changelog/dev-loop-legacy.md)
 - [docs/changelog/research-loop-legacy.md](docs/changelog/research-loop-legacy.md)
 
-## [Unreleased — 2.2.0] — planned
+## [2.2.0] — 2026-11-20
 
-Steps 1–3 built (plan 2026-11-12-sandbox-adapter-foundation.md, then the
-sbx adapter, not yet dogfooded). Design:
-[docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md).
+The sbx sandbox adapter, project profiles, and catalog-ui-management on v2.
+First real catalog run (MC-1435): blocked by a cross-repo ticket, then too
+large, then missing its attachments; each turned into a fix below, and the
+ticket then passed research and went to dev. Designs:
+[sbx sandboxed spawns](docs/superpowers/specs/2026-11-12-sbx-sandboxed-spawns-design.md),
+[project profiles](docs/superpowers/specs/2026-11-20-project-profiles-design.md).
 
 - `[core]` **Ticket attachments reach the agents.** Found on MC-1435: research
   bounced `spec_ambiguous` because the response sample was a Jira attachment it
