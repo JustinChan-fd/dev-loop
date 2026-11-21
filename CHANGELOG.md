@@ -15,6 +15,23 @@ History before 2.0.0 lives in two files, one per former repo:
 
 ## [Unreleased]
 
+Guide versioning. Design:
+[guide versioning](docs/superpowers/specs/2026-11-20-guide-versioning-design.md).
+
+- `[core]` **The guide page has its own version and a "What's new" page.**
+  `docs/guide/how-dev-loop-works.html` now carries `DATA.guideVersion`
+  (starting at 1.0.0) and `DATA.loopVersion`, and its footer reads "Guide
+  v1.0.0 · checked against dev-loop 2.2.0 · 2026-11-20 · What's new". The
+  new `docs/guide/changelog.html` lists each guide version with an anchor
+  (`#v1-0-0`), so a link can point at one. Both pages read the entries from
+  one file, `docs/guide/guide-changes.js`. v1.0.0 is backfilled from the 14
+  commits that touched the guide. Bump rule (CLAUDE.md, "The guide page"):
+  patch for wording, minor for a new section, step or repo, major for a
+  restructure. A vitest check (`test/guide/guide-version.test.ts`) fails
+  when the page's version, date or loop version drifts from the newest
+  entry or package.json. GitHub Pages already publishes all of
+  `docs/guide/`, so the new page needs no workflow change.
+
 Bounce criteria v2. Design:
 [bounce criteria v2](docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md),
 plan [2026-11-20-bounce-criteria-v2](docs/superpowers/plans/2026-11-20-bounce-criteria-v2.md).

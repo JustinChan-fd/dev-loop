@@ -65,6 +65,15 @@ loop, with option chips for repo, job, sandbox and mode. **Update it in the
 same change** when you change a CLI flag, a sandbox adapter, a supported
 repo (`pipeline.*.config.json`), a phase's steps, or what runs where. Its
 facts live in the `DATA` block at the top of its script.
+**The guide has its own version.** Every change to `docs/guide/` bumps
+`DATA.guideVersion`, sets `DATA.updated` (and `DATA.loopVersion` if
+package.json moved), and adds an entry at the top of
+`docs/guide/guide-changes.js`, which `docs/guide/changelog.html` shows
+("What's new"). Patch: a wording fix. Minor: a new section, step or repo.
+Major: a restructure. `test/guide/guide-version.test.ts` fails when a branch
+changes `docs/guide/` without a higher version than main's, or when the page and
+the newest entry disagree. `DATA.loopVersion` may lag package.json (it says what
+the page was last checked against), never lead it.
 A push to main that touches `docs/guide/` republishes it to GitHub Pages
 (`.github/workflows/guide-pages.yml`): https://justinchan-fd.github.io/dev-loop/
 
