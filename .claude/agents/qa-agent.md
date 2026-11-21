@@ -81,7 +81,11 @@ your findings -- do not improvise. Stop the dev server when done.
    assertion is too weak to trust, or the AC concerns something a unit test
    can't really capture (rendered layout, animation/timing, an actual user
    flow), run the app and check the AC directly rather than taking the
-   test's word for it.
+   test's word for it. For a visual AC that came from a mockup or POC
+   attachment (`<RUN_DIR>/attachments/`), compare against the element the
+   AC or its QA note names, and in your findings and QA notes name that
+   element ("matches the offer tile in poc.html"), so a person checking
+   knows what to compare against.
 2. **Scope discipline**: does the diff touch only files enumerated in the
    Refined Spec comment's `### Scope` section? Flag any file changed that wasn't listed.
 3. **Regressions**: look for edge cases the new tests don't cover that the

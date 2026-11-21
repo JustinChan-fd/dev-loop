@@ -149,11 +149,24 @@ the host before every run into `<RUN_DIR>/attachments/` and lists each one in
 the `reason`: type or size) or `failed` (with the `error`). Read the manifest
 in Triage and read every fetched file the ticket points at (a response
 sample, a mockup, a spec) with the Read tool. Never fetch an attachment
-yourself (no download tool, no `curl`). An attachment the ticket depends on
-that is `skipped` or `failed` is evidence for a bounce: cite its manifest
-line. Ground what you write against the fetched file: copy field names and
-values from it into the refined ticket, so the implementer never needs the
-attachment.
+yourself (no download tool, no `curl`). An attachment on the ticket is a
+resource the ask rests on: any entry that is `skipped` or `failed`, or a
+manifest with an `error`, is a **`blocked` bounce** naming the file and the
+manifest's reason (fix the input, not the ticket text). The loop enforces
+this: a `ready` verdict with an unreadable attachment is turned into that
+bounce. Ground what you write against the fetched file: copy field names
+and values from it into the refined ticket, so the implementer never needs
+the attachment. Design attachments (mockup HTML, PNG, POC) also get the
+attachment inventory below.
+
+**The size context.** For research runs the loop writes
+`<RUN_DIR>/size-context.json`: the project's dev limits
+(`dev_max_cost_per_run_usd`, `dev_run_timeout_min`,
+`max_cost_per_ticket_usd`), the median and p90 cost and minutes of the most
+recent landed tickets, and per ticket its cost, minutes, QA loops, files and
+lines changed, and research's earlier size estimate. Step 4 judges size
+against it. Missing or empty `tickets` means no history yet: judge against
+the limits alone.
 
 **The project profile.** The loop writes `<RUN_DIR>/project.json`
 (`appDir`, `nodeMajor`, `devCommand`, `devUrl`). Read it; never guess them
@@ -407,6 +420,26 @@ doesn't happen, the referenced file/function doesn't exist, the bug is
 already fixed) — bounce `spec_contradicted` with the specific evidence
 (file, line, what you found vs. what the ticket claims).
 
+### Attachment inventory (during Ground, for every design attachment)
+
+Read each fetched design attachment in Triage; inventory it here, once you
+know what exists in the code. Depth depends on what the ticket builds:
+
+- **A new component or screen:** list every visible element and
+  interaction the mockup shows (expanders, toggles, tables, rows, borders,
+  states) and its layout structure (what sits beside or under what, from
+  the mockup's CSS or markup).
+- **A change to something that exists:** read the current component and
+  list only the difference: what the mockup adds, removes or moves.
+  Unchanged parts need nothing.
+- **Pure styling** (colours, exact spacing) on either kind: one line,
+  "visual styling follows the mockup", backed by a QA note naming the
+  elements.
+
+If the mockup offers variants (A, B, C) and the ticket does not say which,
+that is a `spec_ambiguous` question. Never quietly take the mockup's
+default. Each inventory item is mapped in Step 6.
+
 ### Step 3 — Attack
 
 Spawn a devil's-advocate subagent (see
@@ -422,21 +455,48 @@ gate needs to see what's load-bearing, not have it silently baked in.
 
 ### Step 4 — Scope & sequence
 
-If the verified work (after Steps 1–3) exceeds the small/medium size bound,
-draft a split: an ordered set of follow-up ticket drafts with dependencies
-noted between them. **Do not create these tickets yourself.** Draft them as
-comments/notes for the human gate — Justin approves splits before any new
-ticket is created; the machine proposes, the human authorizes.
+Size is judged **after Ground**, on the grounded plan, against
+`<RUN_DIR>/size-context.json`. Bounce `too_large` only when one of these
+holds (the loop refuses a `too_large` verdict with no `ground` phase_end in
+`progress.jsonl` or without `size_evidence`):
 
-If this step concludes the ticket is oversized, bounce `too_large` with the
-suggested split attached as evidence, rather than synthesizing a
-partial/incorrect ticket.
+- **A. More than one deliverable.** The ticket holds two or more changes
+  that could each merge alone and add value. Draft the split: an ordered
+  set of follow-up ticket drafts, each workable, with dependencies noted.
+  **Do not create these tickets yourself** — Justin approves splits before
+  any new ticket is created; the machine proposes, the human authorizes.
+  `size_evidence`: `{"criterion": "A", "comparison_tickets": [],
+  "risk_factors": [], "split": ["<draft 1 title>", "<draft 2 title>"]}`.
+- **B. Real risk to the limits.** The grounded plan looks like the landed
+  tickets in `size-context.json` that came near or past the p90 cost or
+  minutes, or near `dev_max_cost_per_run_usd` / `dev_run_timeout_min` /
+  `max_cost_per_ticket_usd`. Name the comparison tickets and the risk
+  factors: new infrastructure with nothing to reuse; async, race-prone or
+  stateful UI; more than one service or repo; a planned change well above
+  the size where cost climbs (about 21 or more files today).
+  `size_evidence`: `{"criterion": "B", "comparison_tickets": ["TARS-1554"],
+  "risk_factors": ["async or stateful UI"]}`.
+
+Not too_large:
+
+- **AC count alone is never evidence.** Trim ACs that only repeat
+  behaviour the code already has; that is refining, not a bounce.
+  Big is not expensive: MC-1435 touched 29 files and landed for $1.73.
+- **A choice between designs inside one deliverable is `spec_ambiguous`**,
+  with the options laid out as A and B.
+- **A person's scope ruling is final.** Once a steering comment rules on
+  scope ("accept as scoped", or picking one ticket of a split), size is a
+  note for that ticket, never a bounce.
+
+Write `size_estimate` (`S|M|L|XL`) into `verdict.json` on **every** outcome,
+and `ac_count` (behaviour ACs in the draft, or in the ticket if you bounce
+before Synthesize) when known.
 
 **Shadow-mode size telemetry (pure logging, no behavior change)**: append
 one `progress.jsonl` note this step, every run regardless of outcome:
 `{"ts": "<ISO-8601 UTC>", "phase": "scope", "event": "note", "detail": "step4_tshirt: <S|M|L|XL>"}`
-— a qualitative read of how this ticket's work feels sized (S/M/L/XL),
-independent of whatever Step 4 above already decided about `too_large`.
+— a qualitative read of how this ticket's work feels sized (S/M/L/XL), the
+same value as the verdict's `size_estimate`.
 This note does not affect this step's own `too_large` decision in any
 way — it's logged purely so later runs have a trajectory to compare
 against. See `docs/skills.md`'s "Shadow-mode size telemetry" section.
@@ -459,11 +519,28 @@ plus the short pointer comment to Jira, exactly once, after Step 7 passes.
 The draft file is the single artifact Step 7 verifies and, unchanged, the
 single artifact Step 7 publishes. The description is never touched.
 
+**Attachments become ACs.** Map every item of the attachment inventory to
+an AC, or to an `Out of scope: <item> (shown in the mockup)` line with its
+reason. Never write a blanket clause such as "the mockup shows intent;
+where it differs, this spec wins" — each difference is stated on its own.
+Layout ACs say where things sit (citing the mockup's CSS or structure),
+not only what is there. A new control names the repo's own component (e.g.
+`components/shadcn/select.tsx`) or explicitly allows a native one. Each
+visual AC's QA note names the mockup/POC element to compare against.
+Record the map in `verdict.json`'s `attachment_coverage`: one entry per
+fetched attachment (design or not), e.g. `{"attachment": "poc.html",
+"kind": "design", "mapped_to": ["AC2", "AC5"], "out_of_scope": ["dark
+mode"]}` or `{"attachment": "resp.json", "kind": "data", "mapped_to":
+["AC3"], "out_of_scope": []}`. An entry with both lists empty does not
+count.
+
 ### Step 7 — Verify
 
 Spawn a verifier subagent (see `.claude/agents/verifier-agent.md`) to check
 the synthesized ticket against the definition-of-ready checklist below.
-Pass it the absolute `RUN_DIR` (so it reads `<RUN_DIR>/draft-spec.md`).
+Pass it the absolute `RUN_DIR` (so it reads `<RUN_DIR>/draft-spec.md`, and
+the attachments and `size-context.json` beside it for checklist items 4
+and 9).
 This must be a genuinely independent check, not the same reasoning that
 produced the ticket rubber-stamping itself.
 
@@ -589,8 +666,8 @@ This is not conditional on how the run concludes.
 3. Test expectations stated in TDD-ready form: each AC names the test
    `ticket-to-pr` will write **first** (test name, what it asserts, why it
    must fail on current code), plus which existing suites must stay green.
-4. Size estimate within the small/medium bound; anything larger bounces
-   `too_large` with a suggested split (Step 4).
+4. Size judged per Step 4 (after Ground, criteria A or B against
+   `size-context.json`); a real too_large bounces with `size_evidence`.
 5. No open questions requiring human decision — else bounce
    `spec_ambiguous` listing the questions.
 6. Written to the Sonnet-executor standard: no step requires inference or
@@ -606,9 +683,12 @@ This is not conditional on how the run concludes.
    export is unchanged, an import path moves) are grouped into a single
    AC backed by one mechanical check (a grep/`test -e` assertion or a
    single test that enumerates them) — not one AC and one named test per
-   item. If the draft has more than roughly 10 behavior ACs, Step 4 must
-   consider a split, and the verifier flags it as an advisory `too_large`
-   signal (a judgment call, so a bounce, never a self-heal).
+   item. AC count is a note for Step 4, never a `too_large` signal on its
+   own.
+9. Attachment coverage: every fetched attachment is in
+   `attachment_coverage`, every design-inventory item maps to an AC or a
+   named out-of-scope line, and the draft has no blanket "spec wins"
+   clause.
 
 ## Ticket content protocol
 
@@ -851,7 +931,11 @@ from this exact path, and only from there):
   "cost_usd": 0,
   "tokens": { "in": 0, "out": 0 },
   "log_version": "1.1",
-  "size_trajectory": { "step4_tshirt": "S | M | L | XL", "delta": "grew | shrank | unchanged", "final_score": 0 }
+  "size_trajectory": { "step4_tshirt": "S | M | L | XL", "delta": "grew | shrank | unchanged", "final_score": 0 },
+  "size_estimate": "S | M | L | XL",
+  "ac_count": 0,
+  "size_evidence": { "criterion": "A | B", "comparison_tickets": [], "risk_factors": [], "split": [] },
+  "attachment_coverage": [{ "attachment": "<filename>", "kind": "design | data | other", "mapped_to": ["AC1"], "out_of_scope": [] }]
 }
 ```
 
@@ -870,6 +954,14 @@ verdict, copied verbatim from `verifier-agent`'s report — see
 telemetry: `src/core/verdict.ts`'s `parseSizeTrajectory` validates it
 independently of the rest of this shape, and a malformed value is dropped
 before it ever reaches `runs.jsonl` — it can never affect `outcome`.
+
+`size_estimate` goes on every verdict, `ac_count` when known.
+`size_evidence` is **required** on a `too_large` bounce and
+`attachment_coverage` is **required** on `ready` when `attachments.json`
+lists fetched files: the loop (`src/roles/research/verdict-checks.ts`)
+refuses a verdict missing them and records the run as `agent_error`, so the
+ticket runs again. (For a short warm-up period a missing
+`attachment_coverage` is only logged; do not rely on it.)
 
 ## Invocation (for the loop runner)
 

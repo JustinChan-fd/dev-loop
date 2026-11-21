@@ -25,6 +25,12 @@ each item below.
   fail item 0. Never guess a path. It has **not** been posted to the
   GitHub Issue yet; you are verifying the exact text that will be
   published if you pass it.
+- The ticket's attachments, fetched by the loop: `<RUN_DIR>/attachments.json`
+  names each one, and the fetched files are under `<RUN_DIR>/attachments/`.
+  Read every fetched design attachment (mockup HTML, PNG, POC) yourself with
+  the Read tool, for item 9. Never fetch one.
+- `<RUN_DIR>/size-context.json`: the dev limits and recent landed tickets,
+  for item 4.
 
 ## Checklist (check every item, in order; the first failure is your bounce)
 
@@ -42,10 +48,13 @@ each item below.
    (or clear enough description that a test name is obvious), a statement
    of what it asserts, and — critically — an explanation of *why it must
    fail on current code*? An AC without this is not ready.
-4. **Size bound**: does the ticket read as small/medium (a `ticket-to-pr`
-   run should plausibly complete it in one pass)? If it reads as
-   multi-day/architectural, that's `too_large` regardless of how well the
-   rest is written.
+4. **Size**: judged by ticket-refine's Step 4 criteria, not by feel or AC
+   count. `too_large` only when the grounded draft holds two or more
+   separately mergeable deliverables (criterion A), or looks like the
+   landed tickets in `size-context.json` that came near or past the p90 or
+   the dev limits, naming those tickets and the risk factors (criterion B).
+   If a steering comment already ruled on scope, size is a note, never a
+   failure.
 5. **No open questions**: does anything in the draft read as "TBD," "need
    to confirm," or otherwise defer a decision to whoever implements it?
    Any such item is an unresolved question and fails this check.
@@ -62,9 +71,16 @@ each item below.
 8. **AC shape**: behavior ACs (observable changes) should each have their
    own named test. Structural/invariant ACs (deleted files, removed CSS
    classes, unchanged files, moved imports) should be grouped into one AC
-   with one mechanical check, not one AC per item. More than roughly 10
-   behavior ACs is a `too_large` signal (judgment call: report it, do not
-   propose a fix).
+   with one mechanical check, not one AC per item. The AC count alone is
+   never a `too_large` signal.
+9. **Attachment coverage**: for each fetched design attachment, list what
+   it shows (for a change to an existing component, what it adds, removes
+   or moves) and check each item maps to an AC or to an `Out of scope: X
+   (shown in the mockup)` line. A blanket "the spec wins over the mockup"
+   clause fails this item. Layout ACs must say where things sit; a new
+   control must name the repo component or allow a native one; mockup
+   variants the ticket did not choose between are an open question (item
+   5). Any unmapped item fails: name it.
 
 ## Size scoring (shadow telemetry — report only, does not affect your verdict)
 
