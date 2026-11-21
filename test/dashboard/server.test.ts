@@ -3,7 +3,7 @@ import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_PORT, parseDashboardArgs, startDashboard } from "../../src/dashboard/server.ts";
+import { DEFAULT_PORT, defaultRoot, parseDashboardArgs, startDashboard } from "../../src/dashboard/server.ts";
 
 let root: string;
 let srv: { url: string; port: number; close: () => Promise<void> } | null = null;
@@ -135,4 +135,43 @@ describe("startDashboard", () => {
     await done;
     expect(events.length).toBeGreaterThanOrEqual(2);
   }, 10_000);
+});
+
+describe("defaultRoot", () => {
+  let base: string;
+  beforeEach(async () => { base = await mkdtemp(join(tmpdir(), "dash-root-")); });
+  afterEach(async () => { await rm(base, { recursive: true, force: true }); });
+
+  it("in the main checkout (.git is a folder), is that checkout", async () => {
+    await mkdir(join(base, "main/.git"), { recursive: true });
+    expect(defaultRoot(join(base, "main"))).toBe(join(base, "main"));
+  });
+  it("in a worktree (.git is a file), is the main checkout, where the runs are", async () => {
+    await mkdir(join(base, "main/.git/worktrees/run-watcher"), { recursive: true });
+    await mkdir(join(base, "main/.worktrees/run-watcher"), { recursive: true });
+    await writeFile(join(base, "main/.worktrees/run-watcher/.git"), `gitdir: ${join(base, "main/.git/worktrees/run-watcher")}\n`);
+    expect(defaultRoot(join(base, "main/.worktrees/run-watcher"))).toBe(join(base, "main"));
+  });
+  it("falls back to the checkout itself when .git is missing or unreadable", async () => {
+    await mkdir(join(base, "plain"), { recursive: true });
+    expect(defaultRoot(join(base, "plain"))).toBe(join(base, "plain"));
+    await writeFile(join(base, "plain/.git"), "not a gitdir line\n");
+    expect(defaultRoot(join(base, "plain"))).toBe(join(base, "plain"));
+  });
+});
+
+describe("the page's run summary", () => {
+  it("clamps the text inside the box, so a long note never shows a cut-off line", async () => {
+    const r = await get("/");
+    const css = r.body.match(/<style>([\s\S]*?)<\/style>/)![1];
+    const rule = (sel: string) => css.match(new RegExp(sel.replace(/[.]/g, "\\.") + "\\{([^}]*)\\}"))?.[1] ?? "";
+    expect(rule(".card .note")).not.toMatch(/line-clamp/);
+    expect(rule(".card .note .txt")).toMatch(/line-clamp:2/);
+    expect(r.body).toMatch(/<span class="txt">/);
+  });
+  it("opens the full note on click and closes it again", async () => {
+    const r = await get("/");
+    expect(r.body).toMatch(/data-note=/);
+    expect(r.body).toMatch(/\.card \.note\.full \.txt\{[^}]*line-clamp:unset/);
+  });
 });
