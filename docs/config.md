@@ -261,6 +261,38 @@ spawns. Absent means the `none` adapter: spawns are exactly as before.
   `webtarsthree` is set up this way for `sbx` while sbx is being vetted:
   `npm run loop -- --project=webtarsthree --sandbox=sbx ...`.
 
+### Dev-loop session sandbox (`sbx.session.config.json`)
+
+Not a project config: it is read only by `npm run claude:sbx` and
+`npm run claude:sbx:sync` (Claude Code on dev-loop's own code; see
+[sandbox-sbx.md, "Dev-loop sessions"](sandbox-sbx.md#dev-loop-sessions)).
+Checked by `validateSessionConfig` in `src/sandbox/sbx/session.ts`.
+
+```json
+{
+  "sandbox": { "sbx": { "kitDir": "~/Desktop/Repos/keystone-bedrock-kit", "template": "docker.io/library/dev-loop-sbx:v2", "memory": "8g" } },
+  "session": {
+    "denyNetwork": ["github.com", "api.github.com"],
+    "protectedPaths": [".claude/settings.json", ".claude/hooks/", "scripts/check-*", "CLAUDE.md", "sbx.session.config.json"],
+    "plugins": ["superpowers@claude-plugins-official"],
+    "npmRegistry": "https://nexus3.mgo.com/repository/fd-npm-all/"
+  }
+}
+```
+
+- `sandbox.sbx` — the same keys and checks as a project's `sandbox.sbx`
+  (above). `mcp` and `hostSkills` are not used: a session has no Jira.
+- `session.denyNetwork` — hosts denied for this sandbox only. Must include
+  `github.com` and `api.github.com` (the sandbox never pushes).
+- `session.protectedPaths` — repo-relative paths a synced branch may not
+  touch without `--allow-protected`. `dir/` is a folder, `x*` a prefix,
+  anything else an exact file.
+- `session.plugins` — `name@marketplace` keys from
+  `~/.claude/plugins/installed_plugins.json`, mounted read-only.
+- `session.npmRegistry` — optional https registry written to the sandbox's
+  `~/.npmrc` with `replace-registry-host=always`.
+- Any other `session` key is rejected (`session: unknown key "<k>"`).
+
 ### Ticket status never reverts
 
 Once this loop claims a ticket (`claimStatus.from` → `claimStatus.to`,

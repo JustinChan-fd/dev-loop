@@ -15,6 +15,58 @@ History before 2.0.0 lives in two files, one per former repo:
 
 ## [Unreleased]
 
+Dev-loop sessions in sbx (`npm run claude:sbx`). Design:
+[claude:sbx](docs/superpowers/specs/2026-11-20-claude-sbx-design.md).
+Found on 2026-11-20, before an overnight unattended build: the robot ran in
+sbx for target repos, but work on dev-loop's own code ran on the host with
+permissions bypassed.
+
+- `[core]` **`npm run claude:sbx`: Claude Code on dev-loop itself, inside a
+  sandbox.** It is the same as plain `claude --dangerously-skip-permissions`
+  (unchanged), but inside sbx:
+  - `sbx create --clone`: the sandbox gets its own clone, and the host
+    checkout is read-only and never written;
+  - GitHub is denied for this sandbox only;
+  - there is no signing key inside;
+  - npm installs from nexus3;
+  - superpowers is mounted read-only (`--plugin-dir`);
+  - `.overnight/in` is mounted read-only and `.overnight/out` writable.
+
+  A real sandbox check runs before Claude starts: Linux, `/home/agent`, no
+  readable SSH key, and a read-only clone source. A sandbox that fails it is
+  removed. `--overnight --prompt-file=.overnight/in/<f>.md` runs it detached
+  under `screen` and `caffeinate`. Config: `sbx.session.config.json`, whose
+  `sandbox.sbx` block is checked by the same validator as a project's. The
+  decisions are pure functions in `src/sandbox/sbx/session.ts`, with tests.
+- `[core]` **`npm run claude:sbx:sync` brings the sandbox's branches back,
+  re-signed, and never pushes.** It also runs when an attended `claude:sbx`
+  exits.
+  - It fetches the `sandbox-<name>` remote.
+  - It refuses unsafe branch names, merge commits and commits on `main`
+    (`main` is never moved).
+  - A branch that touches a protected path (`CLAUDE.md`,
+    `.claude/settings.json`, `.claude/hooks/`, `scripts/check-*`,
+    `sbx.session.config.json`) is held until `--allow-protected`.
+  - Each commit is rebuilt with `git commit-tree -S` on the host (same tree,
+    same message, the host's identity). The trees and signatures are checked
+    before a local branch is created. An existing branch is never moved.
+  - It prints the look / keep / drop commands.
+  - It is tested against real git (`test/sandbox/sbx/session-sync.test.ts`).
+- `[core]` **Main is PR-only.** On GitHub, `main` requires a PR, allows no
+  force-push and no deletion, and enforces this for admins too (set
+  2026-11-20). The stale `core.hooksPath = app/.husky` was removed from the
+  local `.git/config`. dev-loop has no `app/`, so no hooks ever ran from it.
+- `[core]` **New pillar (CLAUDE.md): long unattended work runs in a sandbox,
+  and you're asked first.** Sandbox or host is the user's call each session.
+  Unsandboxed is an explicit choice, never the default. Every change reaches
+  `main` through a PR the user merges. README "Starting a session" and
+  `docs/sandbox-sbx.md` "Dev-loop sessions" show the two commands side by
+  side. The guide is now v1.1.0: pillar 06 "We follow our own rules" and
+  section 05 "How we build dev-loop".
+- **Bend, written down:** this change was built in a host session, not in
+  `claude:sbx`, because the launcher didn't exist yet. Every later change
+  to dev-loop is offered `claude:sbx` first.
+
 Guide versioning. Design:
 [guide versioning](docs/superpowers/specs/2026-11-20-guide-versioning-design.md).
 

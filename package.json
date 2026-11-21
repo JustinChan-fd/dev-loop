@@ -20,6 +20,8 @@
     "sbx:smoke": "node scripts/sbx.mjs smoke",
     "sbx:template": "node scripts/sbx.mjs template",
     "sbx:template:build": "node scripts/sbx.mjs template:build",
+    "claude:sbx": "node scripts/claude-sbx.mjs sbx",
+    "claude:sbx:sync": "node scripts/claude-sbx.mjs sbx:sync",
     "cutover:migrate": "node scripts/migrate-v1-folders.mjs",
     "cutover:relabel": "node --env-file=\"${DEVLOOP_ENV_FILE:-.env}\" scripts/relabel-v1-refined.mjs",
     "loop": "node --env-file=\"${DEVLOOP_ENV_FILE:-.env}\" src/main.ts",

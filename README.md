@@ -55,6 +55,44 @@ Per spec section 5.0/5.2:
 The skill is `ticket-to-pr` (`.claude/skills/ticket-to-pr/SKILL.md`) with the
 `qa-agent` subagent.
 
+## Starting a session
+
+Two ways to start Claude on dev-loop itself:
+
+```sh
+claude --dangerously-skip-permissions   # normal session, unchanged
+npm run claude:sbx                      # same, but inside the sandbox
+```
+
+| | `claude --dangerously-skip-permissions` | `npm run claude:sbx` |
+|---|---|---|
+| Runs on | your Mac | a Docker sbx sandbox (Linux) |
+| Repo it edits | your checkout | its own clone (`sbx --clone`); your checkout is untouched |
+| GitHub / push | yes, your `gh` login | blocked; you push after sync |
+| Jira MCP | yes | no |
+| Commit signing | your SSH key | unsigned inside; re-signed on your Mac at sync |
+| Real env files | readable (deny rules only) | not there (the clone has tracked files only) |
+| Plugins (superpowers) | yes | yes (read-only) |
+| Survives a closed terminal | no | with `--overnight` (screen + caffeinate) |
+| Getting work back | it's already there | automatic when you exit; `npm run claude:sbx:sync` after `--overnight` |
+| Use it for | attended work you're watching | unattended or long runs, or untrusted input |
+
+Choosing which one is your call, each session. Long unattended work is
+offered `claude:sbx` first (the pillar in `CLAUDE.md`). Run it from the main
+checkout (`~/Desktop/Repos/dev-loop`): sbx can't clone from a git worktree.
+
+```sh
+npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
+                                        # unattended; prints screen -r <name> to watch
+npm run claude:sbx:sync                 # after it: branches come back signed; nothing is pushed
+```
+
+Sync prints each branch with its commits, size and whether it touched a
+protected file (`CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`,
+`scripts/check-*`), then the `git diff` / `git push` / `git branch -D` lines
+to look, keep or drop it. Every change reaches `main` through a PR you merge.
+Details: [docs/sandbox-sbx.md, "Dev-loop sessions"](docs/sandbox-sbx.md#dev-loop-sessions).
+
 ## Current status
 
 - The loop-runner's pure functions (config loading, JQL query building,

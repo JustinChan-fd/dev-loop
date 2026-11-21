@@ -851,6 +851,29 @@ N-instances-per-project idea tracked in research-loop's doc.
 
 ## Both phases
 
+### Split the sbx code into its own package
+
+**Idea**: move `src/sandbox/sbx/` (adapter, session, sync) into its own npm
+package. **Trigger**: a second repo outside dev-loop needs it, or the sbx
+code needs its own release schedule. Until then one repo is simpler
+(decided 2026-11-20 with `claude:sbx`).
+
+### A dev-loop-scoped GitHub token for session sandboxes
+
+**Idea**: a fine-grained token limited to `JustinChan-fd/dev-loop`, so a
+`claude:sbx` session could push its own branch (never `main`). **Today**:
+GitHub is denied for session sandboxes. The stored sbx `github` token is
+fandango-scoped and can't reach a user-owned repo. Sync re-signs on the
+host, and the user pushes. **Trigger**: syncing by hand becomes the
+bottleneck.
+
+### `claude:sbx` from a git worktree
+
+**Idea**: let `npm run claude:sbx` start from a worktree. **Today**: sbx
+refuses `--clone` from a git worktree, so the launcher always clones the main
+checkout. A worktree-only branch is still there (same repo). **Trigger**: sbx
+supports it, or a worktree's uncommitted changes need to go in.
+
 ### Already-merged check before either phase starts
 
 **Idea**: before research or dev starts, search git and GitHub for the
