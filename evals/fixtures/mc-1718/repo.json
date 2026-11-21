@@ -1,6 +1,6 @@
 {
   "project": "catalog-ui-management",
-  "sha": null,
-  "verified": false,
+  "sha": "3be2731ff2050920b488775d38d0d8a788d0e85f",
+  "verified": true,
   "verify_cmd": "git -C ~/Desktop/Repos/catalog-ui-management rev-list -1 --before=2026-11-21T04:10:45Z origin/main   # origin/main when MC-1718's research run started; write it here and set verified: true"
 }
