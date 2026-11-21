@@ -27,7 +27,7 @@
     "reset-project:remote": "node --env-file-if-exists=\"${DEVLOOP_ENV_FILE:-.env}\" src/core/reset-cli.ts",
     "setup-qa": "playwright install chromium",
     "eval": "bash evals/run.sh",
-    "fixture:save": "node --env-file-if-exists=\"${DEVLOOP_ENV_FILE:-.env}\" src/eval/fixture-save-cli.ts"
+    "fixture:save": "node --env-file=\"${DEVLOOP_ENV_FILE:-.env}\" src/eval/fixture-save-cli.ts"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

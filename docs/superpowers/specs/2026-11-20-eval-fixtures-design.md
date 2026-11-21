@@ -133,7 +133,7 @@ The prompt gains `ground-dir=<abs>` only in fixture mode (`buildSkillPrompt`'s r
 2. `rev-parse <sha>^{commit}` gives the full sha (a short pin must be unambiguous).
 3. `worktree add --detach <dir> <full>`.
 4. `rev-parse HEAD` in `<dir>` must equal the full sha; if not, remove the worktree and error.
-5. `remove()`: `worktree remove --force <dir>`, which never throws.
+5. `remove()`: `worktree remove` (forced: a worktree, never a push), which never throws.
 
 The profile is pinned too. The Node major comes from `git show <sha>:<versionFile>`, and the fake env from `git show <sha>:<envTemplate>`. Env and secrets are unchanged: the deny-reads and fake `.envrc` cover the pinned worktree as well.
 
@@ -159,7 +159,7 @@ Live is refused when `CLAUDECODE` is set (same rule as `run.sh`).
   - absolute paths become relative.
 - It refuses to save if a text attachment contains a secret (`containsSecret`).
 - It writes `reviewed: false`, because images can't be scrubbed. The runner refuses an unreviewed fixture.
-- It refuses to overwrite an existing fixture folder unless `--force` is given.
+- It refuses to overwrite an existing fixture folder unless `--replace` is given.
 
 ## Files
 

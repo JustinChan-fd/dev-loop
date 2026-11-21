@@ -29,7 +29,7 @@ export async function pinWorktree(o: { repoDir: string; dir: string; sha: string
   }
   const full = (await o.git(["rev-parse", "--verify", ref])).trim();
   const remove = async () => {
-    await o.git(["worktree", "remove", "--force", o.dir]).catch(() => "");
+    await o.git(["worktree", "remove", "--force", o.dir]).catch(() => ""); // a worktree, never a push
   };
   await o.git(["worktree", "add", "--detach", o.dir, full]);
   const head = (await o.git(["-C", o.dir, "rev-parse", "HEAD"]).catch(() => "")).trim();

@@ -1,5 +1,5 @@
 /**
- * `npm run fixture:save -- <KEY> --name=<fixture> [--fx=<n>] [--force]`
+ * `npm run fixture:save -- <KEY> --name=<fixture> [--fx=<n>] [--replace]`
  * Read-only: GETs the ticket, its comments, links and attachments from Jira
  * with the loop's credentials (JIRA_* from the env file npm passes), scrubs
  * them (fixture-save.ts) and writes evals/fixtures/<name>/ticket.json and

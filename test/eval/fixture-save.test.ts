@@ -52,9 +52,9 @@ describe("scrubTicket", () => {
 });
 
 describe("parseSaveArgs", () => {
-  it("takes a key, --name, and optional --fx and --force", () => {
-    expect(parseSaveArgs(["MC-1718", "--name=mc-1718"])).toEqual({ key: "MC-1718", name: "mc-1718", fx: 1, force: false });
-    expect(parseSaveArgs(["MC-1718", "--name=mc-1718", "--fx=3", "--force"])).toMatchObject({ fx: 3, force: true });
+  it("takes a key, --name, and optional --fx and --replace", () => {
+    expect(parseSaveArgs(["MC-1718", "--name=mc-1718"])).toEqual({ key: "MC-1718", name: "mc-1718", fx: 1, replace: false });
+    expect(parseSaveArgs(["MC-1718", "--name=mc-1718", "--fx=3", "--replace"])).toMatchObject({ fx: 3, replace: true });
   });
   it("refuses a bad key, name or flag", () => {
     for (const bad of [["mc-1", "--name=a"], ["MC-1"], ["MC-1", "--name=../a"], ["MC-1", "--name=a", "--fx=0"], ["MC-1", "--name=a", "--write"]]) {
@@ -68,7 +68,7 @@ describe("saveFixture", () => {
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "fxsave-"));
   });
-  afterEach(async () => rm(root, { recursive: true, force: true }));
+  afterEach(async () => rm(root, { recursive: true, replace: true }));
 
   const deps = (files: Record<string, string>, over: Partial<RawTicket> = {}): SaveDeps => ({
     fixturesDir: root,
@@ -82,7 +82,7 @@ describe("saveFixture", () => {
   });
 
   it("writes ticket.json (reviewed false) and attachments/, and runs no git", async () => {
-    const r = await saveFixture({ key: "MC-1718", name: "mc-1718", fx: 1, force: false }, deps({ "a.json": '{"x":1}' }));
+    const r = await saveFixture({ key: "MC-1718", name: "mc-1718", fx: 1, replace: false }, deps({ "a.json": '{"x":1}' }));
     expect(r.ok).toBe(true);
     const t = JSON.parse(await readFile(join(root, "mc-1718", "ticket.json"), "utf8"));
     expect(t).toMatchObject({ key: "FX-1", reviewed: false });
@@ -90,38 +90,38 @@ describe("saveFixture", () => {
   });
 
   it("refuses when a text attachment holds a secret, and writes nothing", async () => {
-    const r = await saveFixture({ key: "MC-1718", name: "s", fx: 1, force: false }, deps({ "a.json": 'API_KEY="sk_live_abcdefghijklmnop1234"' }));
+    const r = await saveFixture({ key: "MC-1718", name: "s", fx: 1, replace: false }, deps({ "a.json": 'API_KEY="sk_live_abcdefghijklmnop1234"' }));
     expect(r.ok).toBe(false);
     expect(!r.ok && r.error).toMatch(/a\.json.*secret/);
     expect(existsSync(join(root, "s"))).toBe(false);
   });
 
   it("scrubs the real key, emails and the home path out of text attachments", async () => {
-    await saveFixture({ key: "MC-1718", name: "t", fx: 2, force: false }, deps({ "a.json": '{"t":"MC-1718 by jane.doe@example.com in /Users/jane/x"}' }));
+    await saveFixture({ key: "MC-1718", name: "t", fx: 2, replace: false }, deps({ "a.json": '{"t":"MC-1718 by jane.doe@example.com in /Users/jane/x"}' }));
     const body = await readFile(join(root, "t", "attachments", "a.json"), "utf8");
     expect(body).toContain("FX-2");
     expect(body).not.toMatch(/MC-1718|jane\.doe@example\.com|\/Users\/jane/);
   });
 
   it("an attachment that fails to download is kept in ticket.json with no file (a failed entry at run time)", async () => {
-    const r = await saveFixture({ key: "MC-1718", name: "f", fx: 1, force: false }, deps({}));
+    const r = await saveFixture({ key: "MC-1718", name: "f", fx: 1, replace: false }, deps({}));
     expect(r.ok).toBe(true);
     expect(await readdir(join(root, "f", "attachments"))).toEqual([]);
     expect(r.ok && r.missing).toEqual(["a.json"]);
   });
 
-  it("refuses to overwrite an existing fixture's ticket.json without --force, but keeps its other files", async () => {
+  it("refuses to overwrite an existing fixture's ticket.json without --replace, but keeps its other files", async () => {
     await mkdir(join(root, "e"));
     await writeFile(join(root, "e", "ticket.json"), "{}");
     await writeFile(join(root, "e", "repo.json"), "{}");
-    expect((await saveFixture({ key: "MC-1718", name: "e", fx: 1, force: false }, deps({ "a.json": "{}" }))).ok).toBe(false);
-    expect((await saveFixture({ key: "MC-1718", name: "e", fx: 1, force: true }, deps({ "a.json": "{}" }))).ok).toBe(true);
+    expect((await saveFixture({ key: "MC-1718", name: "e", fx: 1, replace: false }, deps({ "a.json": "{}" }))).ok).toBe(false);
+    expect((await saveFixture({ key: "MC-1718", name: "e", fx: 1, replace: true }, deps({ "a.json": "{}" }))).ok).toBe(true);
     expect(await readFile(join(root, "e", "repo.json"), "utf8")).toBe("{}");
   });
 
-  it("a fixture folder with only repo.json/expect.json (no ticket yet) is filled without --force", async () => {
+  it("a fixture folder with only repo.json/expect.json (no ticket yet) is filled without --replace", async () => {
     await mkdir(join(root, "p"));
     await writeFile(join(root, "p", "repo.json"), "{}");
-    expect((await saveFixture({ key: "MC-1718", name: "p", fx: 1, force: false }, deps({ "a.json": "{}" }))).ok).toBe(true);
+    expect((await saveFixture({ key: "MC-1718", name: "p", fx: 1, replace: false }, deps({ "a.json": "{}" }))).ok).toBe(true);
   });
 });

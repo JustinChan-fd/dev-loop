@@ -82,26 +82,26 @@ export interface SaveArgs {
   key: string;
   name: string;
   fx: number;
-  force: boolean;
+  replace: boolean;
 }
 
 export function parseSaveArgs(argv: string[]): SaveArgs {
   let key: string | undefined;
   let name: string | undefined;
   let fx = 1;
-  let force = false;
+  let replace = false;
   for (const a of argv) {
-    if (a === "--force") force = true;
+    if (a === "--replace") replace = true;
     else if (a.startsWith("--name=")) name = a.slice(7);
     else if (a.startsWith("--fx=")) {
       fx = Number(a.slice(5));
       if (!Number.isInteger(fx) || fx < 1) throw new FlagError(`--fx must be a whole number >= 1, got ${JSON.stringify(a.slice(5))}`);
     } else if (!a.startsWith("--") && key === undefined) key = a;
-    else throw new FlagError(`unknown argument ${JSON.stringify(a)} (usage: <KEY> --name=<fixture> [--fx=<n>] [--force])`);
+    else throw new FlagError(`unknown argument ${JSON.stringify(a)} (usage: <KEY> --name=<fixture> [--fx=<n>] [--replace])`);
   }
   if (key === undefined || !TICKET_KEY.test(key)) throw new FlagError(`a Jira key is required (e.g. MC-1718), got ${JSON.stringify(key)}`);
   if (name === undefined || !FIXTURE_NAME.test(name)) throw new FlagError(`--name=<fixture> is required and must match ${FIXTURE_NAME}`);
-  return { key, name, fx, force };
+  return { key, name, fx, replace };
 }
 
 export interface SaveDeps {
@@ -115,7 +115,7 @@ export interface SaveDeps {
 
 export async function saveFixture(a: SaveArgs, d: SaveDeps): Promise<{ ok: true; dir: string; missing: string[] } | { ok: false; error: string }> {
   const dir = join(d.fixturesDir, a.name);
-  if (existsSync(join(dir, "ticket.json")) && !a.force) return { ok: false, error: `${a.name}/ticket.json already exists; pass --force to replace it` };
+  if (existsSync(join(dir, "ticket.json")) && !a.replace) return { ok: false, error: `${a.name}/ticket.json already exists; pass --replace to replace it` };
   const raw = await d.read(a.key);
   const ticket = scrubTicket(raw, { fxNumber: a.fx, home: d.home });
   const fxKey = ticket.key;
