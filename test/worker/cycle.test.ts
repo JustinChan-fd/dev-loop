@@ -901,6 +901,40 @@ describe("runWorkerIteration — the cycle (§6.3)", () => {
     expect(findPendingHandoffs(await records(h))).toEqual([]);
   });
 
+  it("a pending handoff on a ticket closed in Jira is dropped: no swap, no dev run, one handoff-dropped record", async () => {
+    h = await harness();
+    await appendIteration(h.logPath, rec({ ticket: "TARS-9", phases: [phase()] })); // research-only landed, no handoff
+    h.jira.statusDetails["TARS-9"] = { name: "Closed", done: true };
+
+    await runWorkerIteration(h.deps);
+
+    expect(h.jira.calls("swapLabel")).toEqual([]);
+    expect(runSkillCalls(h).filter((e) => e[2] === "TARS-9")).toEqual([]);
+    const recs = (await records(h)).filter((r) => r.ticket === "TARS-9");
+    expect(recs.map((r) => r.outcome)).toEqual(["landed", "handoff-dropped"]);
+    expect(recs[1]).toMatchObject({ phases: [] });
+    expect(recs[1].detail).toContain("Closed");
+    expect(findPendingHandoffs(await records(h))).toEqual([]);
+
+    // Resolved: a later iteration does not look again.
+    await runWorkerIteration(h.deps);
+    expect((await records(h)).filter((r) => r.outcome === "handoff-dropped")).toHaveLength(1);
+  });
+
+  it("a pending handoff whose status cannot be read is left pending: no swap, no record", async () => {
+    h = await harness();
+    await appendIteration(h.logPath, rec({ ticket: "TARS-9", phases: [phase()] }));
+    h.jira.getStatusDetail = async () => {
+      throw new Error("Jira 503");
+    };
+
+    await runWorkerIteration(h.deps);
+
+    expect(h.jira.calls("swapLabel")).toEqual([]);
+    expect(findPendingHandoffs(await records(h))).toEqual(["TARS-9"]);
+    expect((await records(h)).filter((r) => r.ticket === "TARS-9").map((r) => r.outcome)).toEqual(["landed"]);
+  });
+
   it("per-role runs/day: research at 100 and dev at 3 → a dev candidate runs; only research candidates → paused", async () => {
     const seed = async (x: Harness) => {
       for (let i = 0; i < 100; i++) {

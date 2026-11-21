@@ -79,7 +79,9 @@ export type IterationOutcome =
   /** A phase run an enforcing sandbox refused (phases: [], resume set, not an attempt); the poll skips it until cleared. */
   | "parked"
   /** Written by `sandbox:approvals --clear`: resolves a park (phases: [], resume copied from it, so it re-runs). */
-  | "unparked";
+  | "unparked"
+  /** Step 1 found a pending handoff's ticket in Jira's Done category: no swap, no dev (phases: []). Resolves the pending handoff. */
+  | "handoff-dropped";
 
 /** The refused run behind a "parked" record. */
 export interface ParkedRun {

@@ -22,6 +22,14 @@ Found on MC-1435 (bounced XL after 86 s with no grounding, then landed for
 $1.73 in 8.5 min) and catalog PR #237 (4 of 6 review fixes were things the
 POC showed but no AC covered, behind a "this spec wins" clause).
 
+- `[core]` **A pending handoff on a closed ticket is dropped, never built.**
+  Found in the post-merge log reconcile: MC-1718, a research-only test clone,
+  landed research and was then closed in Jira, but the log still showed it as a
+  pending research → dev handoff. The next worker-mode run would have swapped
+  its label and run dev on a closed ticket. Step 1 now reads the ticket's Jira
+  status before retrying a handoff. If the ticket is in the Done category, the
+  loop writes one phase-less `handoff-dropped` record, which resolves the
+  pending handoff. If the status can't be read, the handoff stays pending.
 - `[research]` **too_large is judged after Ground, against real history.**
   Only for two or more separately mergeable deliverables (with a split) or a
   real risk to the dev limits (naming comparison tickets and risk factors).

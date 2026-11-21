@@ -20,7 +20,7 @@ export function findPendingHandoffs(records: IterationRecord[]): string[] {
     const research = r.phases.filter((p) => p.role === "research").at(-1);
     const hasDev = r.phases.some((p) => p.role === "dev");
     if (research) state.set(r.ticket, research.outcome === "landed" && research.handoff !== "done" && !hasDev);
-    else if (hasDev || r.outcome === "handoff-done") state.set(r.ticket, false);
+    else if (hasDev || r.outcome === "handoff-done" || r.outcome === "handoff-dropped") state.set(r.ticket, false);
   }
   const out: string[] = [];
   const seen = new Set<string>();
@@ -33,7 +33,10 @@ export function findPendingHandoffs(records: IterationRecord[]): string[] {
 }
 
 /**
- * Step 1: retry every pending handoff's label swap. A success appends one
+ * Step 1: retry every pending handoff's label swap, after reading the
+ * ticket's Jira status: a ticket in the Done category gets one phase-less
+ * "handoff-dropped" record and is never swapped or built; an unreadable
+ * status leaves it pending for the next iteration. A success appends one
  * phase-less "handoff-done" record (so it is never swapped again, even if
  * dev can't run it yet) and makes the ticket a dev candidate this iteration
  * (ctx.handedOff). A failure appends one
@@ -44,6 +47,20 @@ export function findPendingHandoffs(records: IterationRecord[]): string[] {
 export async function completePendingHandoffs(ctx: Ctx): Promise<void> {
   const { research } = ctx;
   for (const key of findPendingHandoffs(ctx.records)) {
+    // A ticket closed in Jira since research landed (e.g. a test clone, or work done elsewhere)
+    // must never be handed to dev. Unreadable status: leave it pending, try next iteration.
+    let status: { name: string; done: boolean };
+    try {
+      status = await ctx.deps.jira.getStatusDetail(key);
+    } catch (err) {
+      ctx.log(`[worker] ${key}: pending handoff: could not read the Jira status (${errorMessage(err)}); left pending`);
+      continue;
+    }
+    if (status.done) {
+      ctx.log(`[worker] ${key}: pending handoff dropped: the ticket is ${status.name} in Jira`);
+      await append(ctx, key, nowIso(ctx), "handoff-dropped", [], { detail: `research landed, but the ticket is ${status.name} in Jira; no label handoff, no dev run` });
+      continue;
+    }
     try {
       await ctx.deps.jira.swapLabel(key, research.triggerLabel, research.handoffLabel);
       ctx.log(`[worker] ${key}: pending handoff completed (${research.triggerLabel} -> ${research.handoffLabel})`);

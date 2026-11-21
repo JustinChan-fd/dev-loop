@@ -160,7 +160,7 @@ The two v1 `npm run stats` sections above describe the pre-2.0.0 script.
   **phase entries** (not records): phases run, landed, bounced,
   error/killed, cost sum, and a `failure_category` histogram. A phase is
   in the window when its `started` is within `--days`. Records with no
-  phases (`handoff-done`, `interrupted`, `resume-dropped`, `parked`,
+  phases (`handoff-done`, `handoff-dropped`, `interrupted`, `resume-dropped`, `parked`,
   `unparked`, `skipped-*`) add nothing. After the role lines it prints
   `parked: <n> ticket(s) currently parked` when any ticket's latest record
   is `parked` (not windowed).
@@ -224,7 +224,7 @@ Phase-entry fields added by bounce criteria v2 (2.3.0), each optional:
   bounce). See `docs/skills.md` "Loop checks on the research verdict".
 
 Outcomes: `landed`, `bounced`, `error`, `killed`, `skipped-blocked`,
-`claim-error`, `handoff-pending`, `handoff-done`, `skipped-pr-exists`,
+`claim-error`, `handoff-pending`, `handoff-done`, `handoff-dropped`, `skipped-pr-exists`,
 `blocked-attempts`, `interrupted`, `resume-dropped`, and (2.2.0, sandbox):
 
 - `parked`: an enforcing sandbox refused a phase run (network, credential
@@ -305,7 +305,10 @@ iteration writes nothing. The steps run in this order:
    way and pauses the worker.
 1. **Pending handoffs** (`handoff.ts`). For every ticket whose latest research
    entry landed without `handoff: "done"` and that has no later dev entry,
-   the label swap is retried. A success writes one phase-less `handoff-done`
+   the ticket's Jira status is read first: a ticket in the Done category
+   (closed since research landed, e.g. a test clone) gets one phase-less
+   `handoff-dropped` record and is never swapped or built, and an unreadable
+   status leaves it pending. Otherwise the label swap is retried. A success writes one phase-less `handoff-done`
    record (no swap repeats). A failure writes one phase-less `handoff-pending`
    record, and only when the ticket's previous record isn't already one. It
    never pauses.

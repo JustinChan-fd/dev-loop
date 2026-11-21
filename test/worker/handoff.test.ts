@@ -60,6 +60,15 @@ describe("findPendingHandoffs", () => {
     expect(findPendingHandoffs([rec("TARS-3", "2026-11-11T01:00:00.000Z", [phase()])])).toEqual(["TARS-3"]);
   });
 
+  it("a later handoff-dropped record (ticket closed in Jira) resolves it", () => {
+    expect(
+      findPendingHandoffs([
+        rec("TARS-1", "2026-11-11T01:00:00.000Z", [phase()]),
+        rec("TARS-1", "2026-11-11T02:00:00.000Z", [], { outcome: "handoff-dropped" }),
+      ]),
+    ).toEqual([]);
+  });
+
   it("a later phase-less handoff-pending record (a step-1 retry failure) does not cancel it", () => {
     expect(
       findPendingHandoffs([
