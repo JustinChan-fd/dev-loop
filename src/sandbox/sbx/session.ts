@@ -15,6 +15,7 @@
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { isEnvFile } from "../../core/env-files.ts";
+import { redactSensitive } from "../../core/redact.ts";
 import { createArgs } from "./adapter.ts";
 import { validateSbxConfig, type SbxConfig } from "./config.ts";
 
@@ -128,7 +129,15 @@ export function claudeArgs(plugins: Plugin[]): string[] {
  */
 const BG_WAIT = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS";
 
-export function overnightArgv(o: { name: string; repo: string; env: string[]; agent: string[]; ask: string; log: string }): string[] {
+/**
+ * How --overnight shows what it's doing: claude -p streams JSON events; the
+ * host pipes them through `script` (scripts/claude-sbx-stream.mjs), which keeps
+ * every raw event in `raw` and prints one readable line each (formatStreamLine)
+ * to the screen session and the log.
+ */
+export interface StreamTo { node: string; script: string; raw: string }
+
+export function overnightArgv(o: { name: string; repo: string; env: string[]; agent: string[]; ask: string; log: string; stream: StreamTo }): string[] {
   // Drop a host value passed by name (`-e NAME`); ours wins.
   const env: string[] = [];
   for (let i = 0; i < o.env.length; i++) {
@@ -138,9 +147,61 @@ export function overnightArgv(o: { name: string; repo: string; env: string[]; ag
   return [
     "screen", "-dmS", o.name, "caffeinate", "-is",
     // stdin from /dev/null: claude -p otherwise waits 3 s for piped input.
-    "sh", "-c", 'log="$1"; shift; "$@" < /dev/null 2>&1 | tee -a "$log"', "sh", o.log,
-    "sbx", "exec", "-w", o.repo, ...env, "-e", `${BG_WAIT}=0`, o.name, "claude", "-p", "--dangerously-skip-permissions", ...o.agent, o.ask,
+    "sh", "-c", 'log="$1"; node="$2"; fmt="$3"; raw="$4"; shift 4; "$@" < /dev/null 2>&1 | "$node" "$fmt" "$raw" | tee -a "$log"',
+    "sh", o.log, o.stream.node, o.stream.script, o.stream.raw,
+    "sbx", "exec", "-w", o.repo, ...env, "-e", `${BG_WAIT}=0`, o.name,
+    "claude", "-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions", ...o.agent, o.ask,
   ];
+}
+
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/g;
+/** One printable line: redacted first (a cut secret loses its delimiter), then cut, control chars gone. */
+const clip = (v: unknown, n = 160): string => {
+  const text = typeof v === "string" ? v : JSON.stringify(v) ?? "";
+  const one = redactSensitive(text).replace(CONTROL, "").split("\n").find((l) => l.trim() !== "") ?? "";
+  return one.length > n ? `${one.slice(0, n)}…` : one;
+};
+
+/**
+ * One raw line from `claude -p --output-format stream-json` -> the lines a
+ * person watching --overnight sees: tool calls, the assistant's words, short
+ * results, the final result. Same idea as the loop's --stream
+ * (printStreamEvent in src/core/spawn-claude.ts). A subagent's events get ↳.
+ * A non-JSON line (sbx's own output) passes through. Never throws.
+ */
+export function formatStreamLine(line: string, time: string): string[] {
+  let ev: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(line) as unknown;
+    if (typeof parsed !== "object" || parsed === null) throw new Error("not an event");
+    ev = parsed as Record<string, unknown>;
+  } catch {
+    const t = clip(line, 300);
+    return t ? [`${time} ${t}`] : [];
+  }
+  const sub = typeof ev.parent_tool_use_id === "string" ? "↳ " : "";
+  const content = (ev.message as { content?: unknown } | undefined)?.content;
+  const items = Array.isArray(content) ? (content as Record<string, unknown>[]) : [];
+  const out: string[] = [];
+  if (ev.type === "system") return ev.subtype === "init" ? [`${time} started`] : [];
+  if (ev.type === "assistant") {
+    for (const it of items) {
+      if (it?.type === "tool_use") out.push(`${time} ${sub}tool ${clip(it.name, 40)} ${clip(it.input)}`);
+      else if (it?.type === "text" && clip(it.text)) out.push(`${time} ${sub}says ${clip(it.text, 200)}`);
+    }
+  } else if (ev.type === "user") {
+    for (const it of items) {
+      if (it?.type !== "tool_result") continue;
+      const c = Array.isArray(it.content) ? (it.content as { text?: unknown }[]).map((x) => x?.text ?? "").join("\n") : it.content;
+      out.push(`${time} ${sub}result ${it.is_error === true ? "✗ " : ""}${clip(c, 120)}`);
+    }
+  } else if (ev.type === "result") {
+    const cost = typeof ev.total_cost_usd === "number" ? ` · $${ev.total_cost_usd.toFixed(2)}` : "";
+    const mins = typeof ev.duration_ms === "number" ? ` · ${(ev.duration_ms / 60000).toFixed(1)} min` : "";
+    out.push(`${time} DONE ${clip(ev.subtype, 30)} · ${ev.num_turns ?? "?"} turns${cost}${mins}`);
+  }
+  return out;
 }
 
 /**

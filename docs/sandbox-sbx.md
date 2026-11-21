@@ -357,9 +357,19 @@ fields and checks as a project, plus a `session` block; see
 ### Unattended
 
 ```sh
-npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
-screen -r <name>                        # watch; Ctrl-a d detaches again
+npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md --stream
+                                        # starts it, then follows it live here
+tail -f .overnight/logs/<name>.log      # or follow it from any terminal, any time
+screen -r <name>                        # or attach; Ctrl-a d detaches again
 ```
+
+What you see, one line per event (like the loop's `--stream`): each tool call
+(`tool Bash {"command":"npm test"}`), what the agent says, a short result
+(`result ✗ …` on an error), a `↳` on a subagent's lines, and a final
+`DONE success · 41 turns · $3.46 · 52.0 min`. Secrets are redacted and long
+lines cut. Every raw event is also kept in `.overnight/logs/<name>.jsonl`.
+With `--stream`, Ctrl-c stops the watching, not the run. Inside `screen -r`,
+Ctrl-c reaches the run; detach with Ctrl-a d instead.
 
 The prompt file must be under `.overnight/in`. `claude -p` ends the run when
 its turn ends, so the launcher tells it to stay in its turn until the work is
@@ -425,9 +435,10 @@ commit, not from `main`.
 - **Inside the clone, `origin` is your Mac's checkout**, not GitHub. Your local
   branches show up there as `origin/<branch>`, so "tracks origin/feat/x" means
   "came from your Mac", not that it was pushed. GitHub has only what you push.
-- **The overnight log stays quiet** until `claude -p` finishes; it prints its
-  answer at the end. To see progress meanwhile, look without changing anything:
-  `screen -r <name>` (Ctrl-a d to leave it running), or list what it has made:
+- **The overnight log is live**: one line per tool call as it happens
+  (`tail -f .overnight/logs/<name>.log`). Runs started before this change
+  logged only the final answer. To see what it has made so far, without
+  changing anything:
   `echo 'git -C <repo> branch; git -C <repo> worktree list' | sbx exec -i <name> sh -s`.
 - **The dashboard's network log** (`npm run sbx:dashboard`) for a session
   sandbox: `api.github.com`, `github.com` (443 and 22) are blocked by the

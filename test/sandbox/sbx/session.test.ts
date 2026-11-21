@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   claudeArgs,
+  formatStreamLine,
   overnightArgv,
   isSafeBranchName,
   isSafeSessionName,
@@ -230,26 +231,28 @@ describe("renderSyncSummary", () => {
   });
 });
 
+const STREAM = { node: "/usr/local/bin/node", script: "/w/scripts/claude-sbx-stream.mjs", raw: "/r/.overnight/logs/n.jsonl" };
+
 describe("overnightArgv", () => {
   it("never lets claude -p stop its own background subagents (run 1 died at the 10-minute default)", () => {
-    const v = overnightArgv({ name: "n", repo: "/r", env: ["-e", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"], agent: [], ask: "x", log: "/l" });
+    const v = overnightArgv({ name: "n", repo: "/r", env: ["-e", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"], agent: [], ask: "x", log: "/l", stream: STREAM });
     const at = v.indexOf("exec");
     const execArgs = v.slice(at, v.indexOf("n", at));
     expect(execArgs).toContain("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0");
     // A host value passed by name would override ours; it is dropped.
     expect(execArgs.filter((x) => x.startsWith("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"))).toEqual(["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0"]);
   });
-  const argv = overnightArgv({ name: "dl-session-1", repo: "/r", env: ["-e", "ANTHROPIC_DEFAULT_OPUS_MODEL"], agent: ["--plugin-dir", "/p"], ask: "do it", log: "/r/.overnight/out/dl-session-1.log" });
+  const argv = overnightArgv({ name: "dl-session-1", repo: "/r", env: ["-e", "ANTHROPIC_DEFAULT_OPUS_MODEL"], agent: ["--plugin-dir", "/p"], ask: "do it", log: "/r/.overnight/out/dl-session-1.log", stream: STREAM });
   it("runs caffeinate inside a detached screen, so the Mac stays awake for as long as the job runs", () => {
     expect(argv.slice(0, 6)).toEqual(["screen", "-dmS", "dl-session-1", "caffeinate", "-is", "sh"]);
   });
   it("passes the prompt and every argument as sh positionals, never inside the script text", () => {
     const script = argv[7];
-    expect(script).toBe('log="$1"; shift; "$@" < /dev/null 2>&1 | tee -a "$log"');
+    expect(script).toBe('log="$1"; node="$2"; fmt="$3"; raw="$4"; shift 4; "$@" < /dev/null 2>&1 | "$node" "$fmt" "$raw" | tee -a "$log"');
     expect(argv.slice(8)).toEqual([
-      "sh", "/r/.overnight/out/dl-session-1.log",
+      "sh", "/r/.overnight/out/dl-session-1.log", STREAM.node, STREAM.script, STREAM.raw,
       "sbx", "exec", "-w", "/r", "-e", "ANTHROPIC_DEFAULT_OPUS_MODEL", "-e", "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0", "dl-session-1",
-      "claude", "-p", "--dangerously-skip-permissions", "--plugin-dir", "/p", "do it",
+      "claude", "-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions", "--plugin-dir", "/p", "do it",
     ]);
   });
 });
@@ -283,5 +286,43 @@ describe("realEnvFilesUnder", () => {
     } finally {
       rmSync(d, { recursive: true, force: true });
     }
+  });
+});
+
+describe("formatStreamLine (what --overnight prints live)", () => {
+  const T = "00:12:34";
+  const ev = (o: unknown): string => JSON.stringify(o);
+  it("prints each tool call, one line, truncated", () => {
+    const line = ev({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "npm test " + "x".repeat(400) } }] } });
+    const out = formatStreamLine(line, T);
+    expect(out).toHaveLength(1);
+    expect(out[0].startsWith(`${T} tool Bash {"command":"npm test `)).toBe(true);
+    expect(out[0].length).toBeLessThan(240);
+  });
+  it("prints the assistant's own words, first line only", () => {
+    expect(formatStreamLine(ev({ type: "assistant", message: { content: [{ type: "text", text: "Building the dashboard now.\nMore detail" }] } }), T)).toEqual([`${T} says Building the dashboard now.`]);
+  });
+  it("marks a subagent's events with ↳", () => {
+    const out = formatStreamLine(ev({ type: "assistant", parent_tool_use_id: "t1", message: { content: [{ type: "tool_use", name: "Edit", input: { file_path: "a.ts" } }] } }), T);
+    expect(out[0]).toBe(`${T} ↳ tool Edit {"file_path":"a.ts"}`);
+  });
+  it("prints a short tool result and flags errors", () => {
+    expect(formatStreamLine(ev({ type: "user", message: { content: [{ type: "tool_result", is_error: true, content: "boom" }] } }), T)).toEqual([`${T} result ✗ boom`]);
+    expect(formatStreamLine(ev({ type: "user", message: { content: [{ type: "tool_result", content: [{ type: "text", text: "ok\nline2" }] }] } }), T)).toEqual([`${T} result ok`]);
+  });
+  it("prints the final result with cost and turns", () => {
+    expect(formatStreamLine(ev({ type: "result", subtype: "success", num_turns: 41, total_cost_usd: 3.456, duration_ms: 600000 }), T)).toEqual([`${T} DONE success · 41 turns · $3.46 · 10.0 min`]);
+  });
+  it("redacts secrets before truncating", () => {
+    const out = formatStreamLine(ev({ type: "user", message: { content: [{ type: "tool_result", content: "token ghp_" + "A".repeat(36) }] } }), T);
+    expect(out[0]).not.toContain("ghp_AAAA");
+  });
+  it("passes a non-JSON line (sbx or stderr) through as-is, and skips system noise", () => {
+    expect(formatStreamLine("Warning: something", T)).toEqual([`${T} Warning: something`]);
+    expect(formatStreamLine(ev({ type: "system", subtype: "init" }), T)).toEqual([`${T} started`]);
+    expect(formatStreamLine(ev({ type: "system", subtype: "hook_response" }), T)).toEqual([]);
+  });
+  it("strips terminal escape characters from anything it prints", () => {
+    expect(formatStreamLine("bad \u001b[2J clear", T)).toEqual([`${T} bad [2J clear`]);
   });
 });

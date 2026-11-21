@@ -88,6 +88,17 @@ permissions bypassed.
   removes a 3 s wait. Its prompt says that `origin` is the host's checkout
   and that the run ends when the turn does. The session relaunched it with
   the variable set (run 2).
+- `[core]` **`--overnight` shows what it's doing, live.** It was hard to
+  tell what was happening: the log held only `claude -p`'s final answer. It
+  now runs with `--output-format stream-json`, and a host-side filter
+  (`scripts/claude-sbx-stream.mjs`, pure formatter `formatStreamLine`, with
+  tests) prints one line per event to `.overnight/logs/<name>.log` and the
+  screen session: tool calls, the agent's words, short results, `↳` for
+  subagents, and the final cost and turns. Secrets are redacted and control
+  characters stripped. The raw events are kept in `<name>.jsonl`.
+  `--stream` follows the log in the launching terminal; Ctrl-c there stops
+  only the watching. The filter can't take the run down with it: it guards
+  every write and reads to the end.
 - **Bend, written down:** `scripts/claude-sbx.mjs` (the thin launcher that
   runs sbx, screen and git) has no unit tests of its own, like the existing
   `scripts/sbx.mjs`. Every decision it makes is a pure function in

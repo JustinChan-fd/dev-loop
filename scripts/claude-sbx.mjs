@@ -3,8 +3,8 @@
 //
 //   claude --dangerously-skip-permissions        # normal session, unchanged (not this script)
 //   npm run claude:sbx                           # same, but inside the sandbox
-//   npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
-//                                                # unattended: caffeinate + screen; prints screen -r <name>
+//   npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md [--stream]
+//                                                # unattended: caffeinate + screen; --stream also follows it here
 //   npm run claude:sbx:sync [-- --name=<sandbox>] [--allow-protected]
 //                                                # bring the sandbox's branches back, re-signed; never pushes
 //   npm run claude:sbx -- --check                # inside a sandbox: prove it is one (exit 0) or not (exit 1)
@@ -32,7 +32,7 @@ const [cmd, ...rest] = process.argv.slice(2);
 const die = (m) => { console.error(m); process.exit(1); };
 let flags;
 try {
-  flags = parseFlags(rest, { values: ["--prompt-file", "--name"], bools: ["--overnight", "--check", "--allow-protected", "--no-sync"] }, `claude:${cmd}`);
+  flags = parseFlags(rest, { values: ["--prompt-file", "--name"], bools: ["--overnight", "--check", "--allow-protected", "--no-sync", "--stream"] }, `claude:${cmd}`);
 } catch (err) {
   if (!(err instanceof FlagError)) throw err;
   die(err.message);
@@ -128,6 +128,7 @@ switch (cmd) {
     }
     const overnight = flags.bools.has("--overnight");
     if (flags.values["--prompt-file"] && !overnight) die("--prompt-file needs --overnight (an attended session takes your prompts)");
+    if (flags.bools.has("--stream") && !overnight) die("--stream is for --overnight (an attended session is already in your terminal)");
     const repo = mainCheckout();
     const cfg = sessionConfig(repo);
     let prompt;
@@ -168,14 +169,23 @@ switch (cmd) {
       mkdirSync(logDir, { recursive: true });
       const log = join(logDir, `${name}.log`);
       if (existsSync(log) || lstatOk(log)) { sh("sbx", ["rm", "-f", name]); die(`${log} already exists; refusing to append to it`); }
-      const [bin, ...argv] = overnightArgv({ name, repo, env, agent, ask, log });
+      const stream = { node: process.execPath, script: join(SCRIPT_REPO, "scripts", "claude-sbx-stream.mjs"), raw: join(logDir, `${name}.jsonl`) };
+      const [bin, ...argv] = overnightArgv({ name, repo, env, agent, ask, log, stream });
       const screen = sh(bin, argv, { stdio: "inherit" });
       if (screen.status !== 0) { sh("sbx", ["rm", "-f", name], { stdio: "inherit" }); die("could not start screen; removed the sandbox"); }
       console.log(`\nRunning unattended in ${name} (caffeinate keeps the Mac awake).
-  watch:   screen -r ${name}        (detach again: Ctrl-a d)
-  log:     .overnight/logs/${name}.log
+  live:    tail -f ${log}
+  attach:  screen -r ${name}        (detach again: Ctrl-a d; Ctrl-c there stops the run)
+  record:  .overnight/logs/${name}.jsonl   (every raw event)
   after:   npm run claude:sbx:sync -- --name=${name}
   remove:  sbx rm ${name}           (after sync)`);
+      if (flags.bools.has("--stream")) {
+        // Follow the live log here. Ctrl-c stops only the watching; the run keeps going in screen.
+        console.log(`\nStreaming ${name} (Ctrl-c stops watching, not the run):\n`);
+        process.on("SIGINT", () => {});
+        sh("tail", ["-n", "+1", "-F", log], { stdio: "inherit" });
+        console.log(`\nStopped watching. The run is still going: tail -f ${log}`);
+      }
       break;
     }
 

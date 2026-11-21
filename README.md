@@ -82,8 +82,9 @@ offered `claude:sbx` first (the pillar in `CLAUDE.md`). Run it from the main
 checkout (`~/Desktop/Repos/dev-loop`): sbx can't clone from a git worktree.
 
 ```sh
-npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md
-                                        # unattended; prints screen -r <name> to watch
+npm run claude:sbx -- --overnight --prompt-file=.overnight/in/<file>.md --stream
+                                        # unattended; --stream follows it live here (Ctrl-c stops watching only)
+tail -f .overnight/logs/<name>.log      # follow it later, from any terminal
 npm run claude:sbx:sync                 # after it: branches come back signed; nothing is pushed
 ```
 
