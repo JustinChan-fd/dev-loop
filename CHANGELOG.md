@@ -15,6 +15,38 @@ History before 2.0.0 lives in two files, one per former repo:
 
 ## [Unreleased]
 
+Eval fixtures. Design:
+[eval fixtures](docs/superpowers/specs/2026-11-20-eval-fixtures-design.md),
+plan [2026-11-20-eval-fixtures](docs/superpowers/plans/2026-11-20-eval-fixtures.md).
+Built overnight on 2026-11-21 inside `claude:sbx`, with no human in the loop.
+The calls made are at the top of the spec.
+
+- `[core]` **Replay tests: real research runs go through the loop's checks in
+  `npm test`.** MC-1435's three research runs and MC-1718's are in
+  `test/fixtures/replay/`: the ungrounded too_large, the spec_ambiguous over
+  an unreadable attachment, the ready without coverage, and the covered ready.
+  `test/roles/research/verdict-replay.test.ts` asserts what
+  `checkResearchVerdict` and the fixture grader do with each one.
+- `[core]` **Fixture evals: research on a ticket kept in local files.**
+  `evals/fixtures/<name>/` holds `ticket.json`, `attachments/`, `repo.json`
+  (a pinned commit) and `expect.json`. `npm run eval -- --fixture=<name>`
+  is dry by default and prints the plan. The live runner (`src/eval/`) is
+  built and tested with an injected spawn. It runs research on a detached
+  worktree at the pin, sends the loop's Jira writes to `RUN_DIR/outbox/`,
+  gives the spawn no Atlassian, `gh` or web tools and no GitHub token, grades
+  against `expect.json` and logs to `runs/v2/fixtures/`. Live stays refused
+  until a gh guard hook exists (`docs/future-enhancements.md`).
+  `npm run fixture:save -- <KEY> --name=<fixture>` reads a ticket from Jira
+  with GETs only, scrubs it, and writes `reviewed: false`.
+- `[research]` **ticket-refine has a `## Fixture mode`.** When
+  `RUN_DIR/ticket.json` exists, every read comes from it, every post goes to
+  `RUN_DIR/outbox/`, and grounding uses the loop's `ground-dir=`. Without
+  that file nothing changes. recon-agent reads a prior ticket from it the
+  same way.
+- `[core]` `settingsJson` takes `denyTools` (whole-tool deny rules, validated).
+  `paths.ts` gains `v2FixtureRunDir` and `v2FixtureRunsLog`.
+
+
 Bounce criteria v2. Design:
 [bounce criteria v2](docs/superpowers/specs/2026-11-20-bounce-criteria-v2-design.md),
 plan [2026-11-20-bounce-criteria-v2](docs/superpowers/plans/2026-11-20-bounce-criteria-v2.md).

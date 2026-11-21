@@ -80,6 +80,16 @@ The loop runner (`src/worker/skill-runner.ts`) invokes each skill as
   path `.claude/**` names exists and that no skill or agent hardcodes
   `.pipeline/`.
 
+- **Fixture mode (eval fixtures, ticket-refine only).** `src/eval/fixture-run.ts`
+  writes `RUN_DIR/ticket.json` and appends ` ground-dir=<abs>` (a detached
+  worktree at the fixture's pinned commit, made and removed by the loop) to
+  the prompt above. ticket-refine's `## Fixture mode` then reads the ticket
+  from that file, writes every post to `RUN_DIR/outbox/` (with
+  `outbox/index.jsonl`), and never calls Jira or `gh`. The spawn has built-in
+  tools only and deny rules for Atlassian, `gh`, `curl` and the web. Real
+  runs never get `ground-dir=` or `ticket.json`. See `evals/README.md`
+  ("Fixture evals").
+
 Where the sections below say "invoked as `claude -p "/ticket-refine <KEY>"`"
 or name `.pipeline/<slug>/...` paths, read the contract above.
 

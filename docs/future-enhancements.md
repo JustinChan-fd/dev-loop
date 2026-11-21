@@ -868,6 +868,20 @@ person checks visual ACs. **Evidence**: 4 of the 6 fixes on catalog PR #237
 were items the POC showed but no AC covered.
 
 
+### Fixture evals: the gh guard hook, then the first live run
+
+**Idea**: a fixture-only PreToolUse hook on Bash that denies any command
+naming `gh` or `api.github.com` (however it is spelled: `cd x && gh ...`, a
+script, `env gh`). It would be wired through the fixture spawn's `--settings`,
+not the shared `.claude/settings.json`. After that, one live
+`DRY_RUN=0 npm run eval -- --fixture=mc-1718 --runs=1` watched by a person.
+Then flip `LIVE_ENABLED` in `src/eval/fixture-run.ts`. **Why it waits**: the
+fixture spawn today has deny rules (`Bash(gh:*)`, `mcp__atlassian`), no GitHub
+token, an empty `GH_CONFIG_DIR` and `DEVLOOP_EVAL_KEYS=""`. A `Bash(gh:*)`
+rule only matches a command that starts with `gh`. Later: dev-phase
+fixtures, and a `fixtures` view in the dashboard. Spec:
+`docs/superpowers/specs/2026-11-20-eval-fixtures-design.md` (calls 5 and 9).
+
 ### Monitoring view for many loops, batches and sandboxes (`npm run status`)
 
 **Idea**: once batch orchestration (v2 design §8) and several loops per

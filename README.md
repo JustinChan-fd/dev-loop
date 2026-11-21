@@ -66,6 +66,10 @@ The skill is `ticket-to-pr` (`.claude/skills/ticket-to-pr/SKILL.md`) with the
 - Both skills and all their subagents are fully authored.
 - Not yet built: the live dashboard.
 
+## Evals
+
+Fixture evals (research on a ticket kept in local files, no Jira or GitHub writes): see "Fixture evals" in `evals/README.md`.
+
 ## Running tests
 
 ```sh
