@@ -53,6 +53,8 @@ POC showed but no AC covered, behind a "this spec wins" clause).
   for older PRs: `scripts/backfill-diff-stats.mjs` (writes a sidecar, never
   the logs).
 
+Live check (2026-11-20): MC-1718, a clone of MC-1435's description as it was when it bounced, passed research for $2.46. It was grounded first and sized M. It named mockup variant B and listed A and C as out of scope, and wrote no "spec wins" clause. The verifier's coverage check found unmapped mockup items, for example the tile groups, quality chips and footer, and they were mapped over 3 fix rounds. All 3 attachments are in `attachment_coverage`. The loop's check accepted it.
+
 Pillar check: agents judge (fine: the agent still makes the size and
 coverage calls; the loop supplies facts and checks the parts exist). Loop
 does the mechanics (fine: stats, diff stats and checks are tested
